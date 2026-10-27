@@ -1,6 +1,6 @@
 // ============================================================================
-// BỘ XỬ LÝ NẠP & XUẤT FILE EXCEL (.xlsx / .csv) ĐA KÊNH CHO HỆ THỐNG OMS
-// Lưu trữ tại: S:\HTTT\ht\js\excel_handler.js
+// BỘ XỬ LÝ NẠP & XUẤT FILE EXCEL (.xlsx / .csv) ĐA KÊNH CHO HỆ THỐNG ODOMS
+// Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\excel_handler.js
 // ============================================================================
 
 const ExcelHandler = {
@@ -168,9 +168,9 @@ const ExcelHandler = {
           : o.status === "BACKORDER"
           ? "THIẾU TỒN KHO (CHẶN BÁN LỐ)"
           : "ĐƠN LỖI DỮ LIỆU",
-      "Lô hàng phân bổ (Batch/Kệ)":
+      "Lô hàng phân bổ (Batch FEFO)":
         o.allocatedBatches.length > 0
-          ? o.allocatedBatches.map((b) => `${b.batchCode}(${b.takenQty} - Kệ ${b.shelf})`).join(", ")
+          ? o.allocatedBatches.map((b) => `${b.batchCode} (${b.takenQty} SP)`).join(", ")
           : o.validationErrors.join("; ") || "Chờ nhập bổ sung",
       "Khách hàng": o.customerName,
       "SĐT": o.customerPhone

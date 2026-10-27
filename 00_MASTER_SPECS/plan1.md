@@ -11,8 +11,8 @@ Xây dựng một hệ thống Quản lý Đơn hàng (OMS - Order Management Sy
 - Triển khai chuyên sâu **Phân hệ 1: Tiếp nhận & Kiểm tra Phân bổ Đơn hàng**, bao gồm: Tiếp nhận đa kênh $\rightarrow$ Kiểm tra tính hợp lệ $\rightarrow$ Đối chiếu tồn kho khả dụng $\rightarrow$ Tự động giữ hàng và phân bổ lô hàng theo nguyên tắc ưu tiên và hạn dùng gần nhất (**FEFO**).
 
 ### 1.2. Định vị Hệ thống
-- **Độc lập 100% về mặt dữ liệu & logic nghiệp vụ:** Hệ thống OMS đóng vai trò là trạm điều phối trung tâm giữa các kênh bán (Sales Channels) và hệ thống vận hành nội bộ (WMS).
-- **Kế thừa phong cách thiết kế UI/UX:** Giao diện sử dụng bảng màu tối (Dark Slate `#0f172a`), điểm nhấn màu xanh lá Emerald (`#10b981`), thanh điều hướng bên trái, các thẻ KPI trực quan và bảng dữ liệu hiển thị có độ tương phản cao tương tự như giao diện WMS mẫu.
+- **Độc lập 100% về mặt dữ liệu & logic nghiệp vụ:** Hệ thống ODOMS đóng vai trò là trạm điều phối trung tâm giữa 5 kênh bán hàng (Sales Channels) và quy trình kiểm soát tồn kho khả dụng (ATP) - phân bổ lô hàng Batch FEFO.
+- **Phong cách thiết kế UI/UX chuẩn Quản trị Doanh nghiệp:** Giao diện sử dụng hệ thống chủ đề màu linh hoạt (mặc định Forest Emerald kết hợp Navy hiện đại), thanh điều hướng bên trái trực quan, hệ thống thẻ KPI đa kênh, bảng tổng hợp doanh thu 5 sàn và bảng dữ liệu điều phối có độ tương phản cao.
 
 ---
 

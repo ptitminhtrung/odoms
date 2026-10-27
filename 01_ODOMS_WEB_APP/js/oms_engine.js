@@ -1,13 +1,13 @@
 // ============================================================================
-// BỘ XỬ LÝ NGHIỆP VỤ LÕI OMS & QUẢN TRỊ TÀI KHOẢN (OMSEngine & UserAuthManager)
-// Lưu trữ tại: S:\HTTT\ht\js\oms_engine.js
+// BỘ XỬ LÝ NGHIỆP VỤ LÕI ODOMS & QUẢN TRỊ TÀI KHOẢN (OMSEngine & UserAuthManager)
+// Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\oms_engine.js
 // ============================================================================
 
 class UserAuthManager {
   constructor() {
-    this.STORAGE_USERS_KEY = "GREENSEVEN_OMS_USERS_V2";
-    this.STORAGE_LOGS_KEY = "GREENSEVEN_OMS_ACCESS_LOGS_V2";
-    this.SESSION_USER_KEY = "GREENSEVEN_OMS_ACTIVE_SESSION_V2";
+    this.STORAGE_USERS_KEY = "ODOMS_USERS_V3";
+    this.STORAGE_LOGS_KEY = "ODOMS_ACCESS_LOGS_V3";
+    this.SESSION_USER_KEY = "ODOMS_ACTIVE_SESSION_V3";
 
     this.users = this.loadUsers();
     this.accessLogs = this.loadAccessLogs();
@@ -471,7 +471,7 @@ class OMSEngine {
       order.auditSteps.push({
         step: "Bước 2: Kiểm tra tính hợp lệ (Validation Engine)",
         status: "OK",
-        detail: `Hợp lệ: Đã xác thực nguồn sàn [${order.channel}], mã SKU [${order.sku}] khớp danh mục Kho Bình Tân, số lượng yêu cầu [${order.quantity}].`
+        detail: `Hợp lệ: Đã xác thực nguồn sàn [${order.channel}], mã SKU [${order.sku}] khớp Danh mục Hàng hóa Nội bộ ODOMS, số lượng yêu cầu [${order.quantity}].`
       });
       return true;
     }
@@ -562,7 +562,6 @@ class OMSEngine {
             batchDetails.push({
               batchCode: batch.batchCode,
               qrCode: batch.qrCode || batch.batchCode,
-              shelf: batch.shelf,
               expiryDate: batch.expiryDate || batch.importDate,
               takenQty: take
             });
@@ -581,7 +580,7 @@ class OMSEngine {
           after: inv.availableStock
         };
 
-        const batchText = batchDetails.map((b) => `${b.batchCode} (${b.takenQty} - Kệ ${b.shelf})`).join(" + ");
+        const batchText = batchDetails.map((b) => `${b.batchCode} (${b.takenQty} SP)`).join(" + ");
 
         ord.auditSteps.push({
           step: "Bước 3: Đối chiếu Tồn kho Khả dụng (ATP) & Xếp hạng FIFO",
@@ -654,10 +653,9 @@ class OMSEngine {
     const sec = String(new Date().getSeconds()).padStart(2, "0");
     invItem.batches.push({
       batchCode: `LO-BOSUNG-${sec}`,
-      qrCode: `GS-BS-${sec}`,
+      qrCode: `OD-BS-${sec}`,
       importDate: "2026-10-24",
       expiryDate: "2027-12-31",
-      shelf: "A2 T1",
       initialQty: additionalQty,
       remainingQty: additionalQty
     });

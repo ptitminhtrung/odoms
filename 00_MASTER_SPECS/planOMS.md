@@ -127,9 +127,9 @@ sequenceDiagram
      }
      ```
 
-2. **Xử lý nội bộ tại OMS (Internal Processing - Tính ATP & Trừ kệ FEFO):**
+2. **Xử lý nội bộ tại OMS (Internal Processing - Tính ATP & Phân bổ Lô hàng FEFO):**
    - OMS quy đổi `SP-SUA-HAT-01` $\rightarrow$ `ORG-001`, kiểm tra tồn kho khả dụng $\text{ATP} = 10 \ge 2$.
-   - Tự động giữ hàng (`reserved_stock` tăng thêm 2), cập nhật tồn kho khả dụng $\text{ATP}$ từ `10` xuống còn `8`, và chỉ định lô `LOT-2605` theo nguyên tắc FEFO.
+   - Tự động giữ hàng (`reserved_stock` tăng thêm 2), cập nhật tồn kho khả dụng $\text{ATP}$ từ `10` xuống còn `8`, và chỉ định lô `LOT-2605` theo nguyên tắc Batch FEFO.
 
 3. **Chiều 2 – Báo số tồn mới ngược lại sàn (Outbound Sync - OMS gọi Postman Mock Server):**
    - **Kế thừa từ `QLVT`:** Tận dụng cơ chế bắn HTTP Request ra bên ngoài (tương tự cách `QLVT` gọi Telegram Bot API qua Webhook / `UrlFetchApp.fetch(url, options)` trong `td4.nv2.md`).

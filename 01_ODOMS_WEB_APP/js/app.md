@@ -1,6 +1,6 @@
 // ============================================================================
-// BỘ ĐIỀU KHIỂN GIAO DIỆN NGƯỜI DÙNG (AppUI Controller - Chuẩn m2wmsgd & m3wmsgd)
-// Lưu trữ tại: S:\HTTT\ht\js\app.js
+// BỘ ĐIỀU KHIỂN GIAO DIỆN NGƯỜI DÙNG HỆ THỐNG ODOMS (AppUI Controller)
+// Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\app.js
 // ============================================================================
 
 const THEMES_LIST = [
@@ -199,7 +199,7 @@ const AppUI = {
   },
 
   bindEvents() {
-    // 1. Sự kiện Form Đăng nhập (m2wmsgd)
+    // 1. Sự kiện Form Đăng nhập ODOMS
     const loginForm = document.getElementById("omsLoginForm");
     if (loginForm) {
       loginForm.addEventListener("submit", (e) => {
@@ -305,7 +305,7 @@ const AppUI = {
   },
 
   // ============================================================================
-  // XỬ LÝ MÀN HÌNH ĐĂNG NHẬP (m2wmsgd) & PHIÊN NGƯỜI DÙNG
+  // XỬ LÝ MÀN HÌNH ĐĂNG NHẬP ODOMS & PHIÊN NGƯỜI DÙNG
   // ============================================================================
   showLoginScreen() {
     const loginEl = document.getElementById("loginScreenWrapper");
@@ -407,19 +407,44 @@ const AppUI = {
   },
 
   // ============================================================================
-  // ĐIỀU HƯỚNG SIDEBAR (NHÓM TỔNG QUAN & NHÓM HỆ THỐNG)
+  // ĐIỀU HƯỚNG SIDEBAR & MOBILE DRAWER (NHÓM TỔNG QUAN & NHÓM HỆ THỐNG)
   // ============================================================================
+  toggleMobileSidebar(forceState) {
+    const sidebar = document.getElementById("wmsSidebar");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (!sidebar) return;
+
+    const isCurrentlyOpen = sidebar.classList.contains("open");
+    const shouldOpen = typeof forceState === "boolean" ? forceState : !isCurrentlyOpen;
+
+    sidebar.classList.toggle("open", shouldOpen);
+    if (overlay) {
+      overlay.classList.toggle("active", shouldOpen);
+    }
+  },
+
   switchSidebarTab(tabKey) {
     this.currentMenuTab = tabKey;
 
+    // Cập nhật trạng thái active cho menu Sidebar
     document.querySelectorAll(".sidebar-menu-item[data-tab]").forEach((btn) => {
       btn.classList.toggle("active", btn.getAttribute("data-tab") === tabKey);
     });
 
+    // Cập nhật trạng thái active cho thanh điều hướng đáy màn hình (Mobile Bottom Nav)
+    document.querySelectorAll(".mobile-nav-btn[data-tab]").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-tab") === tabKey);
+    });
+
+    // Tự động đóng menu Sidebar trên thiết bị di động khi người dùng chọn tab
+    if (window.innerWidth <= 992) {
+      this.toggleMobileSidebar(false);
+    }
+
     const titleMap = {
       dashboard: "Dashboard",
       ingest: "Tiếp nhận & Gom đơn 5 Kênh",
-      inventory: "Sơ đồ Kệ & Đối chiếu Tồn kho ATP",
+      inventory: "Đối chiếu Tồn kho ATP",
       fifo: "Kiểm soát FIFO / FEFO",
       backorder: "Hàng thiếu tồn (Chặn bán lố)",
       qr_api: "QR / Tra cứu & API 2 Chiều",
@@ -434,7 +459,7 @@ const AppUI = {
       pageTitleEl.innerText = titleMap[tabKey] || "Dashboard";
     }
 
-    // Ẩn/hiện các view theo tab để giao diện gọn gàng chuẩn WMS
+    // Ẩn/hiện các view theo tab chức năng của hệ thống ODOMS
     const allSections = document.querySelectorAll(".oms-view-section");
     allSections.forEach((sec) => {
       const views = (sec.getAttribute("data-views") || "").split(" ");
@@ -1104,7 +1129,7 @@ const AppUI = {
     `;
   },
 
-  // 4. BẢNG XẾP HẠNG CÁC KÊNH BÁN HÀNG ĐƯỢC NHIỀU ĐƠN NHẤT THEO THÁNG (THAY THẾ PHÂN BỔ TÌNH TRẠNG ĐƠN & KỆ)
+  // 4. BẢNG XẾP HẠNG CÁC KÊNH BÁN HÀNG ĐƯỢC NHIỀU ĐƠN NHẤT THEO THÁNG
   renderMonthlyChannelRanking() {
     const listEl = document.getElementById("channelMonthlyRankingList");
     const subtitleEl = document.getElementById("channelRankingSubtitle");
@@ -1228,7 +1253,7 @@ const AppUI = {
       `5 Kênh kết nối · ${totalOrders} đơn hàng · Tồn khả dụng: ${totalAvailable}/${totalPhysical} SP`
     );
 
-    // Badges trên Sidebar giống hệt WMS m3wmsgd
+    // Badges trên Sidebar ODOMS
     setElText("badgeFifoCount", allocatedOrders);
     setElText("badgeBackorderCount", backorderOrders + outOfStockSkus);
   },
@@ -1439,7 +1464,7 @@ const AppUI = {
         const batchInfo =
           ord.allocatedBatches.length > 0
             ? ord.allocatedBatches
-                .map((b) => `<span class="hold-pill">${b.batchCode}: ${b.takenQty} (Kệ ${b.shelf})</span>`)
+                .map((b) => `<span class="hold-pill">Lô ${b.batchCode}: ${b.takenQty} SP</span>`)
                 .join(" ")
             : ord.validationErrors.length > 0
             ? `<span style="color:#dc2626;font-size:12px;">${ord.validationErrors.join(", ")}</span>`
@@ -1506,7 +1531,7 @@ const AppUI = {
         const batchSummary = item.batches
           .map(
             (b) =>
-              `<span class="hold-pill">[Kệ ${b.shelf}] ${b.batchCode}: còn ${b.remainingQty}/${b.initialQty}</span>`
+              `<span class="hold-pill">${b.batchCode}: còn ${b.remainingQty}/${b.initialQty}</span>`
           )
           .join(" ");
 
@@ -1520,8 +1545,8 @@ const AppUI = {
         return `
         <tr>
           <td>
-            <div style="font-weight:800;color:var(--theme-primary);">${item.batches[0] ? item.batches[0].shelf : "Kệ A1"}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${item.category}</div>
+            <div style="font-weight:800;color:var(--theme-primary);">${item.category}</div>
+            <div style="font-size:11px;color:var(--text-muted);">Đơn vị: ${item.unit || "SP"}</div>
           </td>
           <td>
             <div style="font-weight:700;color:var(--text-main);">${item.sku}</div>
@@ -1569,16 +1594,14 @@ const AppUI = {
           item.sku.toLowerCase().includes(q) ||
           item.name.toLowerCase().includes(q) ||
           b.batchCode.toLowerCase().includes(q) ||
-          (b.qrCode && b.qrCode.toLowerCase().includes(q)) ||
-          b.shelf.toLowerCase().includes(q);
+          (b.qrCode && b.qrCode.toLowerCase().includes(q));
 
         if (match) {
           rows.push(`
             <tr>
               <td><span class="fifo-rank">${b.qrCode || b.batchCode}</span></td>
-              <td><strong>${b.shelf}</strong></td>
               <td><strong>${item.sku}</strong> — ${item.name}</td>
-              <td>${b.batchCode}</td>
+              <td><strong>${b.batchCode}</strong></td>
               <td>${b.expiryDate || b.importDate}</td>
               <td><strong>${b.remainingQty} / ${b.initialQty}</strong></td>
               <td>Tồn khả dụng SKU: <strong style="color:var(--theme-primary);">${item.availableStock}</strong></td>
@@ -1591,7 +1614,7 @@ const AppUI = {
     tbody.innerHTML =
       rows.length > 0
         ? rows.join("")
-        : `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">Không tìm thấy mã QR / Lô kệ khớp từ khóa "${q}".</td></tr>`;
+        : `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">Không tìm thấy mã QR / Lô hàng khớp từ khóa "${q}".</td></tr>`;
   },
 
   // ============================================================================
@@ -1609,7 +1632,7 @@ const AppUI = {
       sku: "SP-AO-POLO-01",
       productName: "Áo Polo Nam Coolmate Pro (Đen - Size L)",
       quantity: 4,
-      shelfBatch: "LO-2026-A1 (Kệ A1 T1)",
+      batchCode: "LO-2026-A1",
       totalAmount: 1000000,
       createdAt: "25/10/2026 08:30:15"
     }
@@ -1660,8 +1683,8 @@ const AppUI = {
 
     const batchText =
       ord.allocatedBatches && ord.allocatedBatches.length > 0
-        ? ord.allocatedBatches.map((b) => `${b.batchCode} (Kệ ${b.shelf})`).join(", ")
-        : "LO-2026-A1 (Kệ A1 T1)";
+        ? ord.allocatedBatches.map((b) => `${b.batchCode} (${b.takenQty} SP)`).join(", ")
+        : "LO-2026-A1";
 
     setVal("wbOrderId", ord.orderId);
     setVal("wbChannel", ord.channel);
@@ -1673,7 +1696,7 @@ const AppUI = {
     setVal("wbSku", ord.sku);
     setVal("wbProductName", ord.productName);
     setVal("wbQuantity", ord.quantity);
-    setVal("wbShelfBatch", batchText);
+    setVal("wbBatchCode", batchText);
     setVal("wbTotalAmount", ord.quantity * ord.unitPrice);
 
     this.generateWaybillAndQR(true);
@@ -1783,7 +1806,7 @@ const AppUI = {
       sku: val("wbSku", "SP-AO-POLO-01"),
       productName: val("wbProductName", "Áo Polo Nam Coolmate Pro (Đen - Size L)"),
       quantity: num("wbQuantity", 4),
-      shelfBatch: val("wbShelfBatch", "LO-2026-A1 (Kệ A1 T1)"),
+      batchCode: val("wbBatchCode", "LO-2026-A1"),
       totalAmount: num("wbTotalAmount", 1000000)
     };
   },
@@ -1806,7 +1829,7 @@ const AppUI = {
           <div class="wb-brand-logo">OD</div>
           <div>
             <div style="font-weight:900;font-size:15px;color:#0A2947;">ODOMS — PHIẾU GIAO HÀNG & MÃ VẬN ĐƠN</div>
-            <div style="font-size:11px;color:#475569;font-weight:600;">Hệ thống quản lý đơn hàng đa kênh thông minh · Kho Bình Tân</div>
+            <div style="font-size:11px;color:#475569;font-weight:600;">Hệ thống quản lý đơn hàng đa kênh thông minh · Trung tâm Điều phối Đa kênh</div>
           </div>
         </div>
         <div style="text-align:right;">
@@ -1828,7 +1851,7 @@ const AppUI = {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
             <div>Mã đơn gốc: <strong style="color:#0f172a;">${data.orderId}</strong></div>
             <div>Ngày tạo: <strong>${createdAtStr}</strong></div>
-            <div>Vị trí xuất FEFO: <strong style="color:#15803d;">${data.shelfBatch}</strong></div>
+            <div>Mã lô xuất FEFO: <strong style="color:#15803d;">${data.batchCode}</strong></div>
             <div>Thu hộ COD: <strong style="color:#dc2626;font-size:13.5px;">${data.totalAmount.toLocaleString("vi-VN")} ₫</strong></div>
           </div>
         </div>
@@ -1848,7 +1871,7 @@ const AppUI = {
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#475569;border-top:1px dashed #cbd5e1;padding-top:8px;">
-        <span>✔ Đã kiểm tra tồn khả dụng (ATP) & khóa lô kệ tự động</span>
+        <span>✔ Đã kiểm tra tồn khả dụng (ATP) & khóa lô hàng tự động</span>
         <span>Chữ ký Nhân viên Đóng gói / Bưu tá</span>
       </div>
     `;
@@ -1892,7 +1915,7 @@ const AppUI = {
             <strong>${item.sku}</strong> × <strong>${item.quantity}</strong>
             <div style="font-size:11px;color:var(--text-muted);">${item.productName}</div>
           </td>
-          <td><span class="hold-pill">${item.shelfBatch}</span></td>
+          <td><span class="hold-pill">${item.batchCode}</span></td>
           <td style="font-weight:800;color:#dc2626;">${Number(item.totalAmount).toLocaleString("vi-VN")} ₫</td>
           <td style="font-size:11.5px;font-family:monospace;">${item.createdAt}</td>
           <td>
@@ -1925,7 +1948,7 @@ const AppUI = {
     setVal("wbSku", found.sku);
     setVal("wbProductName", found.productName);
     setVal("wbQuantity", found.quantity);
-    setVal("wbShelfBatch", found.shelfBatch);
+    setVal("wbBatchCode", found.batchCode);
     setVal("wbTotalAmount", found.totalAmount);
 
     this.generateWaybillAndQR(false);

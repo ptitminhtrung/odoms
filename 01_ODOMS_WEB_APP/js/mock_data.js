@@ -1,6 +1,6 @@
 // ============================================================================
-// DỮ LIỆU KHỞI TẠO HỆ THỐNG GREENSEVEN MART OMS (ReOMStqP1)
-// Lưu trữ tại: S:\HTTT\ht\js\mock_data.js
+// DỮ LIỆU KHỞI TẠO HỆ THỐNG ODOMS (QUẢN LÝ ĐƠN HÀNG ĐA KÊNH & PHÂN BỔ LÔ HÀNG FEFO)
+// Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\mock_data.js
 // ============================================================================
 
 // 1. Danh sách Tài khoản Người dùng Mặc định (Hỗ trợ thêm mới tùy ý qua LocalStorage)
@@ -24,14 +24,14 @@ window.DEFAULT_OMS_USERS = [
     fullName: "Lê Hoàng Minh Trung",
     avatar: "MT",
     role: "Chuyên viên Vận hành OMS",
-    department: "Phòng Vận hành & Đối chiếu Kho",
+    department: "Phòng Vận hành & Đối chiếu Lô FEFO",
     shift: "Ca Sáng (07:30 - 16:30)",
     status: "ACTIVE",
     createdAt: "2026-10-05 09:15:00"
   }
 ];
 
-// 2. Dữ liệu Kho hàng Nội bộ Ban đầu (Master Inventory & Batches tại Kho Bình Tân)
+// 2. Dữ liệu Tồn kho Khả dụng (ATP) & Lô hàng (Batch FEFO) trên Hệ thống ODOMS
 window.INITIAL_INVENTORY = [
   {
     sku: "SP-AO-POLO-01",
@@ -47,19 +47,17 @@ window.INITIAL_INVENTORY = [
     batches: [
       {
         batchCode: "LO-2026-A1",
-        qrCode: "GS-POLO-1001",
+        qrCode: "OD-POLO-1001",
         importDate: "2026-10-01",
         expiryDate: "2027-10-01",
-        shelf: "A1 T1",
         initialQty: 6,
         remainingQty: 6
       },
       {
         batchCode: "LO-2026-A2",
-        qrCode: "GS-POLO-1010",
+        qrCode: "OD-POLO-1010",
         importDate: "2026-10-10",
         expiryDate: "2027-10-10",
-        shelf: "A1 T2",
         initialQty: 4,
         remainingQty: 4
       }
@@ -79,19 +77,17 @@ window.INITIAL_INVENTORY = [
     batches: [
       {
         batchCode: "LO-2026-B1",
-        qrCode: "GS-TWS-1003",
+        qrCode: "OD-TWS-1003",
         importDate: "2026-10-03",
         expiryDate: "2028-04-03",
-        shelf: "B2 T1",
         initialQty: 10,
         remainingQty: 10
       },
       {
         batchCode: "LO-2026-B2",
-        qrCode: "GS-TWS-1012",
+        qrCode: "OD-TWS-1012",
         importDate: "2026-10-12",
         expiryDate: "2028-04-12",
-        shelf: "B2 T2",
         initialQty: 5,
         remainingQty: 5
       }
@@ -111,19 +107,17 @@ window.INITIAL_INVENTORY = [
     batches: [
       {
         batchCode: "LO-2026-C1",
-        qrCode: "GS-BALO-1005",
+        qrCode: "OD-BALO-1005",
         importDate: "2026-10-05",
         expiryDate: "2028-10-05",
-        shelf: "C1 T4",
         initialQty: 5,
         remainingQty: 5
       },
       {
         batchCode: "LO-2026-C2",
-        qrCode: "GS-BALO-1015",
+        qrCode: "OD-BALO-1015",
         importDate: "2026-10-15",
         expiryDate: "2028-10-15",
-        shelf: "C1 T5",
         initialQty: 3,
         remainingQty: 3
       }
@@ -143,10 +137,9 @@ window.INITIAL_INVENTORY = [
     batches: [
       {
         batchCode: "LO-2026-D1",
-        qrCode: "GS-BINH-1002",
+        qrCode: "OD-BINH-1002",
         importDate: "2026-10-02",
         expiryDate: "2029-10-02",
-        shelf: "D3 T1",
         initialQty: 20,
         remainingQty: 20
       }
@@ -166,10 +159,9 @@ window.INITIAL_INVENTORY = [
     batches: [
       {
         batchCode: "LO-2026-E1",
-        qrCode: "GS-KEYB-1008",
+        qrCode: "OD-KEYB-1008",
         importDate: "2026-10-08",
         expiryDate: "2028-10-08",
-        shelf: "B1 T3",
         initialQty: 6,
         remainingQty: 6
       }

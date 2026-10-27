@@ -1,6 +1,6 @@
 /* ============================================================================
    ODOMS - STYLESHEET CÁC CHỦ ĐỀ MÀU SẮC (Cài đặt Giao diện Chức năng)
-   Lưu trữ tại: S:\HTTT\ht\css\style.css
+   Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\css\style.css
    ============================================================================ */
 
 /* 1. CHỦ ĐỀ NAVY (Mặc định: #0A2947, #F3E4C9, #D3D4C0, #8B5E3C) */
@@ -672,7 +672,7 @@ body {
 }
 
 /* ============================================================================
-   MÀN HÌNH 2: ADMIN DASHBOARD ODOMS (Chuẩn m3wmsgd)
+   MÀN HÌNH 2: TRUNG TÂM ĐIỀU PHỐI & DASHBOARD ODOMS
    ============================================================================ */
 
 .wms-app-layout {
@@ -1024,7 +1024,7 @@ body {
   background: var(--theme-primary);
 }
 
-/* Hàng 4 Thẻ Chỉ số KPI (Grid 4 cột chuẩn m3wmsgd) */
+/* Hàng 4 Thẻ Chỉ số KPI (Grid 4 cột tổng quan ODOMS) */
 .kpi-cards-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
