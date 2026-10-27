@@ -1,0 +1,141 @@
+@startuml ERD_HeThong_QuanLy_VatTu_TruongTien
+!theme plain
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam classFontSize 12
+skinparam classHeaderBackgroundColor #E8EEF5
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #2B579A
+skinparam classFontName "Segoe UI"
+skinparam arrowColor #1B365D
+skinparam arrowFontColor #1B365D
+skinparam arrowFontSize 11
+
+title <size:16><b>SƠ ĐỒ THỰC THỂ LIÊN KẾT (ERD - UML CLASS DIAGRAM)</b></size>\n<size:12>HỆ THỐNG QUẢN LÝ VẬT TƯ THIẾT BỊ AN NINH TRÊN NỀN TẢNG CLOUD (QLVT-V1)</size>
+
+package "1. Nhóm Danh Mục Chủ Thể (Master Data)" #F8F9FA {
+    class "tbl_NhanVien\n(Danh bạ & Phân quyền RBAC)" as tbl_NhanVien <<Entity>> {
+        + <b>Email_NhanVien</b> : Email <<PK>>
+        --
+        + Ho_Ten : String
+        + So_Dien_Thoai : Phone
+        + Vai_Tro : Enum (SuperAdmin, Admin, Kỹ thuật viên, Thủ kho, Giao nhận)
+    }
+
+    class "tbl_KhachHang\n(Đối tác & Công trình)" as tbl_KhachHang <<Entity>> {
+        + <b>ID_KhachHang</b> : String <<PK>>
+        --
+        + Ten_KhachHang : String
+        + Dia_Chi : Address (Maps GPS)
+        + Email_Lien_He : Email (SMTP e-POD)
+    }
+
+    class "tbl_VatTu\n(Mẫu mã thiết bị & License)" as tbl_VatTu <<Entity>> {
+        + <b>ID_VatTu</b> : String <<PK>>
+        --
+        + Ten_VatTu : String
+        + Loai_VatTu : Enum (Camera, Switch, NVR, License...)
+        + Don_Vi_Tinh : Enum (Cái, Bộ, Cuộn, Mét, Gói...)
+        + So_Luong_Ton : Decimal <<Formula>>
+        + Nguong_An_Toan : Integer
+        + Don_Gia : Price (VNĐ)
+        + Thoi_Han_BH : String (Tháng / Vĩnh viễn)
+        + Don_Gia_Nhap : Price (VNĐ)
+        + Don_Gia_Binh_Quan_FIFO : Price (VNĐ)
+        + Gia_Tri_Ton_Kho : Price (VNĐ)
+    }
+}
+
+package "2. Nhóm Cá Thể & Biến Động Nghiệp Vụ (Transactional Data)" #F0F4F8 {
+    class "tbl_ThietBi_ChiTiet\n(Định danh cá thể & Dual Warranty)" as tbl_ThietBi_ChiTiet <<Entity>> {
+        + <b>QR_Code_Don_Vi</b> : String <<PK>>
+        --
+        # ID_VatTu : String <<FK>>
+        + Ma_MAC : String (Format XX-XX-XX-XX-XX-XX)
+        # Ma_Thung_Nhap : String <<FK>>
+        + Ngay_Truong_Tien_Nhap : Date
+        + Ngay_Het_Han_BH_Hang : Date / String <<Formula>>
+        + Trang_Thai : Enum (Trong kho, Đã xuất bán, Đang bảo trì...)
+        # ID_KhachHang : String <<FK>>
+        + Ngay_Ban_Cho_KH : Date
+        + Ngay_Het_Han_BH_KH : Date / String <<Formula>>
+    }
+
+    class "tbl_GiaoDich\n(Xuất nhập kho & Ký nhận e-POD)" as tbl_GiaoDich <<Entity>> {
+        + <b>ID_GiaoDich</b> : String <<PK>>
+        --
+        + Ngay_Gio : DateTime
+        + Loai_Giao_Dich : Enum (Nhập kho, Xuất cung ứng, Mượn demo...)
+        # ID_VatTu : String <<FK>>
+        # QR_Code_Don_Vi : String <<FK>>
+        + Ma_MAC : String
+        + So_Luong_Cai : Decimal
+        # Email_NhanVien : Email <<FK>>
+        # ID_KhachHang : String <<FK>>
+        + Ngay_KH_Nhan : Date
+        + Ngay_Het_Han_BH_KH : Date / String <<Formula>>
+        + Vi_Tri_GPS : LatLong (HERE())
+        + Chu_Ky_POD : Signature (e-Signature)
+    }
+
+    class "tbl_NhatKyBaoTri\n(Sự cố & Quản trị Bảo hành)" as tbl_NhatKyBaoTri <<Entity>> {
+        + <b>ID_BaoTri</b> : String <<PK>>
+        --
+        + Ngay_Bao_Tri : Date
+        + So_Luong_Nhan : Integer
+        # ID_VatTu : String <<FK>>
+        # QR_Code_Don_Vi : String <<FK>>
+        + Ma_MAC : String
+        # ID_KhachHang : String <<FK>>
+        + Ngay_Het_Han_BH_Hang : Date / String
+        + Ngay_Het_Han_BH_KH : Date / String
+        + Ngay_Ban_Cho_KH : Date
+        + Out_Warranty : Enum (Y, N)
+        # Email_NhanVien : Email <<FK>>
+        + Tinh_Trang_Loi : LongText
+        + Huong_Xu_Ly : Enum (Sửa tại chỗ, Đổi mới, Gửi Hãng...)
+        + Don_Vi_Bao_Hanh : Enum (Trường Tiến, Hãng VIVOTEK...)
+        + Chi_Phi : Price (VNĐ)
+        + Muc_Do_Uu_Tien : Enum (Khẩn cấp, Bình thường, Thấp)
+    }
+}
+
+package "3. Nhóm Giám Sát & An Toàn Hệ Thống (Security & Audit)" #FFF8E7 {
+    class "tbl_AuditTrail\n(Nhật ký kiểm toán & Giám sát tác nghiệp)" as tbl_AuditTrail <<Entity>> {
+        + <b>ID_Log</b> : String <<PK>>
+        --
+        + Thoi_Gian : DateTime / Timestamp
+        # Email_NhanVien : Email <<FK>>
+        + Hanh_Dong : Enum (LOGIN, ADD, UPDATE, DELETE, OCR...)
+        + Bang_Tac_Dong : String
+        + Khoa_Ban_Ghi_Muc_Tieu : String
+        + Chi_Tiet_ThayDoi : LongText / JSON
+        + Dia_Chi_IP_ThietBi : String
+    }
+}
+
+' ==========================================================
+' QUAN HỆ VÀ BẬC BẢN SỐ (CARDINALITY RELATIONSHIPS)
+' ==========================================================
+
+' Quan hệ từ tbl_VatTu (1) đến các bảng con (N)
+tbl_VatTu "1 " *-- "0..* " tbl_ThietBi_ChiTiet : "định danh cá thể\n[ID_VatTu]"
+tbl_VatTu "1 " o-- "0..* " tbl_GiaoDich : "danh mục xuất nhập\n[ID_VatTu]"
+tbl_VatTu "1 " o-- "0..* " tbl_NhatKyBaoTri : "chủng loại thiết bị lỗi\n[ID_VatTu]"
+
+' Quan hệ từ tbl_KhachHang (1) đến các bảng nghiệp vụ (N)
+tbl_KhachHang "1 " o-- "0..* " tbl_ThietBi_ChiTiet : "sở hữu sau xuất bán\n[ID_KhachHang]"
+tbl_KhachHang "1 " o-- "0..* " tbl_GiaoDich : "bàn giao e-POD công trình\n[ID_KhachHang]"
+tbl_KhachHang "1 " o-- "0..* " tbl_NhatKyBaoTri : "báo hỏng tại điểm lắp\n[ID_KhachHang]"
+
+' Quan hệ từ tbl_NhanVien (1) đến các bảng tác nghiệp và giám sát (N)
+tbl_NhanVien "1 " o-- "0..* " tbl_GiaoDich : "nhân sự thực hiện\n[Email_NhanVien]"
+tbl_NhanVien "1 " o-- "0..* " tbl_NhatKyBaoTri : "kỹ thuật viên xử lý\n[Email_NhanVien]"
+tbl_NhanVien "1 " o-- "0..* " tbl_AuditTrail : "người dùng thực thi\n[Email_NhanVien]"
+
+' Quan hệ từ tbl_ThietBi_ChiTiet (1) đến các bảng biến động (N)
+tbl_ThietBi_ChiTiet "1 " o-- "0..* " tbl_GiaoDich : "luân chuyển cá thể\n[QR_Code_Don_Vi]"
+tbl_ThietBi_ChiTiet "1 " o-- "0..* " tbl_NhatKyBaoTri : "lịch sử bảo trì\n[QR_Code_Don_Vi]"
+
+@enduml

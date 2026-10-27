@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="navy">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ODOMS — Hệ thống quản lý đơn hàng đa kênh thông minh</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Thư viện SheetJS hỗ trợ đọc/xuất trực tiếp file Excel .xlsx -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       MÀN HÌNH 1: GIAO DIỆN ĐĂNG NHẬP HỆ THỐNG CĂN GIỮA
+       Màu mặc định cố định: #0A2947, #F3E4C9, #D3D4C0, #8B5E3C
+       ========================================================================== -->
+  <div id="loginScreenWrapper" class="login-screen-wrapper">
+    <div class="login-center-container">
+      <!-- Thương hiệu ODOMS căn giữa -->
+      <div class="login-brand-header">
+        <div class="od-logo-square">OD</div>
+        <h1 class="login-brand-title">ODOMS</h1>
+        <p class="login-brand-subtitle">Hệ thống quản lý đơn hàng đa kênh thông minh</p>
+      </div>
+
+      <!-- Khung biểu mẫu Đăng nhập hệ thống ở chính giữa -->
+      <div class="login-form-card">
+        <h2 class="login-heading">Đăng nhập hệ thống</h2>
+        <p class="login-subheading">Nhập thông tin tài khoản để truy cập hệ thống ODOMS</p>
+
+        <div id="loginErrorBanner" class="login-error-banner hidden"></div>
+
+        <form id="omsLoginForm" autocomplete="off">
+          <div class="login-field-group">
+            <label for="loginUsername">Tên đăng nhập</label>
+            <div class="login-input-wrap">
+              <input
+                type="text"
+                id="loginUsername"
+                class="login-input"
+                placeholder="Nhập tên đăng nhập..."
+                value=""
+                required
+              />
+            </div>
+          </div>
+
+          <div class="login-field-group">
+            <label for="loginPassword">Mật khẩu</label>
+            <div class="login-input-wrap">
+              <input
+                type="password"
+                id="loginPassword"
+                class="login-input"
+                placeholder="••••••••"
+                value=""
+                required
+              />
+              <button type="button" id="togglePasswordBtn" class="password-toggle-btn" title="Hiện/Ẩn mật khẩu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="login-submit-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+              <polyline points="10 17 15 12 10 7"/>
+              <line x1="15" y1="12" x2="3" y2="12"/>
+            </svg>
+            Đăng nhập
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MÀN HÌNH 2: ADMIN DASHBOARD & HỆ THỐNG CHỨC NĂNG ODOMS
+       ========================================================================== -->
+  <div id="dashboardAppWrapper" class="wms-app-layout hidden">
+    <!-- Overlay mờ nền cho Sidebar trên Mobile/Tablet -->
+    <div id="sidebarOverlay" class="sidebar-overlay" onclick="AppUI.toggleMobileSidebar(false)"></div>
+
+    <!-- SIDEBAR ĐIỀU HƯỚNG BÊN TRÁI -->
+    <aside id="wmsSidebar" class="wms-sidebar">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-logo od-square-sm">OD</div>
+        <div class="sidebar-brand-text-wrap">
+          <span class="sidebar-brand-title">ODOMS</span>
+          <span class="sidebar-brand-desc">Hệ thống quản lý đơn hàng đa kênh thông minh</span>
+        </div>
+        <!-- Nút đóng Sidebar trên thiết bị di động -->
+        <button type="button" class="sidebar-mobile-close-btn" onclick="AppUI.toggleMobileSidebar(false)" aria-label="Đóng menu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Thẻ định danh người dùng đang đăng nhập -->
+      <div class="sidebar-user-card">
+        <div class="user-card-left">
+          <div id="sidebarUserAvatar" class="user-avatar-circle">TD</div>
+          <div class="user-info-text">
+            <div class="user-info-greeting">Chào bạn,</div>
+            <div id="sidebarUserName" class="user-info-name">Đỗ Thị Thuỳ Dung</div>
+          </div>
+        </div>
+        <span class="online-dot" title="Phiên làm việc đang hoạt động"></span>
+      </div>
+
+      <!-- Nhóm 1: TỔNG QUAN (Nghiệp vụ vận hành OMS cốt lõi) -->
+      <div class="sidebar-nav-section">
+        <div class="sidebar-group-label">TỔNG QUAN</div>
+        <ul class="sidebar-menu-list">
+          <li>
+            <button class="sidebar-menu-item active" data-tab="dashboard" onclick="AppUI.switchSidebarTab('dashboard')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                Dashboard
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="ingest" onclick="AppUI.switchSidebarTab('ingest')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
+                Tiếp nhận / Gom đơn
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="inventory" onclick="AppUI.switchSidebarTab('inventory')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+                Sơ đồ kệ & Tồn ATP
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="fifo" onclick="AppUI.switchSidebarTab('fifo')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Kiểm soát FIFO / FEFO
+              </span>
+              <span id="badgeFifoCount" class="menu-badge orange">0</span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="backorder" onclick="AppUI.switchSidebarTab('backorder')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Chặn bán lố / Thiếu tồn
+              </span>
+              <span id="badgeBackorderCount" class="menu-badge red">0</span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="qr_api" onclick="AppUI.switchSidebarTab('qr_api')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/></svg>
+                QR / Tra cứu & API
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Nhóm 2: HỆ THỐNG (Quản trị & Cấu hình) -->
+      <div class="sidebar-nav-section">
+        <div class="sidebar-group-label">HỆ THỐNG</div>
+        <ul class="sidebar-menu-list">
+          <li>
+            <button class="sidebar-menu-item" data-tab="logs" onclick="AppUI.switchSidebarTab('logs')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                Lịch sử đăng nhập
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="staff" onclick="AppUI.switchSidebarTab('staff')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Nhân sự (Thêm User)
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="reports" onclick="AppUI.switchSidebarTab('reports')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                Báo cáo
+              </span>
+            </button>
+          </li>
+          <li>
+            <button class="sidebar-menu-item" data-tab="settings" onclick="AppUI.switchSidebarTab('settings')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Cài đặt
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="sidebar-logout-btn" onclick="AppUI.handleLogout()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Đăng xuất
+        </button>
+      </div>
+    </aside>
+
+    <!-- VÙNG LÀM VIỆC CHÍNH (MAIN WORKSPACE) -->
+    <main class="wms-main-workspace">
+      <!-- TOPBAR HEADER -->
+      <header class="wms-topbar">
+        <div class="topbar-left">
+          <!-- Nút Hamburger Menu trên điện thoại di động -->
+          <button type="button" id="mobileSidebarToggle" class="mobile-menu-btn" onclick="AppUI.toggleMobileSidebar()" aria-label="Mở menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+          <h1 id="topbarPageTitle" class="topbar-page-title">Dashboard</h1>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-primary" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
+            📥 Nạp Gom 5 Kênh (11 Đơn)
+          </button>
+          <button id="btnRunDemo" class="btn btn-warning" onclick="AppUI.runStepByStepFifoDemo()">
+            ▶️ Chạy Mô Phỏng FIFO
+          </button>
+          <button class="btn btn-outline" onclick="window.ExcelHandler.exportAllocatedReport()">
+            📊 Xuất Báo Cáo (.xlsx)
+          </button>
+          <button class="btn btn-outline" onclick="AppUI.resetAll()">
+            🔄 Đặt lại
+          </button>
+          <button class="btn-qr-quick" onclick="AppUI.switchSidebarTab('qr_api')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Quét QR
+          </button>
+        </div>
+      </header>
+
+      <!-- NỘI DUNG CUỘN CHÍNH -->
+      <div class="wms-content-container">
+        <!-- 1. BANNER TRẠNG THÁI FEFO / FIFO -->
+        <div class="fefo-status-banner">
+          <div class="banner-left">
+            <span class="banner-dot"></span>
+            <span>FIFO & FEFO đang hoạt động – Đơn đặt trước được ưu tiên giữ hàng & xuất lô cận hạn trước</span>
+          </div>
+          <div id="bannerTrackingText">5 Kênh kết nối · 5 SKU (59 SP vật lý) đang theo dõi</div>
+        </div>
+
+        <!-- 1.5. BẢNG TỔNG DOANH THU & DOANH THU LẦN LƯỢT 5 KÊNH BÁN HÀNG (1 THÁNG TÍNH ĐẾN THỜI ĐIỂM MỞ DASHBOARD) -->
+        <section class="oms-view-section" data-views="dashboard">
+          <div class="wms-card" style="margin-bottom: 18px; padding: 16px 20px;">
+            <div class="wms-card-header" style="margin-bottom: 12px;">
+              <div>
+                <div class="wms-card-title" style="display:flex;align-items:center;gap:8px;">
+                  <span>💰 Bảng Tổng Doanh Thu & Doanh Thu Lần Lượt 5 Kênh Bán Hàng</span>
+                  <span class="status-badge st-ALLOCATED" style="font-size:11px;">Chu kỳ 1 tháng (30 ngày gần nhất)</span>
+                </div>
+                <div id="oneMonthRollingTimeLabel" class="wms-card-subtitle">
+                  Thời gian: Trong 1 tháng tính đến thời điểm mở Dashboard ra xem
+                </div>
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="AppUI.refreshOneMonthTimestamp()" title="Cập nhật lại mốc thời gian mở Dashboard hiện tại">
+                🔄 Cập nhật mốc thời gian mở xem
+              </button>
+            </div>
+
+            <div id="oneMonthRevenueGrid" class="revenue-6cards-grid">
+              <!-- Sẽ được render tự động bởi AppUI.renderOneMonthRevenueOverview() -->
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI (Hiển thị ở Dashboard, FIFO, Backorder) -->
+        <section class="oms-view-section" data-views="dashboard fifo backorder inventory ingest">
+          <div class="kpi-cards-grid">
+            <div class="wms-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Tổng đơn tiếp nhận<br>(5 kênh TMĐT)</span>
+                <div class="kpi-icon-box green">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+                </div>
+              </div>
+              <div id="kpiTotalOrders" class="kpi-card-number">0</div>
+              <div id="kpiAvailableSummary" class="kpi-card-sub green">
+                ⊞ Đã chuẩn hóa Canonical Schema
+              </div>
+            </div>
+
+            <div class="wms-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Cần xuất / Đã giữ hàng<br>(FIFO & FEFO)</span>
+                <div class="kpi-icon-box green">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+              </div>
+              <div id="kpiAllocated" class="kpi-card-number">0</div>
+              <div class="kpi-card-sub green">
+                ✔ Đã trừ tồn khả dụng & chỉ định lô kệ
+              </div>
+            </div>
+
+            <div class="wms-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Chặn bán lố<br>(Thiếu tồn kho)</span>
+                <div class="kpi-icon-box red">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+                </div>
+              </div>
+              <div id="kpiBackorder" class="kpi-card-number">0</div>
+              <div class="kpi-card-sub red">
+                🔥 Bảo vệ chống âm kho · Cần nhập bù
+              </div>
+            </div>
+
+            <div class="wms-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Cảnh báo đơn lỗi<br>(Sai mã SKU / Cú pháp)</span>
+                <div class="kpi-icon-box orange">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                </div>
+              </div>
+              <div id="kpiInvalid" class="kpi-card-number">0</div>
+              <div class="kpi-card-sub orange">
+                ⚠ Đã ngắt tại Bước 2 Validation
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. KHỐI BIỂU ĐỒ THỐNG KÊ & XẾP HẠNG KÊNH BÁN HÀNG (Tham chiếu m3db, m4db, m5db) -->
+        <section class="oms-view-section" data-views="dashboard">
+          <div class="charts-grid-2col" style="align-items: start;">
+            <!-- CỘT TRÁI:
+                 1) Tiếp nhận đơn / Xuất giữ hàng theo tháng (2 màu đối kháng)
+                 2) Biểu đồ cột + doanh thu Top 3 kênh bán hàng (Ngay bên dưới)
+                 3) Tiếp nhận đơn / Xuất giữ hàng theo 3 tháng (Giới hạn ngày tháng + Tuỳ chọn 3 tháng + Biểu đồ cột có số tổng doanh thu trên mỗi cột)
+            -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <!-- Biểu đồ 1A: Tiếp nhận đơn / Xuất giữ hàng theo tháng (Màu đối kháng) -->
+              <div class="wms-card" style="margin-bottom:0;">
+                <div class="wms-card-header">
+                  <div>
+                    <div class="wms-card-title">Tiếp nhận đơn / Xuất giữ hàng theo tháng</div>
+                    <div class="wms-card-subtitle">Thống kê 5 kênh TMĐT (Th5/26 – Th10/26) · 2 đường biểu diễn luôn mang cặp màu đối kháng</div>
+                  </div>
+                  <div style="display:flex;gap:14px;font-size:12px;font-weight:700;">
+                    <span style="display:flex;align-items:center;gap:6px;">
+                      <span id="legendBoxImport" style="width:12px;height:12px;background:#F97316;border-radius:3px;display:inline-block;"></span>
+                      <span>Đơn tiếp nhận</span>
+                    </span>
+                    <span style="display:flex;align-items:center;gap:6px;">
+                      <span id="legendBoxExport" style="width:12px;height:12px;background:#2563EB;border-radius:3px;display:inline-block;"></span>
+                      <span>Xuất giữ hàng</span>
+                    </span>
+                  </div>
+                </div>
+                <div style="padding-top:6px;">
+                  <svg viewBox="0 0 540 205" style="width:100%;height:195px;overflow:visible;">
+                    <g stroke="#cbd5e1" stroke-width="0.8" opacity="0.6">
+                      <line x1="36" y1="20" x2="515" y2="20" />
+                      <line x1="36" y1="45" x2="515" y2="45" />
+                      <line x1="36" y1="70" x2="515" y2="70" />
+                      <line x1="36" y1="95" x2="515" y2="95" />
+                      <line x1="36" y1="120" x2="515" y2="120" />
+                      <line x1="36" y1="145" x2="515" y2="145" />
+                      <line x1="36" y1="170" x2="515" y2="170" />
+                    </g>
+                    <g fill="currentColor" opacity="0.65" font-size="11" text-anchor="end">
+                      <text x="28" y="24">24</text>
+                      <text x="28" y="49">20</text>
+                      <text x="28" y="74">16</text>
+                      <text x="28" y="99">12</text>
+                      <text x="28" y="124">8</text>
+                      <text x="28" y="149">4</text>
+                      <text x="28" y="174">0</text>
+                    </g>
+                    <path id="chartAreaExport" d="M 55 148 L 142 136 L 229 122 L 316 105 L 403 82 Q 450 52, 495 28 L 495 170 L 55 170 Z" fill="rgba(37, 99, 235, 0.14)" />
+                    <path id="chartLineExport" d="M 55 148 L 142 136 L 229 122 L 316 105 L 403 82 Q 450 52, 495 28" fill="none" stroke="#2563EB" stroke-width="2.8" />
+                    <path id="chartLineImport" d="M 55 138 L 142 124 L 229 108 L 316 88 L 403 65 Q 450 38, 495 16" fill="none" stroke="#F97316" stroke-width="2.8" stroke-dasharray="5 3" />
+                    <g id="chartDotsImport" fill="#F97316">
+                      <circle cx="55" cy="138" r="4.5" /><circle cx="142" cy="124" r="4.5" /><circle cx="229" cy="108" r="4.5" /><circle cx="316" cy="88" r="4.5" /><circle cx="403" cy="65" r="4.5" /><circle cx="495" cy="16" r="5" />
+                    </g>
+                    <g id="chartDotsExportGroup" fill="#2563EB">
+                      <circle cx="55" cy="148" r="4" /><circle cx="142" cy="136" r="4" /><circle cx="229" cy="122" r="4" /><circle cx="316" cy="105" r="4" /><circle cx="403" cy="82" r="4" /><circle id="chartDotExport" cx="495" cy="28" r="5" />
+                    </g>
+                    <g fill="currentColor" opacity="0.65" font-size="11.5" text-anchor="middle">
+                      <text x="55" y="192">Th5/26</text>
+                      <text x="142" y="192">Th6/26</text>
+                      <text x="229" y="192">Th7/26</text>
+                      <text x="316" y="192">Th8/26</text>
+                      <text x="403" y="192">Th9/26</text>
+                      <text x="495" y="192">Th10/26</text>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Biểu đồ 1B (Ở dưới Tiếp nhận đơn / Xuất giữ hàng theo tháng): Biểu đồ Cột + Doanh thu Top 3 Kênh Bán Hàng -->
+              <div class="wms-card" style="margin-bottom:0;">
+                <div class="wms-card-header" style="margin-bottom:10px;">
+                  <div>
+                    <div class="wms-card-title">📊 Biểu đồ Cột + Doanh thu: Top 3 Kênh Bán Hàng Dẫn Đầu</div>
+                    <div class="wms-card-subtitle">Tổng hợp 3 kênh có doanh thu & sản lượng đơn cao nhất (Hiển thị trực tiếp tổng doanh thu trên đỉnh mỗi cột)</div>
+                  </div>
+                  <span class="status-badge st-ALLOCATED">Top 3 Best Channels</span>
+                </div>
+                <div id="top3ChannelsBarChartContainer" class="top3-bar-chart-wrap">
+                  <!-- Sẽ được render tự động bởi AppUI.renderTop3ChannelsBarChart() -->
+                </div>
+              </div>
+
+              <!-- Biểu đồ 1C: Tiếp nhận đơn / Xuất giữ hàng theo 3 tháng (Tuỳ chọn 3 tháng + Giới hạn ngày tháng tìm kiếm + Biểu đồ cột có số tổng doanh thu trên mỗi cột) -->
+              <div class="wms-card" style="margin-bottom:0;">
+                <div class="wms-card-header" style="margin-bottom:12px;">
+                  <div>
+                    <div class="wms-card-title">📈 Tiếp nhận đơn / Xuất giữ hàng theo 3 tháng (Biểu đồ Cột & Tổng Doanh Thu)</div>
+                    <div class="wms-card-subtitle">Giới hạn ngày tháng tìm kiếm & tuỳ chọn 3 tháng bất kỳ — Hiển thị con số tổng doanh thu ở trên mỗi cột</div>
+                  </div>
+                </div>
+
+                <!-- Bộ lọc giới hạn ngày tháng tìm kiếm & tuỳ chọn 3 tháng -->
+                <div class="three-month-filter-bar">
+                  <div class="filter-group-item">
+                    <label>Giới hạn Từ ngày:</label>
+                    <input type="date" id="filter3MStartDate" class="form-control form-control-sm" value="2026-08-01" onchange="AppUI.renderThreeMonthBarChart()" />
+                  </div>
+                  <div class="filter-group-item">
+                    <label>Đến ngày:</label>
+                    <input type="date" id="filter3MEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderThreeMonthBarChart()" />
+                  </div>
+                  <div class="filter-group-item">
+                    <label>Tuỳ chọn Tháng 1:</label>
+                    <select id="select3M_1" class="form-control form-control-sm" onchange="AppUI.onThreeMonthSelectChange()">
+                      <option value="2026-05">Tháng 05/2026</option>
+                      <option value="2026-06">Tháng 06/2026</option>
+                      <option value="2026-07">Tháng 07/2026</option>
+                      <option value="2026-08" selected>Tháng 08/2026</option>
+                      <option value="2026-09">Tháng 09/2026</option>
+                      <option value="2026-10">Tháng 10/2026</option>
+                    </select>
+                  </div>
+                  <div class="filter-group-item">
+                    <label>Tuỳ chọn Tháng 2:</label>
+                    <select id="select3M_2" class="form-control form-control-sm" onchange="AppUI.onThreeMonthSelectChange()">
+                      <option value="2026-05">Tháng 05/2026</option>
+                      <option value="2026-06">Tháng 06/2026</option>
+                      <option value="2026-07">Tháng 07/2026</option>
+                      <option value="2026-08">Tháng 08/2026</option>
+                      <option value="2026-09" selected>Tháng 09/2026</option>
+                      <option value="2026-10">Tháng 10/2026</option>
+                    </select>
+                  </div>
+                  <div class="filter-group-item">
+                    <label>Tuỳ chọn Tháng 3:</label>
+                    <select id="select3M_3" class="form-control form-control-sm" onchange="AppUI.onThreeMonthSelectChange()">
+                      <option value="2026-05">Tháng 05/2026</option>
+                      <option value="2026-06">Tháng 06/2026</option>
+                      <option value="2026-07">Tháng 07/2026</option>
+                      <option value="2026-08">Tháng 08/2026</option>
+                      <option value="2026-09">Tháng 09/2026</option>
+                      <option value="2026-10" selected>Tháng 10/2026</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div id="threeMonthFilterNotice" style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;"></div>
+
+                <!-- Khu vực hiển thị Biểu đồ Cột 3 Tháng có Tổng Doanh Thu trên mỗi cột -->
+                <div id="threeMonthBarChartContainer" class="three-month-bars-stage">
+                  <!-- Sẽ được render tự động bởi AppUI.renderThreeMonthBarChart() -->
+                </div>
+              </div>
+            </div>
+
+            <!-- CỘT PHẢI: Đổi từ "Phân bổ tình trạng đơn & kệ" thành "Xếp hạng các kênh bán hàng được nhiều đơn nhất theo tháng" -->
+            <div class="wms-card" style="margin-bottom:0;">
+              <div class="wms-card-header" style="margin-bottom:14px;">
+                <div>
+                  <div class="wms-card-title">🏆 Xếp hạng các kênh bán hàng được nhiều đơn nhất theo tháng</div>
+                  <div id="channelRankingSubtitle" class="wms-card-subtitle">
+                    Bảng xếp hạng sản lượng đơn & tỷ trọng doanh thu 5 kênh TMĐT
+                  </div>
+                </div>
+                <select id="rankingMonthSelect" class="form-control" style="width:auto;font-weight:700;padding:6px 10px;font-size:12.5px;" onchange="AppUI.renderMonthlyChannelRanking()">
+                  <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
+                  <option value="2026-09">Tháng 09/2026</option>
+                  <option value="2026-08">Tháng 08/2026</option>
+                  <option value="2026-07">Tháng 07/2026</option>
+                  <option value="2026-06">Tháng 06/2026</option>
+                  <option value="2026-05">Tháng 05/2026</option>
+                </select>
+              </div>
+
+              <!-- Danh sách xếp hạng 5 kênh bán hàng (Huy chương Vàng 1, Bạc 2, Đồng 3, Hạng 4, Hạng 5 + Progress Bar) -->
+              <div id="channelMonthlyRankingList" class="channel-leaderboard-list">
+                <!-- Sẽ được render tự động bởi AppUI.renderMonthlyChannelRanking() -->
+              </div>
+
+              <!-- Tóm tắt tổng hợp cuối bảng xếp hạng -->
+              <div id="channelRankingFooterSummary" class="ranking-footer-box">
+                <!-- Sẽ được render tự động bởi AppUI.renderMonthlyChannelRanking() -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. THANH ĐỒNG BỘ 5 KÊNH BÁN HÀNG -->
+        <section class="oms-view-section" data-views="dashboard ingest fifo">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Trạng thái Đồng bộ Tồn kho Đa kênh (5 Kênh Bán hàng)</div>
+                <div class="wms-card-subtitle">Tự động khóa và cập nhật số lượng tồn khả dụng (ATP) ngay khi có đơn mới</div>
+              </div>
+            </div>
+            <div id="channelStripContainer" class="channel-strip-grid"></div>
+          </div>
+        </section>
+
+        <!-- 5. PHÂN HỆ TIẾP NHẬN EXCEL & GIẢ LẬP API 2 CHIỀU -->
+        <section class="oms-view-section" data-views="dashboard ingest">
+          <div class="charts-grid-2col">
+            <!-- Phương thức 1: Nạp bảng Excel đa kênh -->
+            <div class="wms-card" style="margin-bottom:0;">
+              <div class="wms-card-header">
+                <div>
+                  <div class="wms-card-title">Phương thức 1: Nạp Bảng Dữ Liệu Đơn Hàng Excel (.xlsx / .csv)</div>
+                  <div class="wms-card-subtitle">Tự động nhận diện cột của từng sàn TMĐT và chuẩn hóa về Canonical Schema</div>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="window.ExcelHandler.downloadAllSampleExcelWorkbook()">
+                  ⬇️ Tải Bộ File Excel Mẫu (.xlsx)
+                </button>
+              </div>
+
+              <div id="uploadDropZone" class="upload-dropzone">
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" multiple class="hidden" />
+                <div style="font-weight:700;color:var(--theme-primary);font-size:14px;margin-bottom:4px;">
+                  📂 Nhấp để chọn hoặc Kéo thả file Excel (.xlsx, .csv) của các sàn vào đây
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);">
+                  Hỗ trợ các file trong thư mục <code>du_lieu_mau_excel/</code> hoặc dùng các nút nạp nhanh bên dưới:
+                </div>
+              </div>
+
+              <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;">
+                <button class="btn btn-primary btn-sm" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
+                  📥 Nạp Gom Chung 5 Kênh (11 Đơn)
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('SHOPEE')">+ Đơn Shopee (3)</button>
+                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('TIKTOK')">+ Đơn TikTok (3)</button>
+                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('LAZADA')">+ Đơn Lazada (2)</button>
+                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('FACEBOOK_POS')">+ Đơn FB & POS (3)</button>
+              </div>
+            </div>
+
+            <!-- Phương thức 2: Giả lập kết nối tự động 2 chiều qua mạng -->
+            <div class="wms-card" style="margin-bottom:0;">
+              <div class="wms-card-header">
+                <div>
+                  <div class="wms-card-title">Phương thức 2: Giả Lập Kết Nối Tự Động 2 Chiều (Webhook / API)</div>
+                  <div class="wms-card-subtitle">Bắn đơn hàng thời gian thực từ sàn về OMS và tự động trừ kho ngay lập tức</div>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+                <div>
+                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Sàn TMĐT phát sinh đơn</label>
+                  <select id="simChannel" class="form-control">
+                    <option value="SHOPEE">Shopee Mall</option>
+                    <option value="TIKTOK">TikTok Shop</option>
+                    <option value="LAZADA">Lazada Mall</option>
+                    <option value="POS">Cửa hàng vật lý (POS)</option>
+                    <option value="FACEBOOK">Facebook Live / Shop</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Sản phẩm đặt mua (SKU)</label>
+                  <select id="simSku" class="form-control">
+                    <option value="SP-AO-POLO-01">SP-AO-POLO-01 - Áo Polo Nam (Tồn gốc: 10)</option>
+                    <option value="SP-TAI-NGHE-02">SP-TAI-NGHE-02 - Tai nghe TWS (Tồn gốc: 15)</option>
+                    <option value="SP-BALO-LAP-03">SP-BALO-LAP-03 - Balo Laptop (Tồn gốc: 8)</option>
+                    <option value="SP-BINH-NHIET-04">SP-BINH-NHIET-04 - Bình Giữ Nhiệt (Tồn gốc: 20)</option>
+                    <option value="SP-BAN-PHIM-05">SP-BAN-PHIM-05 - Bàn Phím Cơ (Tồn gốc: 6)</option>
+                    <option value="SP-MA-LOI-999">SP-MA-LOI-999 - Mã SKU Sai (Test chặn lỗi)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:110px 1fr;gap:10px;margin-bottom:12px;">
+                <div>
+                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Số lượng</label>
+                  <input type="number" id="simQty" class="form-control" value="2" min="1" max="50" />
+                </div>
+                <div>
+                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Tên khách hàng</label>
+                  <input type="text" id="simCustomer" class="form-control" value="Khách đặt Real-time" />
+                </div>
+              </div>
+
+              <button class="btn btn-primary" style="width:100%;" onclick="AppUI.simulateWebhookOrder()">
+                🚀 Bắn Đơn Hàng Qua API & Tự Động Trừ Kho Ngay
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. KHỐI CẢNH BÁO CẦN XỬ LÝ (Actionable Alerts) -->
+        <section class="oms-view-section" data-views="dashboard fifo backorder" style="margin-top:20px;">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Cảnh báo cần xử lý (Chặn bán lố & Đơn lỗi hợp lệ)</div>
+                <div class="wms-card-subtitle">Các đơn hàng bị chặn để bảo vệ tồn kho vật lý và yêu cầu nhập bù</div>
+              </div>
+            </div>
+            <div id="actionableAlertsContainer" class="alerts-list"></div>
+          </div>
+        </section>
+
+        <!-- 7. BẢNG ĐƠN HÀNG ĐA KÊNH & PHÂN BỔ GIỮ HÀNG FIFO -->
+        <section class="oms-view-section" data-views="dashboard ingest fifo backorder">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Bảng Điều Phối Đơn Hàng Đa Kênh & Phân Bổ Giữ Hàng (FIFO / FEFO)</div>
+                <div id="orderCountLabel" class="wms-card-subtitle">Hiển thị 0 / 0 đơn hàng</div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select id="allocationRuleSelect" class="form-control" style="width:auto;font-weight:600;">
+                  <option value="FIFO_TIME">Quy tắc: FIFO (Ai đặt trước giữ hàng trước)</option>
+                  <option value="CHANNEL_PRIORITY">Quy tắc: Ưu tiên Kênh (POS &gt; Shopee &gt; TikTok)</option>
+                </select>
+                <select id="statusFilterSelect" class="form-control" style="width:auto;">
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="ALLOCATED">✔ Đã giữ hàng & Trừ kho</option>
+                  <option value="BACKORDER">⚠ Thiếu tồn (Chặn bán lố)</option>
+                  <option value="INVALID">✖ Đơn lỗi hợp lệ</option>
+                </select>
+                <input
+                  type="text"
+                  id="orderSearchInput"
+                  class="form-control"
+                  style="width:200px;"
+                  placeholder="🔍 Tìm mã đơn, SKU, khách..."
+                />
+              </div>
+            </div>
+
+            <div class="filter-tabs-bar">
+              <div class="tab-pills-group">
+                <button class="tab-btn active" data-channel="ALL" onclick="AppUI.setChannelFilter('ALL')">Tất cả 5 kênh</button>
+                <button class="tab-btn" data-channel="SHOPEE" onclick="AppUI.setChannelFilter('SHOPEE')">Shopee</button>
+                <button class="tab-btn" data-channel="TIKTOK" onclick="AppUI.setChannelFilter('TIKTOK')">TikTok Shop</button>
+                <button class="tab-btn" data-channel="LAZADA" onclick="AppUI.setChannelFilter('LAZADA')">Lazada</button>
+                <button class="tab-btn" data-channel="POS" onclick="AppUI.setChannelFilter('POS')">Cửa hàng POS</button>
+                <button class="tab-btn" data-channel="FACEBOOK" onclick="AppUI.setChannelFilter('FACEBOOK')">Facebook</button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="wms-table">
+                <thead>
+                  <tr>
+                    <th>Thứ tự FIFO</th>
+                    <th>Mã Đơn / Nguồn</th>
+                    <th>Kênh Bán</th>
+                    <th>Giờ Đặt Hàng</th>
+                    <th>Sản Phẩm (SKU)</th>
+                    <th>SL Đặt</th>
+                    <th>Tồn (Trước ➔ Sau)</th>
+                    <th>Trạng Thái Xử Lý</th>
+                    <th>Lô & Kệ Giữ Hàng (FEFO)</th>
+                    <th>Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. BẢNG TỒN KHO NỘI BỘ & SƠ ĐỒ LÔ KỆ -->
+        <section class="oms-view-section" data-views="dashboard inventory backorder">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Tồn kho hiện tại & Đối chiếu Khả dụng (ATP)</div>
+                <div class="wms-card-subtitle">Tồn Khả Dụng (Available) = Tồn Vật Lý (Physical) − Đang Giữ Chỗ (Reserved)</div>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="wms-table">
+                <thead>
+                  <tr>
+                    <th>Kệ / Danh Mục</th>
+                    <th>Sản Phẩm (SKU Nội Bộ)</th>
+                    <th>Tồn Vật Lý</th>
+                    <th>Đang Giữ Chỗ (Theo Sàn)</th>
+                    <th>Tồn Khả Dụng (ATP)</th>
+                    <th>Phân Bổ Lô Kệ (Batch FEFO)</th>
+                    <th>Trạng Thái</th>
+                    <th>Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. PHÂN HỆ QR / TRA CỨU & API 2 CHIỀU: TẠO MÃ VẬN ĐƠN & IN MÃ QR KÈM THÔNG TIN ĐƠN -->
+        <section class="oms-view-section hidden" data-views="qr_api">
+          <!-- Khối 9.1: Tạo mã vận đơn & Thực hiện chức năng In mã QR và Thông tin đơn -->
+          <div class="charts-grid-2col" style="align-items: start; margin-bottom: 20px;">
+            <!-- Cột Trái: Form tạo mã vận đơn & chọn đơn hàng -->
+            <div class="wms-card" style="margin-bottom:0;">
+              <div class="wms-card-header">
+                <div>
+                  <div class="wms-card-title">📦 Tạo Mã Vận Đơn & Sinh Mã QR Đơn Hàng</div>
+                  <div class="wms-card-subtitle">Chọn đơn hàng từ hệ thống hoặc nhập thông tin để tạo mã vận đơn, sinh mã QR và in phiếu giao hàng</div>
+                </div>
+                <span class="status-badge st-ALLOCATED">ODOMS Waybill & QR</span>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                  <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">
+                    1. Chọn nhanh đơn hàng đã tiếp nhận (hoặc tự nhập bên dưới):
+                  </label>
+                  <select id="waybillOrderSelect" class="form-control" onchange="AppUI.onSelectOrderForWaybill(this.value)">
+                    <option value="">-- Chọn đơn hàng để tự động điền thông tin --</option>
+                  </select>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã đơn hàng (*)</label>
+                    <input type="text" id="wbOrderId" class="form-control" placeholder="VD: SP261022001" value="SP261022001" />
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Kênh bán hàng (*)</label>
+                    <select id="wbChannel" class="form-control">
+                      <option value="SHOPEE">Shopee Mall</option>
+                      <option value="TIKTOK">TikTok Shop</option>
+                      <option value="LAZADA">Lazada Mall</option>
+                      <option value="FACEBOOK">Facebook Shop / Live</option>
+                      <option value="POS">Cửa hàng POS</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã vận đơn (Waybill Code)</label>
+                    <div style="display:flex;gap:6px;">
+                      <input type="text" id="wbTrackingCode" class="form-control" style="font-family:monospace;font-weight:700;" placeholder="Tự động tạo..." value="VD-ODOMS-261025-8801" />
+                      <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.regenerateTrackingCodeOnly()" title="Đổi mã vận đơn ngẫu nhiên mới">🎲 Đổi mã</button>
+                    </div>
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Đơn vị vận chuyển</label>
+                    <select id="wbCarrier" class="form-control">
+                      <option value="SPX Express">SPX Express (Nhanh)</option>
+                      <option value="J&T Express">J&T Express</option>
+                      <option value="Giao Hàng Tiết Kiệm (GHTK)">Giao Hàng Tiết Kiệm (GHTK)</option>
+                      <option value="Giao Hàng Nhanh (GHN)">Giao Hàng Nhanh (GHN)</option>
+                      <option value="Viettel Post">Viettel Post</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Tên khách hàng nhận (*)</label>
+                    <input type="text" id="wbCustomerName" class="form-control" value="Nguyễn Văn An" />
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Số điện thoại (*)</label>
+                    <input type="text" id="wbCustomerPhone" class="form-control" value="0901234567" />
+                  </div>
+                </div>
+
+                <div>
+                  <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Địa chỉ giao hàng (*)</label>
+                  <input type="text" id="wbAddress" class="form-control" value="123 Nguyễn Huệ, Quận 1, TP.HCM" />
+                </div>
+
+                <div style="display:grid;grid-template-columns:1.1fr 1.3fr 0.6fr;gap:10px;">
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã SKU</label>
+                    <input type="text" id="wbSku" class="form-control" value="SP-AO-POLO-01" />
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Tên sản phẩm</label>
+                    <input type="text" id="wbProductName" class="form-control" value="Áo Polo Nam Coolmate Pro (Đen - Size L)" />
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Số lượng</label>
+                    <input type="number" id="wbQuantity" class="form-control" min="1" value="4" />
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Vị trí Kệ / Lô xuất (FEFO)</label>
+                    <input type="text" id="wbShelfBatch" class="form-control" value="LO-2026-A1 (Kệ A1 T1)" />
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Tổng tiền thu hộ COD (₫)</label>
+                    <input type="number" id="wbTotalAmount" class="form-control" step="1000" value="1000000" />
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+                  <button type="button" class="btn btn-primary" onclick="AppUI.generateWaybillAndQR(true)">
+                    ⚡ Tạo Mã Vận Đơn & Cập Nhật Mã QR
+                  </button>
+                  <button type="button" class="btn btn-warning" onclick="AppUI.printWaybillQrTicket()">
+                    🖨️ In Mã QR & Thông Tin Đơn
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cột Phải: Bản xem trước Phiếu Vận Đơn + Mã QR sắc nét để In -->
+            <div class="wms-card" style="margin-bottom:0;">
+              <div class="wms-card-header">
+                <div>
+                  <div class="wms-card-title">🎫 Phiếu Mã Vận Đơn & Mã QR Đơn Hàng (Bản In Nhiệt A6)</div>
+                  <div class="wms-card-subtitle">Tự động nhúng thông tin đơn + mã vận đơn vào QR Code chuẩn SVG sắc nét</div>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.printWaybillQrTicket()">
+                  🖨️ In ngay
+                </button>
+              </div>
+
+              <!-- Khung Tem Vận Đơn & QR -->
+              <div id="printableWaybillTicketArea" class="waybill-ticket-preview">
+                <!-- Sẽ được render tự động bởi AppUI.generateWaybillAndQR() -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Khối 9.2: Danh sách Mã Vận Đơn đã tạo trong phiên -->
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">📋 Danh sách Mã Vận Đơn & QR Đã Khởi Tạo</div>
+                <div class="wms-card-subtitle">Lưu vết các vận đơn đã cấp mã QR để đối soát bàn giao bưu cục</div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="wms-table">
+                <thead>
+                  <tr>
+                    <th>Mã Vận Đơn</th>
+                    <th>Mã Đơn Hàng</th>
+                    <th>Kênh Bán</th>
+                    <th>ĐV Vận Chuyển</th>
+                    <th>Khách Hàng Nhận</th>
+                    <th>Sản Phẩm (SKU × SL)</th>
+                    <th>Lô Kệ Xuất</th>
+                    <th>Tiền Thu Hộ (COD)</th>
+                    <th>Thời Gian Tạo</th>
+                    <th>Thao Tác In</th>
+                  </tr>
+                </thead>
+                <tbody id="waybillHistoryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Khối 9.3: Tra cứu QR tức thì & Đối chiếu Vị trí Kệ / Lô hàng -->
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Tra cứu QR tức thì & Đối chiếu Vị trí Kệ / Lô hàng</div>
+                <div class="wms-card-subtitle">Nhập mã QR lô kệ (VD: GS-POLO-1001), mã SKU hoặc tên kệ để kiểm tra tồn kho vật lý</div>
+              </div>
+              <input
+                type="text"
+                id="qrSearchInput"
+                class="form-control"
+                style="width:280px;"
+                placeholder="🔍 Nhập mã QR, SKU hoặc vị trí kệ..."
+              />
+            </div>
+
+            <div class="table-responsive">
+              <table class="wms-table">
+                <thead>
+                  <tr>
+                    <th>Mã QR Lô Kệ</th>
+                    <th>Vị Trí Kệ</th>
+                    <th>Sản Phẩm (SKU)</th>
+                    <th>Mã Lô (Batch)</th>
+                    <th>Hạn Sử Dụng</th>
+                    <th>Tồn Lô (Còn / Gốc)</th>
+                    <th>Đối Chiếu ATP</th>
+                  </tr>
+                </thead>
+                <tbody id="qrLookupTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 10. PHÂN HỆ NHÂN SỰ & THÊM USER TÙY Ý (Nhóm HỆ THỐNG) -->
+        <section class="oms-view-section hidden" data-views="staff">
+          <div class="charts-grid-2col">
+            <div class="wms-card" style="margin-bottom:0;">
+              <div class="wms-card-header">
+                <div>
+                  <div class="wms-card-title">Danh sách Nhân sự & Tài khoản Truy cập OMS</div>
+                  <div class="wms-card-subtitle">Tài khoản mặc định: Đỗ Thị Thuỳ Dung (dttd) & Lê Hoàng Minh Trung (lhmt)</div>
+                </div>
+              </div>
+
+              <div class="table-responsive">
+                <table class="wms-table">
+                  <thead>
+                    <tr>
+                      <th>STT</th>
+                      <th>Họ và Tên / Phòng Ban</th>
+                      <th>Tên Đăng Nhập</th>
+                      <th>Mật Khẩu</th>
+                      <th>Vai Trò</th>
+                      <th>Ca Trực</th>
+                      <th>Trạng Thái</th>
+                      <th>Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="staffUsersTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="wms-card" style="margin-bottom:0;">
+              <div class="wms-card-header">
+                <div>
+                  <div class="wms-card-title">➕ Thêm Tài Khoản Nhân Sự Mới</div>
+                  <div class="wms-card-subtitle">User mới tạo có thể dùng để đăng nhập vào hệ thống OMS ngay lập tức</div>
+                </div>
+              </div>
+
+              <div id="userFormFeedback" class="hidden" style="padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;margin-bottom:12px;"></div>
+
+              <form id="addNewUserForm" autocomplete="off">
+                <div style="margin-bottom:12px;">
+                  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Họ và tên nhân sự *</label>
+                  <input type="text" id="newUserFullName" class="form-control" placeholder="VD: Nguyễn Văn Hải" required />
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                  <div>
+                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Tên đăng nhập *</label>
+                    <input type="text" id="newUserUsername" class="form-control" placeholder="VD: nvhai" required />
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Mật khẩu *</label>
+                    <input type="text" id="newUserPassword" class="form-control" placeholder="VD: nvhai123" required />
+                  </div>
+                </div>
+
+                <div style="margin-bottom:12px;">
+                  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Chức vụ / Vai trò phân quyền</label>
+                  <select id="newUserRole" class="form-control">
+                    <option value="Chuyên viên Vận hành OMS">Chuyên viên Vận hành OMS</option>
+                    <option value="Quản lý Điều phối OMS">Quản lý Điều phối OMS</option>
+                    <option value="Thủ kho Kiểm soát FEFO">Thủ kho Kiểm soát FEFO</option>
+                    <option value="Chuyên viên Đối chiếu Đa kênh">Chuyên viên Đối chiếu Đa kênh</option>
+                  </select>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+                  <div>
+                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Bộ phận</label>
+                    <input type="text" id="newUserDept" class="form-control" value="Phòng Vận hành Đa kênh" />
+                  </div>
+                  <div>
+                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Ca làm việc</label>
+                    <input type="text" id="newUserShift" class="form-control" value="Ca Hành chính (08:00 - 17:00)" />
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width:100%;">
+                  ➕ Lưu & Kích Hoạt Tài Khoản Mới
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- 11. PHÂN HỆ LỊCH SỬ ĐĂNG NHẬP & NHẬT KÝ HỆ THỐNG (Nhóm HỆ THỐNG) -->
+        <section class="oms-view-section" data-views="dashboard logs">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Nhật ký Xử lý Nghiệp vụ Thời gian thực (OMS Console Log)</div>
+                <div class="wms-card-subtitle">Lưu vết từng bước Tiếp nhận ➔ Kiểm tra ➔ Trừ kho FIFO ➔ Đồng bộ 5 kênh</div>
+              </div>
+            </div>
+            <div id="logConsole" class="log-console"></div>
+          </div>
+        </section>
+
+        <section class="oms-view-section hidden" data-views="logs">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Lịch sử Đăng nhập & Kiểm toán Phiên làm việc (Access Audit Trail)</div>
+                <div class="wms-card-subtitle">Ghi nhận chi tiết thời gian, tài khoản và hành động truy cập hệ thống</div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="wms-table">
+                <thead>
+                  <tr>
+                    <th>Thời Gian</th>
+                    <th>Nhân Sự (Username)</th>
+                    <th>Vai Trò</th>
+                    <th>Hoạt Động</th>
+                    <th>Thiết Bị / IP</th>
+                    <th>Trạng Thái</th>
+                  </tr>
+                </thead>
+                <tbody id="accessLogsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 12. PHÂN HỆ BÁO CÁO & CÀI ĐẶT (Nhóm HỆ THỐNG) -->
+        <section class="oms-view-section hidden" data-views="reports">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Báo cáo Tổng hợp Đối chiếu Đơn hàng & Tồn kho theo 5 Kênh</div>
+                <div class="wms-card-subtitle">Thống kê hiệu suất phân bổ giữ hàng và doanh thu tạm tính</div>
+              </div>
+              <button class="btn btn-primary" onclick="window.ExcelHandler.exportAllocatedReport()">
+                📊 Xuất Báo Cáo Đối Chiếu (.xlsx)
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="wms-table">
+                <thead>
+                  <tr>
+                    <th>Kênh Bán Hàng</th>
+                    <th>Tổng Đơn Tiếp Nhận</th>
+                    <th>Đã Giữ Hàng (FIFO)</th>
+                    <th>Chặn Bán Lố (Thiếu Tồn)</th>
+                    <th>Đơn Lỗi Hợp Lệ</th>
+                    <th>Tổng SP Đang Giữ</th>
+                    <th>Giá Trị Đơn Đã Giữ</th>
+                  </tr>
+                </thead>
+                <tbody id="channelReportTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="oms-view-section hidden" data-views="settings">
+          <div class="wms-card">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Cài đặt Chủ đề & Tham số Hệ thống ODOMS</div>
+                <div class="wms-card-subtitle">Điều chỉnh chủ đề màu sắc cho giao diện thực hiện các chức năng</div>
+              </div>
+            </div>
+
+            <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;margin-bottom:16px;">
+              <h4 style="margin-bottom:8px;">Chủ đề</h4>
+              <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:10px;">
+                Nhấp chọn một chủ đề bên dưới để đổi màu giao diện thực hiện các chức năng ngay lập tức:
+              </p>
+              <div id="settingsThemePickerBar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;">
+                <h4 style="margin-bottom:8px;">1. Nguyên tắc Phân bổ & Giữ hàng mặc định</h4>
+                <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
+                  Hệ thống ưu tiên đơn hàng theo mốc thời gian đặt chính xác đến từng giây (FIFO) và tự động lấy từ lô kệ có hạn dùng gần nhất (FEFO).
+                </p>
+                <button class="btn btn-outline btn-sm" onclick="AppUI.resetAll()">🔄 Đặt lại dữ liệu đơn & tồn kho về ban đầu</button>
+              </div>
+              <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;">
+                <h4 style="margin-bottom:8px;">2. Quản trị Danh sách Tài khoản</h4>
+                <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
+                  Khôi phục danh sách tài khoản về 2 user gốc: <strong>Đỗ Thị Thuỳ Dung (dttd)</strong> và <strong>Lê Hoàng Minh Trung (lhmt)</strong>.
+                </p>
+                <button class="btn btn-danger-outline btn-sm" onclick="window.userAuth.resetUsersToDefault(); AppUI.renderStaffManagement(); AppUI.renderLoginQuickAccounts(); alert('Đã khôi phục 2 tài khoản gốc (dttd & lhmt)!');">
+                  Khôi phục tài khoản mặc định
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- THANH ĐIỀU HƯỚNG ĐÁY MÀN HÌNH DÀNH CHO THIẾT BỊ DI ĐỘNG (MOBILE BOTTOM NAV) -->
+    <nav id="mobileBottomNav" class="mobile-bottom-nav">
+      <button type="button" class="mobile-nav-btn active" data-tab="dashboard" onclick="AppUI.switchSidebarTab('dashboard')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Tổng quan</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" data-tab="ingest" onclick="AppUI.switchSidebarTab('ingest')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
+        <span>Gom đơn</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" data-tab="fifo" onclick="AppUI.switchSidebarTab('fifo')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span>FIFO</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" data-tab="qr_api" onclick="AppUI.switchSidebarTab('qr_api')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/></svg>
+        <span>Vận đơn QR</span>
+      </button>
+      <button type="button" class="mobile-nav-btn" onclick="AppUI.toggleMobileSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <span>Menu</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- MODAL XEM CHI TIẾT LƯU VẾT 4 BƯỚC XỬ LÝ ĐƠN HÀNG -->
+  <div id="orderAuditModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeModal()">
+    <div class="modal-dialog">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <h3 style="font-size:17px;font-weight:800;">Chi tiết Lưu vết Xử lý Đơn hàng (4 Bước Nghiệp vụ)</h3>
+        <button class="btn btn-outline btn-sm" onclick="AppUI.closeModal()">✖ Đóng</button>
+      </div>
+      <div id="orderAuditModalBody"></div>
+    </div>
+  </div>
+
+  <!-- Nạp các module JavaScript -->
+  <script src="js/mock_data.js"></script>
+  <script src="js/oms_engine.js"></script>
+  <script src="js/excel_handler.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
