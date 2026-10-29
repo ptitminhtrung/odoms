@@ -162,16 +162,17 @@ const ExcelHandler = {
       "Số lượng đặt": o.quantity,
       "Tồn trước khi trừ": o.stockSnapshot ? o.stockSnapshot.before : "-",
       "Tồn sau khi trừ": o.stockSnapshot ? o.stockSnapshot.after : "-",
-      "Trạng thái Phân bổ":
-        o.status === "ALLOCATED"
-          ? "ĐÃ GIỮ HÀNG & TRỪ KHO"
-          : o.status === "BACKORDER"
-          ? "THIẾU TỒN KHO (CHẶN BÁN LỐ)"
-          : "ĐƠN LỖI DỮ LIỆU",
-      "Lô hàng phân bổ (Batch FEFO)":
-        o.allocatedBatches.length > 0
-          ? o.allocatedBatches.map((b) => `${b.batchCode} (${b.takenQty} SP)`).join(", ")
-          : o.validationErrors.join("; ") || "Chờ nhập bổ sung",
+      "Trạng thái Xử lý (Sàn)":
+        o.platformStatus === "CONFIRMED"
+          ? "Đã xác nhận"
+          : o.platformStatus === "UNCONFIRMED"
+          ? "Chưa xác nhận"
+          : "Đã hủy đơn",
+      "Phương thức thanh toán": o.paymentMethod || "COD (Thanh toán khi nhận hàng)",
+      "Tiền thu hộ COD (₫)":
+        (o.paymentMethod || "").toUpperCase().includes("COD") || (o.paymentMethod || "").toLowerCase().includes("thu hộ")
+          ? (o.quantity || 0) * (o.unitPrice || 0)
+          : 0,
       "Khách hàng": o.customerName,
       "SĐT": o.customerPhone
     }));

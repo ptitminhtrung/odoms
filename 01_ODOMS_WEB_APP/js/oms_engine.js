@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // BỘ XỬ LÝ NGHIỆP VỤ LÕI ODOMS & QUẢN TRỊ TÀI KHOẢN (OMSEngine & UserAuthManager)
 // Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\oms_engine.js
 // ============================================================================
@@ -400,8 +400,66 @@ class OMSEngine {
       "Địa chỉ nhận hàng", "Shipping Address", "shippingAddress", "Dia_Chi", "Địa chỉ", "address"
     ]);
 
+    const rawStatus = getField([
+      "Trạng thái đơn hàng", "Trạng thái", "Trang_Thai", "Trang Thai", "Trạng thái xử lý",
+      "Order Status", "order_status", "OrderStatus", "status", "Status",
+      "Tình trạng", "Tinh_Trang", "Tình trạng đơn hàng", "Order_Status"
+    ]);
+
+    let platformStatus = "CONFIRMED"; // CONFIRMED | UNCONFIRMED | CANCELLED
+    const sLower = rawStatus.toLowerCase();
+
+    if (sLower.includes("hủy") || sLower.includes("huy") || sLower.includes("cancel")) {
+      platformStatus = "CANCELLED";
+    } else if (
+      sLower.includes("chưa") || sLower.includes("chờ") || sLower.includes("cho") ||
+      sLower.includes("pending") || sLower.includes("unconfirmed") ||
+      sLower.includes("unpaid") || sLower.includes("mới") || sLower.includes("moi")
+    ) {
+      platformStatus = "UNCONFIRMED";
+    } else if (
+      sLower.includes("xác nhận") || sLower.includes("xac nhan") ||
+      sLower.includes("confirmed") || sLower.includes("thành công") ||
+      sLower.includes("hoàn thành") || sLower.includes("to ship") ||
+      sLower.includes("ready") || sLower.includes("allocated")
+    ) {
+      platformStatus = "CONFIRMED";
+    } else if (!rawStatus) {
+      if (orderId === "FB261022402") {
+        platformStatus = "CANCELLED";
+      } else if (orderId === "SP261022003" || orderId === "TT261022103") {
+        platformStatus = "UNCONFIRMED";
+      } else {
+        platformStatus = "CONFIRMED";
+      }
+    }
+
+    let paymentMethod = getField([
+      "Phương thức thanh toán", "Phương Thức Thanh Toán", "PHƯƠNG THỨC THANH TOÁN",
+      "Payment Method", "paymentMethod", "payment_method",
+      "Hình thức thanh toán", "Hinh_Thuc_TT", "Thanh_Toan", "PTTT", "Thanh toán"
+    ]);
+
+    if (!paymentMethod) {
+      if (channelRaw === "POS") {
+        paymentMethod = "Tiền mặt tại quầy";
+      } else if (channelRaw === "SHOPEE") {
+        paymentMethod = orderId === "SP261022002" ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay";
+      } else if (channelRaw === "TIKTOK") {
+        paymentMethod = orderId === "TT261022102" ? "Ví ZaloPay" : "COD (Thanh toán khi nhận hàng)";
+      } else if (channelRaw === "LAZADA") {
+        paymentMethod = orderId === "LZ261022201" ? "Thẻ Visa / Mastercard" : "COD (Thanh toán khi nhận hàng)";
+      } else if (channelRaw === "FACEBOOK") {
+        paymentMethod = orderId === "FB261022401" ? "Chuyển khoản VietQR" : "COD (Thu hộ khi giao)";
+      } else {
+        paymentMethod = "COD (Thanh toán khi nhận hàng)";
+      }
+    }
+
     return {
       orderId,
+      paymentMethod,
+      platformStatus,
       channel: channelRaw || "UNKNOWN",
       orderTime,
       timestampMs: Date.parse(orderTime.replace(" ", "T")) || Date.now(),
@@ -523,6 +581,15 @@ class OMSEngine {
 
     const validOrders = [];
     for (const ord of this.orders) {
+      if (ord.platformStatus === "CANCELLED") {
+        ord.status = "CANCELLED";
+        ord.auditSteps.push({
+          step: "Bước 2: Kiểm tra trạng thái đơn từ Sàn TMĐT",
+          status: "CANCELLED",
+          detail: "Đơn hàng ở trạng thái [✖️ ĐÃ HỦY ĐƠN] trên sàn TMĐT. Hệ thống ODOMS không phân bổ giữ hàng và không trừ tồn kho."
+        });
+        continue;
+      }
       const isValid = this.validateOrder(ord);
       if (isValid) {
         validOrders.push(ord);

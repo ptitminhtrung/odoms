@@ -1,4 +1,4 @@
-Ma_Don,Kenh_Ban,Thoi_Gian_Dat,Ma_SKU,Ten_SP,So_Luong,Don_Gia,Ten_Khach,SDT,Dia_Chi
-POS261022301,POS,2026-10-22 08:17:20,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),2,250000,Khách lẻ tại Quầy POS Phường Bình Phú,0909888777,"186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)"
-FB261022401,FACEBOOK,2026-10-22 08:22:00,SP-TAI-NGHE-02,Tai nghe Bluetooth Không dây TWS ANC Pro,4,490000,Bùi Anh Tuấn (Chốt đơn Livestream FB),0922334455,"34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội"
-FB261022402,FACEBOOK,2026-10-22 08:24:00,SP-MA-LOI-999,Áo Khoác Gió Nhập Sai Mã SKU (Đơn lỗi mẫu),2,350000,Đỗ Mỹ Linh,0938111222,"15 Hai Bà Trưng, Phường Tân Định, TP.HCM"
+﻿Ma_Don,Kenh_Ban,Thoi_Gian_Dat,Ma_SKU,Ten_SP,So_Luong,Don_Gia,Ten_Khach,SDT,Dia_Chi,Trang_Thai,Hinh_Thuc_TT
+POS261022301,POS,2026-10-22 08:17:20,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),2,250000,Khách lẻ tại Quầy POS Phường Bình Phú,0909888777,"186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)",Đã xác nhận,Tiền mặt tại quầy
+FB261022401,FACEBOOK,2026-10-22 08:22:00,SP-TAI-NGHE-02,Tai nghe Bluetooth Không dây TWS ANC Pro,4,490000,Bùi Anh Tuấn (Chốt đơn Livestream FB),0922334455,"34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội",Đã xác nhận,Chuyển khoản VietQR
+FB261022402,FACEBOOK,2026-10-22 08:24:00,SP-MA-LOI-999,Áo Khoác Gió Nhập Sai Mã SKU (Đơn lỗi mẫu),2,350000,Đỗ Mỹ Linh,0938111222,"15 Hai Bà Trưng, Phường Tân Định, TP.HCM",Đã hủy đơn,COD (Thu hộ khi giao)

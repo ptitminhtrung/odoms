@@ -449,7 +449,7 @@ const AppUI = {
     const titleMap = {
       dashboard: "Dashboard",
       ingest: "Tiếp nhận & Gom đơn 5 Kênh",
-      inventory: "Đối chiếu Tồn kho ATP",
+      inventory: "Kho",
       shipping: "Vận chuyển đơn hàng đa kênh",
       fifo: "Vận chuyển đơn hàng đa kênh",
       backorder: "Hàng thiếu tồn (Chặn bán lố)",
@@ -555,7 +555,9 @@ const AppUI = {
       "Đơn giá": unitPrice,
       "Người Mua": customer,
       "Số điện thoại": "090" + Math.floor(1000000 + Math.random() * 8999999),
-      "Địa chỉ nhận hàng": `Đơn đồng bộ qua Webhook ${channel}`
+      "Địa chỉ nhận hàng": `Đơn đồng bộ qua Webhook ${channel}`,
+      "Trạng thái đơn hàng": "Đã xác nhận",
+      "Phương thức thanh toán": channel === "POS" ? "Tiền mặt tại quầy" : "Ví điện tử / Chuyển khoản"
     };
 
     window.omsEngine.ingestAndProcessOrders([mockApiPayload], "WEBHOOK_API");
@@ -739,6 +741,7 @@ const AppUI = {
     this.renderTop3ChannelsBarChart();
     this.renderThreeMonthBarChart();
     this.renderMonthlyChannelRanking();
+    this.renderFiveChannelSoldPieChart();
     this.renderChannelStrip();
     this.renderActionableAlerts();
     this.renderOrdersTable();
@@ -1231,6 +1234,365 @@ const AppUI = {
     }
   },
 
+  // 5. BIỂU ĐỒ TRÒN TƯƠNG TÁC: CƠ CẤU ĐƠN HÀNG ĐÃ BÁN THEO 5 KÊNH (Bấm màu chú giải để nhảy biểu đồ)
+  activePieChannel: null,
+
+  getFiveChannelSoldDataset() {
+    const monthKey = document.getElementById("soldPieMonthSelect")?.value || "2026-10";
+    const allData = this.getMonthlyHistoricalDataset();
+
+    const channelMeta = {
+      SHOPEE: {
+        key: "SHOPEE",
+        name: "Shopee",
+        fullName: "Shopee Mall",
+        color: "#F97316",
+        colorName: "Cam Shopee",
+        badge: "badge-SHOPEE"
+      },
+      FACEBOOK: {
+        key: "FACEBOOK",
+        name: "Facebook",
+        fullName: "Facebook Shop / Live",
+        color: "#0284C7",
+        colorName: "Xanh Facebook",
+        badge: "badge-FACEBOOK"
+      },
+      TIKTOK: {
+        key: "TIKTOK",
+        name: "TikTok Shop",
+        fullName: "TikTok Shop",
+        color: "#0F172A",
+        colorName: "Đen TikTok",
+        badge: "badge-TIKTOK"
+      },
+      LAZADA: {
+        key: "LAZADA",
+        name: "Lazada",
+        fullName: "Lazada Mall",
+        color: "#4F46E5",
+        colorName: "Tím Lazada",
+        badge: "badge-LAZADA"
+      },
+      POS: {
+        key: "POS",
+        name: "Cửa hàng POS",
+        fullName: "Cửa hàng Vật lý (POS)",
+        color: "#16A34A",
+        colorName: "Xanh lá POS",
+        badge: "badge-POS"
+      }
+    };
+
+    const orderKeys = ["SHOPEE", "FACEBOOK", "TIKTOK", "LAZADA", "POS"];
+    let periodLabel = "Tháng 10/2026";
+    const aggregated = {};
+
+    orderKeys.forEach((k) => {
+      aggregated[k] = { orders: 0, revenue: 0, growth: "+0.0%" };
+    });
+
+    if (monthKey === "ALL_6M") {
+      periodLabel = "Tổng hợp 6 Tháng (Th5/2026 – Th10/2026)";
+      Object.values(allData).forEach((mObj) => {
+        orderKeys.forEach((k) => {
+          if (mObj.channels && mObj.channels[k]) {
+            aggregated[k].orders += mObj.channels[k].orders;
+            aggregated[k].revenue += mObj.channels[k].revenue;
+            aggregated[k].growth = mObj.channels[k].growth;
+          }
+        });
+      });
+    } else {
+      const mObj = allData[monthKey] || allData["2026-10"];
+      periodLabel = mObj.label;
+      orderKeys.forEach((k) => {
+        if (mObj.channels && mObj.channels[k]) {
+          aggregated[k].orders = mObj.channels[k].orders;
+          aggregated[k].revenue = mObj.channels[k].revenue;
+          aggregated[k].growth = mObj.channels[k].growth;
+        }
+      });
+    }
+
+    const totalOrders = orderKeys.reduce((sum, k) => sum + aggregated[k].orders, 0);
+    const totalRevenue = orderKeys.reduce((sum, k) => sum + aggregated[k].revenue, 0);
+
+    const items = orderKeys.map((k) => {
+      const ord = aggregated[k].orders;
+      const rev = aggregated[k].revenue;
+      const pct = totalOrders > 0 ? (ord / totalOrders) * 100 : 0;
+      return {
+        ...channelMeta[k],
+        orders: ord,
+        revenue: rev,
+        growth: aggregated[k].growth,
+        pct,
+        pctText: pct.toFixed(1)
+      };
+    });
+
+    return { periodLabel, totalOrders, totalRevenue, items };
+  },
+
+  createDonutSectorPath(cx, cy, rInner, rOuter, startDeg, endDeg) {
+    // Tránh trường hợp 360 độ tròn khít làm SVG arc không vẽ
+    const clampedEnd = endDeg - startDeg >= 359.99 ? startDeg + 359.95 : endDeg;
+    const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+
+    const startRad = toRad(startDeg);
+    const endRad = toRad(clampedEnd);
+
+    const x1 = cx + rOuter * Math.cos(startRad);
+    const y1 = cy + rOuter * Math.sin(startRad);
+    const x2 = cx + rOuter * Math.cos(endRad);
+    const y2 = cy + rOuter * Math.sin(endRad);
+
+    const x3 = cx + rInner * Math.cos(endRad);
+    const y3 = cy + rInner * Math.sin(endRad);
+    const x4 = cx + rInner * Math.cos(startRad);
+    const y4 = cy + rInner * Math.sin(startRad);
+
+    const largeArc = clampedEnd - startDeg > 180 ? 1 : 0;
+
+    return [
+      `M ${x1.toFixed(2)} ${y1.toFixed(2)}`,
+      `A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`,
+      `L ${x3.toFixed(2)} ${y3.toFixed(2)}`,
+      `A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}`,
+      "Z"
+    ].join(" ");
+  },
+
+  renderFiveChannelSoldPieChart() {
+    const svgEl = document.getElementById("soldChannelPieSvg");
+    const legendEl = document.getElementById("soldChannelLegendList");
+    if (!svgEl || !legendEl) return;
+
+    const data = this.getFiveChannelSoldDataset();
+    this._lastSoldPieData = data;
+
+    const cx = 150;
+    const cy = 150;
+    const rOuter = 116;
+    const rInner = 60;
+    const rLabel = (rOuter + rInner) / 2;
+
+    let currentDeg = 0;
+    const slicesHtml = data.items
+      .map((item) => {
+        const angleSpan = data.totalOrders > 0 ? (item.orders / data.totalOrders) * 360 : 72;
+        const startDeg = currentDeg;
+        const endDeg = currentDeg + angleSpan;
+        const midDeg = startDeg + angleSpan / 2;
+        currentDeg = endDeg;
+
+        const pathD = this.createDonutSectorPath(cx, cy, rInner, rOuter, startDeg, endDeg);
+        const midRad = ((midDeg - 90) * Math.PI) / 180;
+
+        // Tọa độ nhảy tách miếng bánh (Explode offset) khi người dùng bấm chọn màu
+        const jumpDist = 16;
+        const dx = (Math.cos(midRad) * jumpDist).toFixed(2);
+        const dy = (Math.sin(midRad) * jumpDist).toFixed(2);
+
+        // Tọa độ nhãn % nằm giữa miếng cắt
+        const lx = (cx + rLabel * Math.cos(midRad)).toFixed(2);
+        const ly = (cy + rLabel * Math.sin(midRad)).toFixed(2);
+
+        const showLabel = item.pct >= 4.5;
+
+        return `
+          <g class="pie-slice-group"
+             data-channel="${item.key}"
+             data-dx="${dx}"
+             data-dy="${dy}"
+             onclick="AppUI.selectPieChannel('${item.key}')">
+            <path class="pie-slice-path" d="${pathD}" fill="${item.color}">
+              <title>${item.fullName}: ${item.orders} đơn đã bán (${item.pctText}%) — ${item.revenue.toLocaleString("vi-VN")} ₫</title>
+            </path>
+            ${showLabel ? `<text class="pie-slice-pct-text" x="${lx}" y="${ly}">${item.pctText}%</text>` : ""}
+          </g>
+        `;
+      })
+      .join("");
+
+    svgEl.innerHTML = slicesHtml;
+
+    // Render 5 mục chú giải màu kế bên biểu đồ tròn
+    legendEl.innerHTML = data.items
+      .map((item) => {
+        return `
+          <div class="sold-pie-legend-item"
+               data-channel="${item.key}"
+               style="--legend-color: ${item.color};"
+               onclick="AppUI.selectPieChannel('${item.key}')">
+            <div class="sold-pie-legend-top">
+              <div class="sold-pie-legend-left">
+                <span class="sold-pie-color-swatch" style="background:${item.color};" id="pieSwatch_${item.key}">●</span>
+                <div>
+                  <div class="sold-pie-channel-title">
+                    <span>${item.name}</span>
+                    <span style="font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:${item.color}18;color:${item.color};border:1px solid ${item.color}40;">
+                      ${item.colorName}
+                    </span>
+                  </div>
+                  <div class="sold-pie-channel-desc">${item.fullName} · Tăng trưởng ${item.growth}</div>
+                </div>
+              </div>
+              <div class="sold-pie-legend-right">
+                <div>
+                  <span class="sold-pie-order-num">${item.orders} đơn</span>
+                  <span class="sold-pie-share-badge" style="background:${item.color};">${item.pctText}%</span>
+                </div>
+                <div class="sold-pie-rev-text">${item.revenue.toLocaleString("vi-VN")} ₫</div>
+              </div>
+            </div>
+            <div class="sold-pie-mini-bar-bg">
+              <div class="sold-pie-mini-bar-fill" style="width:${Math.max(5, item.pct)}%;background:${item.color};"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    this.updateSoldPieInteractiveState(false);
+  },
+
+  selectPieChannel(chKey) {
+    if (!chKey || this.activePieChannel === chKey) {
+      this.activePieChannel = null;
+    } else {
+      this.activePieChannel = chKey;
+    }
+    this.updateSoldPieInteractiveState(true);
+  },
+
+  updateSoldPieInteractiveState(animateHub = true) {
+    const data = this._lastSoldPieData || this.getFiveChannelSoldDataset();
+    const activeKey = this.activePieChannel;
+    const activeItem = activeKey ? data.items.find((i) => i.key === activeKey) : null;
+
+    // 1. Cập nhật hiệu ứng nhảy tách miếng cắt trên SVG
+    const sliceGroups = document.querySelectorAll("#soldChannelPieSvg .pie-slice-group");
+    sliceGroups.forEach((g) => {
+      const ch = g.getAttribute("data-channel");
+      const dx = g.getAttribute("data-dx") || "0";
+      const dy = g.getAttribute("data-dy") || "0";
+
+      if (!activeKey) {
+        g.classList.remove("slice-active", "slice-dimmed");
+        g.style.transform = "translate(0px, 0px) scale(1)";
+      } else if (ch === activeKey) {
+        g.classList.add("slice-active");
+        g.classList.remove("slice-dimmed");
+        g.style.transform = `translate(${dx}px, ${dy}px) scale(1.055)`;
+      } else {
+        g.classList.remove("slice-active");
+        g.classList.add("slice-dimmed");
+        g.style.transform = "translate(0px, 0px) scale(0.97)";
+      }
+    });
+
+    // 2. Cập nhật trạng thái nổi bật của các mục chú giải màu kế bên
+    const legendItems = document.querySelectorAll("#soldChannelLegendList .sold-pie-legend-item");
+    legendItems.forEach((el) => {
+      const ch = el.getAttribute("data-channel");
+      const itemObj = data.items.find((i) => i.key === ch);
+      const swatch = document.getElementById(`pieSwatch_${ch}`);
+
+      if (!activeKey) {
+        el.classList.remove("legend-active", "legend-dimmed");
+        el.style.borderColor = "var(--border-color)";
+        if (swatch) swatch.innerText = "●";
+      } else if (ch === activeKey) {
+        el.classList.add("legend-active");
+        el.classList.remove("legend-dimmed");
+        el.style.borderColor = itemObj ? itemObj.color : "var(--border-color)";
+        if (swatch) swatch.innerText = "✓";
+      } else {
+        el.classList.remove("legend-active");
+        el.classList.add("legend-dimmed");
+        el.style.borderColor = "var(--border-color)";
+        if (swatch) swatch.innerText = "●";
+      }
+    });
+
+    // 3. Cập nhật tâm biểu đồ tròn (nhảy số động)
+    const hubEl = document.getElementById("soldPieCenterHub");
+    const lblEl = document.getElementById("soldPieCenterLabel");
+    const valEl = document.getElementById("soldPieCenterValue");
+    const subEl = document.getElementById("soldPieCenterSub");
+    const pillEl = document.getElementById("soldPieActiveStatusPill");
+    const footerEl = document.getElementById("soldPieSummaryFooter");
+
+    if (hubEl && animateHub) {
+      hubEl.classList.remove("hub-jumping");
+      void hubEl.offsetWidth; // trigger reflow
+      hubEl.classList.add("hub-jumping");
+    }
+
+    if (activeItem) {
+      if (hubEl) hubEl.style.borderColor = activeItem.color;
+      if (lblEl) {
+        lblEl.innerText = activeItem.name.toUpperCase();
+        lblEl.style.color = activeItem.color;
+      }
+      if (valEl) {
+        valEl.innerText = `${activeItem.orders} đơn`;
+        valEl.style.color = activeItem.color;
+      }
+      if (subEl) {
+        subEl.innerText = `Chiếm ${activeItem.pctText}% tổng đơn`;
+      }
+      if (pillEl) {
+        pillEl.style.background = `${activeItem.color}15`;
+        pillEl.style.borderColor = activeItem.color;
+        pillEl.style.color = activeItem.color;
+        pillEl.innerHTML = `🎯 Đang chọn: <strong>${activeItem.fullName} (${activeItem.colorName})</strong> — <strong>${activeItem.orders} đơn (${activeItem.pctText}%)</strong> · Bấm lần nữa để về tổng 5 kênh`;
+      }
+      if (footerEl) {
+        footerEl.innerHTML = `
+          <div>
+            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${activeItem.color};margin-right:6px;"></span>
+            Đang tách cơ cấu kênh: <strong style="color:${activeItem.color};">${activeItem.fullName}</strong> (${data.periodLabel})
+          </div>
+          <div>
+            Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn (${activeItem.pctText}%)</strong> · Doanh thu kênh: <strong style="color:${activeItem.color};">${activeItem.revenue.toLocaleString("vi-VN")} ₫</strong>
+          </div>
+        `;
+      }
+    } else {
+      if (hubEl) hubEl.style.borderColor = "var(--border-color)";
+      if (lblEl) {
+        lblEl.innerText = "TỔNG ĐÃ BÁN";
+        lblEl.style.color = "var(--text-muted)";
+      }
+      if (valEl) {
+        valEl.innerText = `${data.totalOrders} đơn`;
+        valEl.style.color = "var(--text-main)";
+      }
+      if (subEl) {
+        subEl.innerText = "100% · 5 Kênh bán";
+      }
+      if (pillEl) {
+        pillEl.style.background = "var(--bg-surface, #ffffff)";
+        pillEl.style.borderColor = "var(--border-color)";
+        pillEl.style.color = "var(--text-secondary)";
+        pillEl.innerHTML = "💡 Bấm vào mục màu chú giải bên phải (Xanh Facebook, Cam Shopee...) để biểu đồ nhảy tách kênh!";
+      }
+      if (footerEl) {
+        footerEl.innerHTML = `
+          <div>
+            📊 Cơ cấu tổng hợp <strong>5 kênh bán hàng</strong> trong <strong>${data.periodLabel}</strong>
+          </div>
+          <div>
+            Tổng đơn đã bán: <strong>${data.totalOrders} đơn (100%)</strong> · Tổng doanh thu: <strong style="color:var(--theme-primary, #2563eb);">${data.totalRevenue.toLocaleString("vi-VN")} ₫</strong>
+          </div>
+        `;
+      }
+    }
+  },
+
   renderKPIsAndBadges() {
     const orders = window.omsEngine.orders;
     const inv = window.omsEngine.inventory;
@@ -1423,7 +1785,10 @@ const AppUI = {
       list = list.filter((o) => o.channel === this.currentChannelFilter);
     }
     if (this.currentStatusFilter !== "ALL") {
-      list = list.filter((o) => o.status === this.currentStatusFilter);
+      list = list.filter((o) => {
+        const ps = o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
+        return ps === this.currentStatusFilter || o.status === this.currentStatusFilter;
+      });
     }
     if (this.searchQuery) {
       list = list.filter(
@@ -1453,14 +1818,15 @@ const AppUI = {
     tbody.innerHTML = list
       .map((ord) => {
         let statusBadge = "";
-        if (ord.status === "ALLOCATED") {
-          statusBadge = `<span class="status-badge st-ALLOCATED">✔ Đã giữ hàng & Trừ kho</span>`;
-        } else if (ord.status === "BACKORDER") {
-          statusBadge = `<span class="status-badge st-BACKORDER">⚠ Thiếu tồn (Chặn bán lố)</span>`;
-        } else if (ord.status === "INVALID") {
-          statusBadge = `<span class="status-badge st-INVALID">✖ Đơn lỗi hợp lệ</span>`;
+        const ps = ord.platformStatus || (ord.status === "CANCELLED" || ord.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
+        if (ps === "CONFIRMED") {
+          statusBadge = `<span class="status-badge st-ALLOCATED">✔️ Đã xác nhận</span>`;
+        } else if (ps === "UNCONFIRMED") {
+          statusBadge = `<span class="status-badge st-PENDING" style="background:#fffbeb;color:#b45309;border:1px solid #fef3c7;">⏳ Chưa xác nhận</span>`;
+        } else if (ps === "CANCELLED") {
+          statusBadge = `<span class="status-badge st-INVALID">✖️ Đã hủy đơn</span>`;
         } else {
-          statusBadge = `<span class="status-badge st-PENDING">⏳ Đang xử lý</span>`;
+          statusBadge = `<span class="status-badge st-PENDING">⏳ Chưa xác nhận</span>`;
         }
 
         const fifoBadge = ord.fifoRank
@@ -1473,14 +1839,28 @@ const AppUI = {
             }">${ord.stockSnapshot.after}</strong>`
           : `<span style="color:#ef4444;font-size:11.5px;">Chặn ở Bước 2</span>`;
 
-        const batchInfo =
-          ord.allocatedBatches.length > 0
-            ? ord.allocatedBatches
-                .map((b) => `<span class="hold-pill">Lô ${b.batchCode}: ${b.takenQty} SP</span>`)
-                .join(" ")
-            : ord.validationErrors.length > 0
-            ? `<span style="color:#dc2626;font-size:12px;">${ord.validationErrors.join(", ")}</span>`
-            : `<span style="color:#b45309;font-size:12px;">Hết tồn khả dụng (Cần nhập bù)</span>`;
+        const pm = ord.paymentMethod || "COD (Thanh toán khi nhận hàng)";
+        const isCodOrder = pm.toUpperCase().includes("COD") || pm.toLowerCase().includes("thu hộ") || pm.toLowerCase().includes("khi nhận hàng");
+        const orderTotalVal = (ord.quantity || 0) * (ord.unitPrice || 0);
+        const codSubLabel = isCodOrder
+          ? `<div style="font-size:10.5px;color:#c2410c;font-weight:700;margin-top:3px;">💵 Thu hộ COD: ${orderTotalVal.toLocaleString("vi-VN")} ₫</div>`
+          : `<div style="font-size:10.5px;color:#15803d;font-weight:700;margin-top:3px;">✔ Đã thanh toán (COD: 0 ₫)</div>`;
+
+        let pmPill = "";
+        if (isCodOrder) {
+          pmPill = `<span class="hold-pill" style="background:#fff7ed;color:#c2410c;border:1px solid #ffedd5;font-weight:700;"><span style="font-size:12px;">💵</span> ${pm}</span>`;
+        } else if (pm.includes("ShopeePay") || pm.includes("ZaloPay") || pm.includes("Ví")) {
+          pmPill = `<span class="hold-pill" style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;font-weight:700;"><span style="font-size:12px;">💳</span> ${pm}</span>`;
+        } else if (pm.includes("Chuyển khoản") || pm.includes("VietQR") || pm.includes("QR")) {
+          pmPill = `<span class="hold-pill" style="background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;font-weight:700;"><span style="font-size:12px;">🏦</span> ${pm}</span>`;
+        } else if (pm.includes("Thẻ") || pm.includes("Visa") || pm.includes("Mastercard")) {
+          pmPill = `<span class="hold-pill" style="background:#faf5ff;color:#7c3aed;border:1px solid #e9d5ff;font-weight:700;"><span style="font-size:12px;">💳</span> ${pm}</span>`;
+        } else if (pm.includes("Tiền mặt")) {
+          pmPill = `<span class="hold-pill" style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;font-weight:700;"><span style="font-size:12px;">🏪</span> ${pm}</span>`;
+        } else {
+          pmPill = `<span class="hold-pill" style="background:#f8fafc;color:#334155;border:1px solid #e2e8f0;font-weight:700;">💳 ${pm}</span>`;
+        }
+        const pmBadge = `<div>${pmPill}${codSubLabel}</div>`;
 
         const sourceBadge =
           ord.sourceMethod === "WEBHOOK_API"
@@ -1506,11 +1886,11 @@ const AppUI = {
           <td style="font-weight:800;font-size:14px;">${ord.quantity}</td>
           <td>${stockCompare}</td>
           <td>${statusBadge}</td>
-          <td>${batchInfo}</td>
+          <td>${pmBadge}</td>
           <td>
             <div style="display:flex;gap:5px;flex-wrap:wrap;">
               <button class="btn btn-outline btn-sm" onclick="AppUI.openOrderAuditModal('${ord.orderId}')" title="Xem lưu vết 4 bước xử lý">
-                🔍 4 bước
+                🔍 Xem chi tiết
               </button>
               <button class="btn btn-primary btn-sm" onclick="AppUI.openWaybillForOrder('${ord.orderId}')" title="Tạo mã vận đơn & In mã QR cho đơn này">
                 🖨️ Vận đơn & QR
@@ -1645,7 +2025,8 @@ const AppUI = {
       productName: "Áo Polo Nam Coolmate Pro (Đen - Size L)",
       quantity: 4,
       batchCode: "LO-2026-A1",
-      totalAmount: 1000000,
+      totalAmount: 0,
+      paymentMethod: "Ví ShopeePay",
       createdAt: "25/10/2026 08:30:15"
     }
   ],
@@ -1707,15 +2088,19 @@ const AppUI = {
     setVal("wbAddress", ord.shippingAddress);
     setVal("wbSku", ord.sku);
     setVal("wbProductName", ord.productName);
+    const pm = ord.paymentMethod || "COD (Thanh toán khi nhận hàng)";
+    const isCodOrder = pm.toUpperCase().includes("COD") || pm.toLowerCase().includes("thu hộ") || pm.toLowerCase().includes("khi nhận hàng");
+    const codAmount = isCodOrder ? ord.quantity * ord.unitPrice : 0;
+
     setVal("wbQuantity", ord.quantity);
     setVal("wbBatchCode", batchText);
-    setVal("wbTotalAmount", ord.quantity * ord.unitPrice);
+    setVal("wbTotalAmount", codAmount);
 
     this.generateWaybillAndQR(true);
   },
 
   openWaybillForOrder(orderId) {
-    this.switchMenuTab("qr_api");
+    this.switchSidebarTab("qr_api");
     const selectEl = document.getElementById("waybillOrderSelect");
     if (selectEl) {
       selectEl.value = orderId;
@@ -1805,10 +2190,20 @@ const AppUI = {
 
   getWaybillFormValues() {
     const val = (id, fallback = "") => document.getElementById(id)?.value?.trim() || fallback;
-    const num = (id, fallback = 1) => Number(document.getElementById(id)?.value) || fallback;
+    const num = (id, fallback = 0) => {
+      const raw = document.getElementById(id)?.value;
+      if (raw === undefined || raw === null || String(raw).trim() === "") return fallback;
+      const parsed = Number(raw);
+      return isNaN(parsed) ? fallback : parsed;
+    };
+
+    const orderId = val("wbOrderId", "SP261022001");
+    const matchedOrd = window.omsEngine?.orders?.find((o) => o.orderId === orderId);
+    const totalAmount = num("wbTotalAmount", 0);
+    const paymentMethod = matchedOrd?.paymentMethod || (totalAmount > 0 ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay");
 
     return {
-      orderId: val("wbOrderId", "SP261022001"),
+      orderId,
       channel: val("wbChannel", "SHOPEE"),
       trackingCode: val("wbTrackingCode", "VD-ODOMS-261025-8801"),
       carrier: val("wbCarrier", "SPX Express"),
@@ -1819,7 +2214,8 @@ const AppUI = {
       productName: val("wbProductName", "Áo Polo Nam Coolmate Pro (Đen - Size L)"),
       quantity: num("wbQuantity", 4),
       batchCode: val("wbBatchCode", "LO-2026-A1"),
-      totalAmount: num("wbTotalAmount", 1000000)
+      totalAmount,
+      paymentMethod
     };
   },
 
@@ -1864,7 +2260,11 @@ const AppUI = {
             <div>Mã đơn gốc: <strong style="color:#0f172a;">${data.orderId}</strong></div>
             <div>Ngày tạo: <strong>${createdAtStr}</strong></div>
             <div>Mã lô xuất FEFO: <strong style="color:#15803d;">${data.batchCode}</strong></div>
-            <div>Thu hộ COD: <strong style="color:#dc2626;font-size:13.5px;">${data.totalAmount.toLocaleString("vi-VN")} ₫</strong></div>
+            <div>Thu tiền người nhận: ${
+              data.totalAmount > 0
+                ? `<strong style="color:#dc2626;font-size:13.5px;">${data.totalAmount.toLocaleString("vi-VN")} VND</strong>`
+                : `<strong style="color:#15803d;font-size:13px;">0 VND</strong>`
+            }</div>
           </div>
         </div>
       </div>
@@ -1939,7 +2339,13 @@ const AppUI = {
             <div style="font-size:11px;color:var(--text-muted);">${item.productName}</div>
           </td>
           <td><span class="hold-pill">${item.batchCode}</span></td>
-          <td style="font-weight:800;color:#dc2626;">${Number(item.totalAmount).toLocaleString("vi-VN")} ₫</td>
+          <td>
+            ${
+              Number(item.totalAmount) > 0
+                ? `<span style="font-weight:800;color:#dc2626;">${Number(item.totalAmount).toLocaleString("vi-VN")} VND</span>`
+                : `<span style="font-weight:800;color:#15803d;">0 VND</span>`
+            }
+          </td>
           <td style="font-size:11.5px;font-family:monospace;">${item.createdAt}</td>
           <td>
             <button class="btn btn-warning btn-sm" onclick="AppUI.loadAndPrintWaybillFromHistory('${item.trackingCode}')">
@@ -2251,6 +2657,7 @@ const AppUI = {
           <p><strong>Khách hàng:</strong> ${ord.customerName} (${ord.customerPhone})</p>
           <p><strong>Sản phẩm:</strong> ${ord.sku} - ${ord.productName}</p>
           <p><strong>Số lượng yêu cầu:</strong> <strong>${ord.quantity}</strong> (Đơn giá: ${ord.unitPrice.toLocaleString("vi-VN")} ₫)</p>
+          <p><strong>Phương thức TT:</strong> <strong style="color:var(--theme-primary);">${ord.paymentMethod || "COD"}</strong></p>
           <p><strong>Địa chỉ:</strong> ${ord.shippingAddress}</p>
         </div>
       </div>

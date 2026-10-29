@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // DỮ LIỆU KHỞI TẠO HỆ THỐNG ODOMS (QUẢN LÝ ĐƠN HÀNG ĐA KÊNH & PHÂN BỔ LÔ HÀNG FEFO)
 // Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\mock_data.js
 // ============================================================================
@@ -232,7 +232,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Đơn giá": 250000,
       "Người Mua": "Nguyễn Văn An",
       "Số điện thoại": "0901234567",
-      "Địa chỉ nhận hàng": "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM"
+      "Địa chỉ nhận hàng": "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM",
+      "Trạng thái đơn hàng": "Đã xác nhận",
+      "Phương thức thanh toán": "Ví ShopeePay"
     },
     {
       "Mã đơn hàng": "SP261022002",
@@ -244,7 +246,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Đơn giá": 490000,
       "Người Mua": "Trần Thị Bích",
       "Số điện thoại": "0912345678",
-      "Địa chỉ nhận hàng": "45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng"
+      "Địa chỉ nhận hàng": "45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng",
+      "Trạng thái đơn hàng": "Đã xác nhận",
+      "Phương thức thanh toán": "COD (Thanh toán khi nhận hàng)"
     },
     {
       "Mã đơn hàng": "SP261022003",
@@ -256,7 +260,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Đơn giá": 650000,
       "Người Mua": "Lê Hoàng Nam",
       "Số điện thoại": "0987654321",
-      "Địa chỉ nhận hàng": "88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội"
+      "Địa chỉ nhận hàng": "88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội",
+      "Trạng thái đơn hàng": "Chưa xác nhận",
+      "Phương thức thanh toán": "Ví ShopeePay"
     }
   ],
 
@@ -272,7 +278,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Unit Price": 250000,
       "Recipient": "Phạm Minh Tuấn",
       "Phone": "0933445566",
-      "Shipping Address": "56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM"
+      "Shipping Address": "56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM",
+      "Order Status": "Đã xác nhận",
+      "Payment Method": "COD (Thanh toán khi nhận hàng)"
     },
     {
       "Order ID": "TT261022102",
@@ -284,7 +292,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Unit Price": 380000,
       "Recipient": "Hoàng Thùy Linh",
       "Phone": "0977889900",
-      "Shipping Address": "12 Trần Phú, phường Nha Trang, tỉnh Khánh Hòa"
+      "Shipping Address": "12 Trần Phú, phường Nha Trang, tỉnh Khánh Hòa",
+      "Order Status": "Đã xác nhận",
+      "Payment Method": "Ví ZaloPay"
     },
     {
       "Order ID": "TT261022103",
@@ -296,7 +306,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Unit Price": 650000,
       "Recipient": "Đặng Quốc Khánh",
       "Phone": "0966112233",
-      "Shipping Address": "90 Lạch Tray, Phường Lê Chân, TP.Hải Phòng"
+      "Shipping Address": "90 Lạch Tray, Phường Lê Chân, TP.Hải Phòng",
+      "Order Status": "Chờ xác nhận",
+      "Payment Method": "COD (Thanh toán khi nhận hàng)"
     }
   ],
 
@@ -312,7 +324,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "unitPrice": 250000,
       "customerName": "Võ Thành Đạt",
       "customerPhone": "0944556677",
-      "shippingAddress": "78 Nguyễn Văn Linh, Phường Tân Thuận, TP.HCM"
+      "shippingAddress": "78 Nguyễn Văn Linh, Phường Tân Thuận, TP.HCM",
+      "order_status": "Đã xác nhận",
+      "paymentMethod": "Thẻ Visa / Mastercard"
     },
     {
       "orderNumber": "LZ261022202",
@@ -324,7 +338,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "unitPrice": 310000,
       "customerName": "Ngô Thanh Vân",
       "customerPhone": "0918273645",
-      "shippingAddress": "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ"
+      "shippingAddress": "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ",
+      "order_status": "Đã xác nhận",
+      "paymentMethod": "COD (Thanh toán khi nhận hàng)"
     }
   ],
 
@@ -340,7 +356,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Don_Gia": 250000,
       "Ten_Khach": "Khách lẻ tại Quầy POS Phường Bình Phú",
       "SDT": "0909888777",
-      "Dia_Chi": "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)"
+      "Dia_Chi": "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)",
+      "Trang_Thai": "Đã xác nhận",
+      "Hinh_Thuc_TT": "Tiền mặt tại quầy"
     },
     {
       "Ma_Don": "FB261022401",
@@ -352,7 +370,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Don_Gia": 490000,
       "Ten_Khach": "Bùi Anh Tuấn (Chốt đơn Livestream FB)",
       "SDT": "0922334455",
-      "Dia_Chi": "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội"
+      "Dia_Chi": "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội",
+      "Trang_Thai": "Đã xác nhận",
+      "Hinh_Thuc_TT": "Chuyển khoản VietQR"
     },
     {
       "Ma_Don": "FB261022402",
@@ -364,7 +384,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Don_Gia": 350000,
       "Ten_Khach": "Đỗ Mỹ Linh",
       "SDT": "0938111222",
-      "Dia_Chi": "15 Hai Bà Trưng, Phường Tân Định, TP.HCM"
+      "Dia_Chi": "15 Hai Bà Trưng, Phường Tân Định, TP.HCM",
+      "Trang_Thai": "Đã hủy đơn",
+      "Hinh_Thuc_TT": "COD (Thu hộ khi giao)"
     }
   ]
 };

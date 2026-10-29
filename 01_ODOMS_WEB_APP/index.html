@@ -138,10 +138,12 @@
             <button class="sidebar-menu-item" data-tab="inventory" onclick="AppUI.switchSidebarTab('inventory')">
               <span class="menu-item-left">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
-                Đối chiếu Tồn kho ATP
+                Kho
               </span>
+              <span id="badgeBackorderCount" class="menu-badge red" title="Số đơn thiếu tồn cần nhập bù">0</span>
             </button>
           </li>
+          
           <li>
             <button class="sidebar-menu-item" data-tab="shipping" onclick="AppUI.switchSidebarTab('shipping')">
               <span class="menu-item-left">
@@ -149,15 +151,6 @@
                 Vận chuyển đơn
               </span>
               <span id="badgeShippingCount" class="menu-badge orange">0</span>
-            </button>
-          </li>
-          <li>
-            <button class="sidebar-menu-item" data-tab="backorder" onclick="AppUI.switchSidebarTab('backorder')">
-              <span class="menu-item-left">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                Chặn bán lố / Thiếu tồn
-              </span>
-              <span id="badgeBackorderCount" class="menu-badge red">0</span>
             </button>
           </li>
           <li>
@@ -523,6 +516,65 @@
               </div>
             </div>
           </div>
+
+          <!-- BIỂU ĐỒ TRÒN TƯƠNG TÁC: CƠ CẤU ĐƠN HÀNG ĐÃ BÁN THEO 5 KÊNH (Đặt ngay dưới Biểu đồ Cột 3 Tháng & Cân đối chiều dài với Thanh Đồng bộ 5 Kênh) -->
+          <div class="wms-card sold-pie-card-full" style="margin-top:16px;margin-bottom:0;">
+            <div class="wms-card-header" style="margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div class="wms-card-title">🥧 Cơ cấu đơn hàng đã bán theo 5 kênh (Biểu đồ Tròn Tương tác)</div>
+                <div id="soldPieChartSubtitle" class="wms-card-subtitle">
+                  Bấm chọn trực tiếp vào các mục chú giải màu bên cạnh (Xanh Facebook, Cam Shopee, TikTok, Lazada, POS) để biểu đồ nhảy tách cơ cấu kênh đó
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select id="soldPieMonthSelect" class="form-control" style="width:auto;font-weight:700;padding:6px 10px;font-size:12.5px;" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                  <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
+                  <option value="2026-09">Tháng 09/2026</option>
+                  <option value="2026-08">Tháng 08/2026</option>
+                  <option value="2026-07">Tháng 07/2026</option>
+                  <option value="2026-06">Tháng 06/2026</option>
+                  <option value="2026-05">Tháng 05/2026</option>
+                  <option value="ALL_6M">Tổng hợp 6 Tháng (Th5 – Th10/2026)</option>
+                </select>
+                <button type="button" id="btnResetSoldPie" class="btn btn-outline btn-sm" onclick="AppUI.selectPieChannel(null)" style="font-weight:700;">
+                  🔄 Xem tổng 5 kênh
+                </button>
+              </div>
+            </div>
+
+            <div class="sold-pie-interactive-grid">
+              <!-- Cột Trái: Biểu đồ Tròn SVG có hiệu ứng nhảy miếng cắt khi chọn -->
+              <div class="sold-pie-visual-col">
+                <div class="sold-pie-svg-stage">
+                  <svg id="soldChannelPieSvg" viewBox="0 0 300 300" class="sold-pie-svg">
+                    <!-- Các phân đoạn hình quạt 5 kênh sẽ được vẽ động tại đây -->
+                  </svg>
+                  <div id="soldPieCenterHub" class="sold-pie-center-hub" onclick="AppUI.selectPieChannel(null)" title="Nhấn để xem tổng 5 kênh">
+                    <div id="soldPieCenterLabel" class="sold-pie-center-label">TỔNG ĐÃ BÁN</div>
+                    <div id="soldPieCenterValue" class="sold-pie-center-value">0 đơn</div>
+                    <div id="soldPieCenterSub" class="sold-pie-center-sub">100% · 5 Kênh</div>
+                  </div>
+                </div>
+                <div id="soldPieActiveStatusPill" class="sold-pie-active-pill">
+                  💡 Mẹo: Hãy bấm vào các ô màu chú giải bên phải để xem miếng biểu đồ nhảy ra!
+                </div>
+              </div>
+
+              <!-- Cột Phải (Kế bên): Danh sách các mục chú giải màu (Cam Shopee, Xanh Facebook, v.v.) bấm vào nhảy biểu đồ -->
+              <div class="sold-pie-legend-col">
+                <div class="sold-pie-legend-header">
+                  <span>🎨 CHÚ GIẢI MÀU SẮC & TỶ TRỌNG 5 KÊNH (BẤM VÀO MÀU ĐỂ CHỌN)</span>
+                  <span style="font-size:11px;font-weight:600;color:var(--text-muted);">Click chọn / Bỏ chọn</span>
+                </div>
+                <div id="soldChannelLegendList" class="sold-pie-legend-list">
+                  <!-- Danh sách 5 nút chú giải màu tương tác được render bởi AppUI.renderFiveChannelSoldPieChart() -->
+                </div>
+                <div id="soldPieSummaryFooter" class="sold-pie-summary-footer">
+                  <!-- Tóm tắt chi tiết kênh đang chọn -->
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- 4. THANH ĐỒNG BỘ 5 KÊNH BÁN HÀNG -->
@@ -626,7 +678,7 @@
         </section>
 
         <!-- 6. KHỐI CẢNH BÁO CẦN XỬ LÝ (Actionable Alerts) -->
-        <section class="oms-view-section" data-views="dashboard fifo backorder" style="margin-top:20px;">
+        <section class="oms-view-section" data-views="dashboard fifo backorder inventory" style="margin-top:20px;">
           <div class="wms-card">
             <div class="wms-card-header">
               <div>
@@ -654,9 +706,9 @@
                 </select>
                 <select id="statusFilterSelect" class="form-control" style="width:auto;">
                   <option value="ALL">Tất cả trạng thái</option>
-                  <option value="ALLOCATED">✔ Đã giữ hàng & Trừ kho</option>
-                  <option value="BACKORDER">⚠ Thiếu tồn (Chặn bán lố)</option>
-                  <option value="INVALID">✖ Đơn lỗi hợp lệ</option>
+                  <option value="CONFIRMED">✔️ Đã xác nhận</option>
+                  <option value="UNCONFIRMED">⏳ Chưa xác nhận</option>
+                  <option value="CANCELLED">✖️ Đã hủy đơn</option>
                 </select>
                 <input
                   type="text"
@@ -691,7 +743,7 @@
                     <th>SL Đặt</th>
                     <th>Tồn (Trước ➔ Sau)</th>
                     <th>Trạng Thái Xử Lý</th>
-                    <th>Lô Hàng Giữ Chỗ (FEFO)</th>
+                    <th>PHƯƠNG THỨC THANH TOÁN</th>
                     <th>Thao Tác</th>
                   </tr>
                 </thead>
@@ -951,8 +1003,8 @@
                     <input type="text" id="wbBatchCode" class="form-control" value="LO-2026-A1" />
                   </div>
                   <div>
-                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Tổng tiền thu hộ COD (₫)</label>
-                    <input type="number" id="wbTotalAmount" class="form-control" step="1000" value="1000000" />
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Thu tiền người nhận (VND)</label>
+                    <input type="number" id="wbTotalAmount" class="form-control" step="1000" value="0" />
                   </div>
                 </div>
 
@@ -1005,7 +1057,7 @@
                     <th>Khách Hàng Nhận</th>
                     <th>Sản Phẩm (SKU × SL)</th>
                     <th>Mã Lô Xuất (FEFO)</th>
-                    <th>Tiền Thu Hộ (COD)</th>
+                    <th>Thu Tiền Người Nhận (VND)</th>
                     <th>Thời Gian Tạo</th>
                     <th>Thao Tác In</th>
                   </tr>

@@ -42,9 +42,8 @@ Thanh điều hướng Sidebar bên trái được sắp xếp khoa học thành
 1. **Nhóm TỔNG QUAN (Nghiệp vụ Quản lý Đơn hàng Đa kênh & Phân bổ Lô hàng Batch FEFO):**
    * **Dashboard:** Trung tâm chỉ huy với Banner trạng thái FIFO/FEFO, Bảng Tổng Doanh Thu & Doanh Thu 5 Kênh (1 tháng), 4 thẻ KPI, Biểu đồ Tiếp nhận đơn / Xuất giữ hàng theo tháng (2 màu đối kháng), Biểu đồ Cột + Doanh thu Top 3 kênh bán hàng, Biểu đồ Cột 3 tháng tùy chọn kèm bộ lọc ngày và Bảng Xếp hạng các kênh bán hàng nhiều đơn nhất theo tháng.
    * **Tiếp nhận / Gom đơn:** Khu vực kéo thả hoặc nạp nhanh bảng dữ liệu Excel/CSV từ 5 sàn TMĐT và tải bộ file Excel mẫu `.xlsx` (5 Sheet).
-   * **Đối chiếu Tồn kho ATP:** Bảng đối chiếu trực quan $\text{Tồn Khả Dụng (ATP)} = \text{Tồn Vật Lý} - \text{Đang Giữ Chỗ}$ kèm phân bổ chi tiết theo mã lô hàng (`Batch FEFO`).
+   * **Kho:** Quản lý tồn kho thực tế, đối chiếu tồn khả dụng ATP, tích hợp cảnh báo đơn thiếu tồn/chặn bán lố và nút nhập bù kho tức thì (kèm **Badge màu đỏ** hiển thị số đơn cần nhập bù).
    * **Kiểm soát FIFO / FEFO:** Theo dõi thứ tự xếp hạng ưu tiên giữ hàng theo từng giây đặt hàng (kèm **Badge màu cam** hiển thị số đơn đã giữ hàng).
-   * **Chặn bán lố / Thiếu tồn:** Danh sách các đơn bị ngắt tự động khi hết tồn khả dụng để chống bán âm kho (kèm **Badge màu đỏ** cảnh báo khẩn cấp).
    * **QR / Tra cứu & API:** Công cụ tạo mã vận đơn (`VD-ODOMS-...`), in mã QR đơn hàng kèm phiếu giao hàng chuẩn A6, tra cứu mã QR định danh lô (`OD-POLO-1001`, `OD-TWS-1003`...) và bắn đơn giả lập qua Webhook/API 2 chiều.
 
 2. **Nhóm HỆ THỐNG (Quản trị & Cấu hình):**
