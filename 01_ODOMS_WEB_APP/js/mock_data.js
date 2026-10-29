@@ -232,7 +232,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Đơn giá": 250000,
       "Người Mua": "Nguyễn Văn An",
       "Số điện thoại": "0901234567",
-      "Địa chỉ nhận hàng": "123 Nguyễn Huệ, Quận 1, TP.HCM"
+      "Địa chỉ nhận hàng": "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM"
     },
     {
       "Mã đơn hàng": "SP261022002",
@@ -244,7 +244,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Đơn giá": 490000,
       "Người Mua": "Trần Thị Bích",
       "Số điện thoại": "0912345678",
-      "Địa chỉ nhận hàng": "45 Lê Lợi, Quận Hải Châu, Đà Nẵng"
+      "Địa chỉ nhận hàng": "45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng"
     },
     {
       "Mã đơn hàng": "SP261022003",
@@ -256,7 +256,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Đơn giá": 650000,
       "Người Mua": "Lê Hoàng Nam",
       "Số điện thoại": "0987654321",
-      "Địa chỉ nhận hàng": "88 Cầu Giấy, Hà Nội"
+      "Địa chỉ nhận hàng": "88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội"
     }
   ],
 
@@ -272,7 +272,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Unit Price": 250000,
       "Recipient": "Phạm Minh Tuấn",
       "Phone": "0933445566",
-      "Shipping Address": "56 Võ Văn Ngân, TP. Thủ Đức, TP.HCM"
+      "Shipping Address": "56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM"
     },
     {
       "Order ID": "TT261022102",
@@ -284,7 +284,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Unit Price": 380000,
       "Recipient": "Hoàng Thùy Linh",
       "Phone": "0977889900",
-      "Shipping Address": "12 Trần Phú, Nha Trang, Khánh Hòa"
+      "Shipping Address": "12 Trần Phú, phường Nha Trang, tỉnh Khánh Hòa"
     },
     {
       "Order ID": "TT261022103",
@@ -296,7 +296,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Unit Price": 650000,
       "Recipient": "Đặng Quốc Khánh",
       "Phone": "0966112233",
-      "Shipping Address": "90 Lạch Tray, Ngô Quyền, Hải Phòng"
+      "Shipping Address": "90 Lạch Tray, Phường Lê Chân, TP.Hải Phòng"
     }
   ],
 
@@ -312,7 +312,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "unitPrice": 250000,
       "customerName": "Võ Thành Đạt",
       "customerPhone": "0944556677",
-      "shippingAddress": "78 Nguyễn Văn Linh, Quận 7, TP.HCM"
+      "shippingAddress": "78 Nguyễn Văn Linh, Phường Tân Thuận, TP.HCM"
     },
     {
       "orderNumber": "LZ261022202",
@@ -324,7 +324,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "unitPrice": 310000,
       "customerName": "Ngô Thanh Vân",
       "customerPhone": "0918273645",
-      "shippingAddress": "22 Đại lộ Hòa Bình, Ninh Kiều, Cần Thơ"
+      "shippingAddress": "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ"
     }
   ],
 
@@ -338,9 +338,9 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Ten_SP": "Áo Polo Nam Coolmate Pro (Đen - Size L)",
       "So_Luong": 2,
       "Don_Gia": 250000,
-      "Ten_Khach": "Khách lẻ tại Quầy POS Quận 1",
+      "Ten_Khach": "Khách lẻ tại Quầy POS Phường Bình Phú",
       "SDT": "0909888777",
-      "Dia_Chi": "Mua trực tiếp tại Cửa hàng 123 Nguyễn Huệ"
+      "Dia_Chi": "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)"
     },
     {
       "Ma_Don": "FB261022401",
@@ -352,7 +352,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Don_Gia": 490000,
       "Ten_Khach": "Bùi Anh Tuấn (Chốt đơn Livestream FB)",
       "SDT": "0922334455",
-      "Dia_Chi": "34 Lý Thường Kiệt, Hoàn Kiếm, Hà Nội"
+      "Dia_Chi": "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội"
     },
     {
       "Ma_Don": "FB261022402",
@@ -364,7 +364,7 @@ window.SAMPLE_EXCEL_DATASETS = {
       "Don_Gia": 350000,
       "Ten_Khach": "Đỗ Mỹ Linh",
       "SDT": "0938111222",
-      "Dia_Chi": "15 Hai Bà Trưng, Quận 3, TP.HCM"
+      "Dia_Chi": "15 Hai Bà Trưng, Phường Tân Định, TP.HCM"
     }
   ]
 };
@@ -375,4 +375,203 @@ window.UNIFIED_SAMPLE_DATASET = [
   ...window.SAMPLE_EXCEL_DATASETS.TIKTOK,
   ...window.SAMPLE_EXCEL_DATASETS.LAZADA,
   ...window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS
+];
+
+// 6. Cấu hình Kho hàng & Nơi gửi hàng ODOMS (Nơi bán khi in vận đơn & điểm xuất phát trên Google Maps)
+window.ODOMS_WAREHOUSE_CONFIG = {
+  warehouseId: "KHO-BP-01",
+  warehouseName: "ODOMS Flagship Store — Kho Phường Bình Phú",
+  shortName: "Kho ODOMS Phường Bình Phú",
+  address: "186 An Dương Vương, Phường Bình Phú, TP.HCM",
+  fullAddress: "186 An Dương Vương, Phường Bình Phú, TP.HCM",
+  hotline: "028.7777.6868",
+  contactPerson: "Bộ phận Điều phối Vận chuyển ODOMS",
+  geoCoordinates: { lat: 10.7483, lng: 106.6285 }
+};
+
+// 7. Dữ liệu Vận chuyển Đơn hàng Đa kênh & Hành trình Giao nhận (Logistics & Live Tracking)
+window.SAMPLE_SHIPMENTS_DATA = [
+  {
+    trackingCode: "VD-SP-261028-8801",
+    orderId: "SP261022001",
+    channel: "SHOPEE",
+    carrier: "SPX Express",
+    shippingTier: "HOA_TOC",
+    shippingTierLabel: "⚡ Hỏa Tốc (2H)",
+    shippingFee: 0,
+    isFreeship: true,
+    totalCod: 1000000,
+    status: "IN_TRANSIT",
+    statusLabel: "🚚 Đang giao hàng",
+    sender: {
+      name: "ODOMS Store — Kho Phường Bình Phú",
+      phone: "028.7777.6868",
+      address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+    },
+    receiver: {
+      name: "Nguyễn Văn An",
+      phone: "0901.234.567",
+      address: "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM"
+    },
+    itemsSummary: "Áo Polo Nam Coolmate Pro (Đen - L) × 4",
+    batchCode: "LO-2026-A1",
+    handoverTime: "28/10/2026 08:30:15",
+    lastUpdateTime: "28/10/2026 14:20:00",
+    currentLocation: "Đang trên đường phát — Cách người nhận 1.2 km (Gần Ngã tư Lê Lợi - Pasteur, Phường Sài Gòn, TP.HCM)",
+    shipperName: "Trần Quốc Bảo (Bưu tá SPX Express)",
+    shipperPhone: "0934.567.890",
+    progressPercent: 80,
+    timeline: [
+      { time: "08:15:10", title: "Xuất kho ODOMS & Đóng gói", desc: "Đã xuất kho tại 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
+      { time: "09:00:25", title: "Bưu tá đã nhận hàng", desc: "Bưu tá SPX Express Trần Quốc Bảo đã tiếp nhận kiện hàng tại kho.", location: "186 An Dương Vương, Phường Bình Phú, TP.HCM" },
+      { time: "11:15:40", title: "Đến Hub trung chuyển", desc: "Kiện hàng đã qua trung tâm phân loại Trung tâm TP.HCM.", location: "Hub Phân Loại SPX Phường Sài Gòn" },
+      { time: "13:45:00", title: "Đang trên đường giao", desc: "Bưu tá đang di chuyển phát hàng đến địa chỉ 123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM.", location: "Tuyến đường Lê Lợi - Nguyễn Huệ, Phường Sài Gòn, TP.HCM" }
+    ]
+  },
+  {
+    trackingCode: "VD-TT-261028-4420",
+    orderId: "TT261022101",
+    channel: "TIKTOK",
+    carrier: "J&T Express",
+    shippingTier: "NHANH",
+    shippingTierLabel: "🚀 Giao Nhanh (24H)",
+    shippingFee: 25000,
+    isFreeship: false,
+    totalCod: 1000000,
+    status: "IN_TRANSIT",
+    statusLabel: "🚚 Đang giao hàng",
+    sender: {
+      name: "ODOMS Store — Kho Phường Bình Phú",
+      phone: "028.7777.6868",
+      address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+    },
+    receiver: {
+      name: "Trần Thị Mai",
+      phone: "0912.888.999",
+      address: "45 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM"
+    },
+    itemsSummary: "Áo Polo Nam Coolmate Pro × 4 (Chia 2 lô A1 + A2)",
+    batchCode: "LO-2026-A1 + LO-2026-A2",
+    handoverTime: "28/10/2026 09:10:00",
+    lastUpdateTime: "28/10/2026 13:50:00",
+    currentLocation: "Đang giao hàng — Cách người nhận 2.0 km (Khu vực cầu Lê Văn Sỹ)",
+    shipperName: "Lê Minh Tuấn (J&T Express)",
+    shipperPhone: "0908.776.554",
+    progressPercent: 70,
+    timeline: [
+      { time: "08:45:00", title: "Xuất kho ODOMS & Bàn giao", desc: "Xuất từ Kho 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
+      { time: "09:30:10", title: "J&T Express đã nhận", desc: "Kiện hàng đã nhập bưu cục J&T Phường Bình Phú.", location: "Bưu cục J&T Phường Bình Phú" },
+      { time: "11:40:20", title: "Chuyển giao bưu cục phát", desc: "Kiện hàng đã tới bưu cục phát Phường Nhiêu Lộc.", location: "Bưu cục J&T Phường Nhiêu Lộc" },
+      { time: "13:30:00", title: "Đang giao hàng", desc: "Bưu tá đang gọi khách hẹn nhận tại 45 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM.", location: "Đường Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM" }
+    ]
+  },
+  {
+    trackingCode: "VD-LZ-261028-9102",
+    orderId: "LZ261022202",
+    channel: "LAZADA",
+    carrier: "GHN (Giao Hàng Nhanh)",
+    shippingTier: "TIEU_CHUAN",
+    shippingTierLabel: "📦 Tiêu Chuẩn",
+    shippingFee: 0,
+    isFreeship: true,
+    totalCod: 1860000,
+    status: "DELIVERED",
+    statusLabel: "✅ Giao thành công",
+    sender: {
+      name: "ODOMS Store — Kho Phường Bình Phú",
+      phone: "028.7777.6868",
+      address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+    },
+    receiver: {
+      name: "Ngô Thanh Vân",
+      phone: "0918.273.645",
+      address: "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ"
+    },
+    itemsSummary: "Bình Giữ Nhiệt Inox Lock&Lock 900ml × 6",
+    batchCode: "LO-2026-D1",
+    handoverTime: "27/10/2026 14:00:00",
+    lastUpdateTime: "28/10/2026 11:30:00",
+    currentLocation: "Đã giao thành công — Khách ký nhận e-POD lúc 11:28",
+    shipperName: "Phạm Văn Hùng (GHN Cần Thơ)",
+    shipperPhone: "0977.123.456",
+    progressPercent: 100,
+    timeline: [
+      { time: "27/10 14:00", title: "Xuất kho ODOMS Phường Bình Phú", desc: "Xuất từ 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
+      { time: "27/10 16:30", title: "Rời trung tâm phân loại TP.HCM", desc: "Kiện hàng lên xe tải liên tỉnh đi Tây Nam Bộ.", location: "Hub GHN Tân Bình" },
+      { time: "28/10 07:15", title: "Đến bưu cục Phường An Cư", desc: "Đã tới bưu cục phát Cần Thơ.", location: "Bưu cục GHN Phường An Cư, TP.Cần Thơ" },
+      { time: "28/10 11:28", title: "Giao thành công & Ký e-POD", desc: "Khách hàng Ngô Thanh Vân đã nhận hàng và thanh toán đủ COD.", location: "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ" }
+    ]
+  },
+  {
+    trackingCode: "VD-FB-261028-3351",
+    orderId: "FB261022401",
+    channel: "FACEBOOK",
+    carrier: "GHTK (Giao Hàng Tiết Kiệm)",
+    shippingTier: "NHANH",
+    shippingTierLabel: "🚀 Giao Nhanh",
+    shippingFee: 35000,
+    isFreeship: false,
+    totalCod: 1960000,
+    status: "PENDING_PICKUP",
+    statusLabel: "⏳ Chờ lấy hàng",
+    sender: {
+      name: "ODOMS Store — Kho Phường Bình Phú",
+      phone: "028.7777.6868",
+      address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+    },
+    receiver: {
+      name: "Bùi Anh Tuấn",
+      phone: "0922.334.455",
+      address: "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội"
+    },
+    itemsSummary: "Tai nghe Bluetooth Không dây TWS ANC Pro × 4",
+    batchCode: "LO-2026-B1",
+    handoverTime: "28/10/2026 14:00:00",
+    lastUpdateTime: "28/10/2026 14:05:00",
+    currentLocation: "Đã đóng gói — Chờ bưu tá GHTK tới lấy tại 186 An Dương Vương, Phường Bình Phú, TP.HCM",
+    shipperName: "Đang điều phối bưu tá GHTK",
+    shipperPhone: "1900.6092",
+    progressPercent: 20,
+    timeline: [
+      { time: "13:50:00", title: "Duyệt đơn & Đóng gói", desc: "Đã in mã vận đơn VD-FB-261028-3351 và đóng thùng carton.", location: "Kho ODOMS Phường Bình Phú" },
+      { time: "14:05:00", title: "Bắn tín hiệu lấy hàng", desc: "Đã phát yêu cầu bưu tá GHTK ghé 186 An Dương Vương, Phường Bình Phú, TP.HCM lấy hàng.", location: "Kho ODOMS Phường Bình Phú" }
+    ]
+  },
+  {
+    trackingCode: "VD-SP-261028-5519",
+    orderId: "SP261022002",
+    channel: "SHOPEE",
+    carrier: "SPX Express",
+    shippingTier: "TIEU_CHUAN",
+    shippingTierLabel: "📦 Tiêu Chuẩn",
+    shippingFee: 0,
+    isFreeship: true,
+    totalCod: 980000,
+    status: "FAILED_RETURNING",
+    statusLabel: "❌ Giao thất bại / Chờ chuyển hoàn",
+    sender: {
+      name: "ODOMS Store — Kho Phường Bình Phú",
+      phone: "028.7777.6868",
+      address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+    },
+    receiver: {
+      name: "Đặng Thị Thảo",
+      phone: "0933.445.566",
+      address: "78 Quang Trung, Phường Gò Vấp, TP.HCM"
+    },
+    itemsSummary: "Tai nghe Bluetooth TWS ANC Pro × 2",
+    batchCode: "LO-2026-B1",
+    handoverTime: "28/10/2026 09:30:00",
+    lastUpdateTime: "28/10/2026 15:10:00",
+    currentLocation: "Bưu tá gọi 3 cuộc không nghe máy — Lưu kho Phường Gò Vấp chờ giao lại lần 2",
+    shipperName: "Vũ Đình Trọng (SPX Express)",
+    shipperPhone: "0961.889.900",
+    progressPercent: 60,
+    timeline: [
+      { time: "09:30:00", title: "Xuất kho ODOMS", desc: "Xuất từ 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
+      { time: "11:00:00", title: "Nhập kho bưu cục Phường Gò Vấp", desc: "Kiện hàng đã tới bưu cục phát.", location: "Bưu cục SPX Phường Gò Vấp" },
+      { time: "14:30:00", title: "Giao không thành công lần 1", desc: "Thuê bao không liên lạc được lúc 14:15, 14:22, 14:30.", location: "Đường Quang Trung, Phường Gò Vấp, TP.HCM" },
+      { time: "15:10:00", title: "Chờ giao lại lần 2", desc: "Kiện hàng lưu tạm tại kho, dự kiến giao lại sáng mai.", location: "Bưu cục SPX Phường Gò Vấp" }
+    ]
+  }
 ];

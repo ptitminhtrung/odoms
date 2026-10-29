@@ -88,6 +88,7 @@ const AppUI = {
 
   init() {
     this.initTheme();
+    this.initShipping();
     this.bindEvents();
     this.renderLoginQuickAccounts();
     // Luôn khởi đầu tại Màn hình Đăng nhập (căn giữa, màu mặc định Navy)
@@ -428,12 +429,16 @@ const AppUI = {
 
     // Cập nhật trạng thái active cho menu Sidebar
     document.querySelectorAll(".sidebar-menu-item[data-tab]").forEach((btn) => {
-      btn.classList.toggle("active", btn.getAttribute("data-tab") === tabKey);
+      const bTab = btn.getAttribute("data-tab");
+      const isAct = bTab === tabKey || (tabKey === "fifo" && bTab === "shipping") || (tabKey === "shipping" && bTab === "fifo");
+      btn.classList.toggle("active", isAct);
     });
 
     // Cập nhật trạng thái active cho thanh điều hướng đáy màn hình (Mobile Bottom Nav)
     document.querySelectorAll(".mobile-nav-btn[data-tab]").forEach((btn) => {
-      btn.classList.toggle("active", btn.getAttribute("data-tab") === tabKey);
+      const bTab = btn.getAttribute("data-tab");
+      const isAct = bTab === tabKey || (tabKey === "fifo" && bTab === "shipping") || (tabKey === "shipping" && bTab === "fifo");
+      btn.classList.toggle("active", isAct);
     });
 
     // Tự động đóng menu Sidebar trên thiết bị di động khi người dùng chọn tab
@@ -445,7 +450,8 @@ const AppUI = {
       dashboard: "Dashboard",
       ingest: "Tiếp nhận & Gom đơn 5 Kênh",
       inventory: "Đối chiếu Tồn kho ATP",
-      fifo: "Kiểm soát FIFO / FEFO",
+      shipping: "Vận chuyển đơn hàng đa kênh",
+      fifo: "Vận chuyển đơn hàng đa kênh",
       backorder: "Hàng thiếu tồn (Chặn bán lố)",
       qr_api: "QR / Tra cứu & API 2 Chiều",
       logs: "Lịch sử đăng nhập & Nhật ký",
@@ -483,6 +489,9 @@ const AppUI = {
       this.renderOrdersTable();
     }
 
+    if (tabKey === "shipping" || tabKey === "fifo") {
+      this.renderShippingTab();
+    }
     this.renderAll();
   },
 
@@ -723,6 +732,7 @@ const AppUI = {
   // RENDER TOÀN BỘ GIAO DIỆN DASHBOARD & CÁC PHÂN HỆ
   // ============================================================================
   renderAll() {
+    this.renderShippingTab();
     this.renderOneMonthRevenueOverview();
     this.renderKPIsAndBadges();
     this.renderCharts();
@@ -1254,7 +1264,9 @@ const AppUI = {
     );
 
     // Badges trên Sidebar ODOMS
-    setElText("badgeFifoCount", allocatedOrders);
+    const activeShippingCount = (this.shipments || []).filter(s => s.status === "IN_TRANSIT" || s.status === "PENDING_PICKUP").length;
+    setElText("badgeShippingCount", activeShippingCount || allocatedOrders);
+    setElText("badgeFifoCount", activeShippingCount || allocatedOrders);
     setElText("badgeBackorderCount", backorderOrders + outOfStockSkus);
   },
 
@@ -1628,7 +1640,7 @@ const AppUI = {
       carrier: "SPX Express",
       customerName: "Nguyễn Văn An",
       customerPhone: "0901234567",
-      address: "123 Nguyễn Huệ, Quận 1, TP.HCM",
+      address: "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM",
       sku: "SP-AO-POLO-01",
       productName: "Áo Polo Nam Coolmate Pro (Đen - Size L)",
       quantity: 4,
@@ -1802,7 +1814,7 @@ const AppUI = {
       carrier: val("wbCarrier", "SPX Express"),
       customerName: val("wbCustomerName", "Nguyễn Văn An"),
       customerPhone: val("wbCustomerPhone", "0901234567"),
-      address: val("wbAddress", "123 Nguyễn Huệ, Quận 1, TP.HCM"),
+      address: val("wbAddress", "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM"),
       sku: val("wbSku", "SP-AO-POLO-01"),
       productName: val("wbProductName", "Áo Polo Nam Coolmate Pro (Đen - Size L)"),
       quantity: num("wbQuantity", 4),
@@ -1829,7 +1841,7 @@ const AppUI = {
           <div class="wb-brand-logo">OD</div>
           <div>
             <div style="font-weight:900;font-size:15px;color:#0A2947;">ODOMS — PHIẾU GIAO HÀNG & MÃ VẬN ĐƠN</div>
-            <div style="font-size:11px;color:#475569;font-weight:600;">Hệ thống quản lý đơn hàng đa kênh thông minh · Trung tâm Điều phối Đa kênh</div>
+            <div style="font-size:11px;color:#475569;font-weight:600;">Hệ thống quản lý đơn hàng đa kênh thông minh · Kho Phường Bình Phú</div>
           </div>
         </div>
         <div style="text-align:right;">
@@ -1857,15 +1869,26 @@ const AppUI = {
         </div>
       </div>
 
-      <div class="wb-info-grid">
-        <div class="wb-info-box">
-          <div style="font-size:11px;font-weight:800;color:#0A2947;text-transform:uppercase;margin-bottom:4px;">👤 Người Nhận Hàng</div>
-          <div style="font-weight:800;font-size:13.5px;color:#0f172a;">${data.customerName} — ${data.customerPhone}</div>
-          <div style="font-size:12px;color:#334155;margin-top:3px;">📍 ${data.address}</div>
+      <div class="wb-info-grid" style="grid-template-columns:1fr 1fr;gap:10px;">
+        <!-- NƠI GỬI HÀNG (KHO BÁN) -->
+        <div class="wb-info-box" style="border-left:3px solid #2563eb;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:10.5px;font-weight:800;color:#1d4ed8;text-transform:uppercase;">🏢 NƠI GỬI HÀNG (BÊN BÁN)</span>
+            <span style="font-size:10px;font-weight:700;color:#64748b;">Mã kho: KHO-Q6</span>
+          </div>
+          <div style="font-weight:800;font-size:13px;color:#0f172a;">ODOMS Store — Kho Phường Bình Phú</div>
+          <div style="font-size:11.5px;color:#334155;margin-top:2px;">📍 186 An Dương Vương, Phường Bình Phú, TP.HCM</div>
+          <div style="font-size:11px;color:#475569;margin-top:2px;">📞 Hotline gửi hàng: <strong>028.7777.6868</strong></div>
         </div>
-        <div class="wb-info-box">
-          <div style="font-size:11px;font-weight:800;color:#0A2947;text-transform:uppercase;margin-bottom:4px;">📦 Chi Tiết Kiện Hàng (Chuẩn FIFO/FEFO)</div>
-          <div style="font-weight:800;font-size:13px;color:#0f172a;">${data.sku} × <span style="color:#dc2626;font-size:14px;">${data.quantity} SP</span></div>
+
+        <!-- NƠI NHẬN HÀNG (BÊN MUA) -->
+        <div class="wb-info-box" style="border-left:3px solid #dc2626;">
+          <div style="font-size:10.5px;font-weight:800;color:#b91c1c;text-transform:uppercase;margin-bottom:3px;">👤 NƠI NHẬN HÀNG (BÊN MUA)</div>
+          <div style="font-weight:800;font-size:13px;color:#0f172a;">${data.customerName} — ${data.customerPhone}</div>
+          <div style="font-size:11.5px;color:#334155;margin-top:2px;">📍 ${data.address}</div>
+          <div style="font-size:11px;color:#475569;margin-top:2px;">📦 Hàng hóa: ${data.sku} × <strong style="color:#dc2626;">${data.quantity} SP</strong> (${data.productName})</div>
+        </div>
+      </div>
           <div style="font-size:12px;color:#334155;margin-top:3px;">${data.productName}</div>
         </div>
       </div>
@@ -2243,7 +2266,312 @@ const AppUI = {
 
   closeModal() {
     document.getElementById("orderAuditModal").classList.remove("open");
-  }
+  },
+
+  // ============================================================================
+  // PHÂN HỆ VẬN CHUYỂN ĐƠN HÀNG & THEO DÕI HÀNH TRÌNH GOOGLE MAPS
+  // ============================================================================
+  initShipping() {
+    this.shipments = (window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0)
+      ? JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA))
+      : [];
+    this.shippingCarrierFilter = "ALL";
+    this.shippingStatusFilter = "ALL";
+    this.shippingSearchQuery = "";
+  },
+
+  onShippingFilterChange() {
+    this.shippingCarrierFilter = document.getElementById("shippingCarrierFilter")?.value || "ALL";
+    this.shippingStatusFilter = document.getElementById("shippingStatusFilter")?.value || "ALL";
+    this.shippingSearchQuery = (document.getElementById("shippingSearchInput")?.value || "").trim().toLowerCase();
+    this.renderShippingTab();
+  },
+
+  renderShippingTab() {
+    const tbody = document.getElementById("shippingTableBody");
+    if (!tbody) return;
+
+    if (!this.shipments || this.shipments.length === 0) {
+      if (window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0) {
+        this.shipments = JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA));
+      }
+    }
+
+    const list = this.shipments || [];
+
+    // Cập nhật 4 thẻ KPI Vận chuyển
+    const pendingCount = list.filter(s => s.status === "PENDING_PICKUP").length;
+    const inTransitCount = list.filter(s => s.status === "IN_TRANSIT").length;
+    const deliveredCount = list.filter(s => s.status === "DELIVERED").length;
+    const failedCount = list.filter(s => s.status === "FAILED_RETURNING").length;
+
+    const setEl = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.innerText = val;
+    };
+
+    setEl("shippingKpiPending", pendingCount);
+    setEl("shippingKpiInTransit", inTransitCount);
+    setEl("shippingKpiDelivered", deliveredCount);
+    setEl("shippingKpiFailed", failedCount);
+
+    const activeTotal = pendingCount + inTransitCount;
+    setEl("badgeShippingCount", activeTotal);
+    setEl("badgeFifoCount", activeTotal);
+
+    // Lọc theo bộ lọc
+    const filtered = list.filter(s => {
+      if (this.shippingCarrierFilter !== "ALL" && !s.carrier.toLowerCase().includes(this.shippingCarrierFilter.toLowerCase())) {
+        return false;
+      }
+      if (this.shippingStatusFilter !== "ALL" && s.status !== this.shippingStatusFilter) {
+        return false;
+      }
+      if (this.shippingSearchQuery) {
+        const q = this.shippingSearchQuery;
+        const matchCode = s.trackingCode.toLowerCase().includes(q);
+        const matchOrder = s.orderId.toLowerCase().includes(q);
+        const matchCust = s.receiver.name.toLowerCase().includes(q) || s.receiver.phone.includes(q);
+        const matchAddr = s.receiver.address.toLowerCase().includes(q);
+        if (!matchCode && !matchOrder && !matchCust && !matchAddr) return false;
+      }
+      return true;
+    });
+
+    const countLabel = document.getElementById("shippingCountLabel");
+    if (countLabel) {
+      countLabel.innerText = `Hiển thị ${filtered.length} / ${list.length} đơn vận chuyển · Kho Phường Bình Phú: 186 An Dương Vương, Phường Bình Phú, TP.HCM`;
+    }
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="10" style="text-align:center;padding:28px;color:var(--text-muted);">
+            🔍 Không tìm thấy đơn vận chuyển nào phù hợp với bộ lọc hiện tại (hoặc chưa chọn Tất cả trạng thái).
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(s => {
+      const feeHtml = s.isFreeship
+        ? '<span class="badge-freeship">🎁 Freeship (0₫)</span>'
+        : `<span class="shipping-fee-val">${Number(s.shippingFee).toLocaleString("vi-VN")} ₫</span>`;
+
+      const codHtml = s.totalCod > 0
+        ? `<span style="font-weight:800;color:#dc2626;">${Number(s.totalCod).toLocaleString("vi-VN")} ₫</span>`
+        : '<span style="font-weight:700;color:#16a34a;">0 ₫ (Đã TT)</span>';
+
+      return `
+        <tr>
+          <td>
+            <div style="font-family:monospace;font-weight:800;color:var(--text-main);">${s.trackingCode}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Đơn gốc: ${s.orderId}</div>
+          </td>
+          <td><span class="channel-badge badge-${s.channel}">${s.channel}</span></td>
+          <td><span class="carrier-pill">${s.carrier}</span></td>
+          <td>
+            <span style="font-weight:700;font-size:12px;color:var(--text-main);">${s.shippingTierLabel}</span>
+          </td>
+          <td>
+            <div class="shipping-duo-address">
+              <div class="shipping-addr-item">
+                <span class="shipping-addr-tag from">GỬI</span>
+                <div>
+                  <strong>Kho ODOMS Phường Bình Phú</strong>
+                  <div style="font-size:11px;color:var(--text-muted);">186 An Dương Vương, Phường Bình Phú, TP.HCM</div>
+                </div>
+              </div>
+              <div class="shipping-addr-item">
+                <span class="shipping-addr-tag to">NHẬN</span>
+                <div>
+                  <strong>${s.receiver.name}</strong> (${s.receiver.phone})
+                  <div style="font-size:11px;color:var(--text-secondary);">${s.receiver.address}</div>
+                </div>
+              </div>
+            </div>
+          </td>
+          <td>${feeHtml}</td>
+          <td>${codHtml}</td>
+          <td>
+            <div style="font-family:monospace;font-size:11.5px;color:var(--text-main);">${s.handoverTime}</div>
+            <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px;">Cập nhật: ${s.lastUpdateTime.split(" ")[1] || s.lastUpdateTime}</div>
+          </td>
+          <td>
+            <span class="status-badge st-${s.status}">${s.statusLabel}</span>
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" onclick="AppUI.openShippingMapModal('${s.trackingCode}')" title="Xem vị trí xe giao hàng trên Google Maps">
+                🗺️ Xem Bản Đồ
+              </button>
+              <button class="btn btn-warning btn-sm" onclick="AppUI.openWaybillFromShipping('${s.trackingCode}')" title="In tem vận đơn A6">
+                🖨️ In Đơn
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  },
+
+  openShippingMapModal(trackingCode) {
+    const s = (this.shipments || []).find(item => item.trackingCode === trackingCode);
+    if (!s) return;
+
+    const modal = document.getElementById("shippingMapModal");
+    const titleEl = document.getElementById("mapModalTrackingTitle");
+    const subtitleEl = document.getElementById("mapModalTrackingSubtitle");
+    const bodyEl = document.getElementById("shippingMapModalBody");
+    if (!modal || !bodyEl) return;
+
+    if (titleEl) {
+      titleEl.innerText = `🗺️ Hành Trình Giao Nhận — ${s.trackingCode} (${s.carrier})`;
+    }
+    if (subtitleEl) {
+      subtitleEl.innerText = `Trạng thái: ${s.statusLabel} · Cập nhật lúc ${s.lastUpdateTime}`;
+    }
+
+    const originAddr = "186 An Dương Vương, Phường Bình Phú, TP.HCM";
+    const destAddr = s.receiver.address;
+    const originEncoded = encodeURIComponent(originAddr);
+    const destEncoded = encodeURIComponent(destAddr);
+    const gmapsDirUrl = `https://www.google.com/maps/dir/?api=1&origin=${originEncoded}&destination=${destEncoded}`;
+
+    const progressPct = s.progressPercent || 70;
+    const shipperLeftPct = Math.min(Math.max(progressPct, 15), 85);
+
+    const timelineHtml = (s.timeline || []).map((t, idx, arr) => {
+      const isLast = idx === arr.length - 1;
+      const isCompleted = idx < arr.length - 1 || s.status === "DELIVERED";
+      const isCurrent = isLast && s.status !== "DELIVERED";
+
+      const stepClass = isCompleted ? "completed" : isCurrent ? "current" : "";
+      const dotIcon = isCompleted ? "✔" : isCurrent ? "🚚" : "⏳";
+
+      return `
+        <div class="shipping-timeline-step ${stepClass}">
+          <div class="timeline-dot">${dotIcon}</div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <strong style="color:var(--text-main);font-size:13px;">${t.title}</strong>
+              <span style="font-family:monospace;font-size:11px;color:var(--text-muted);background:var(--bg-subtle);padding:1px 6px;border-radius:4px;">${t.time}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">${t.desc}</div>
+            <div style="font-size:11px;color:#2563eb;font-weight:700;margin-top:2px;">📍 ${t.location}</div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    bodyEl.innerHTML = `
+      <!-- KHUNG BẢN ĐỒ TỰ ĐỘNG MÔ PHỎNG LỘ TRÌNH KHO PHƯỜNG BÌNH PHÚ -> KHÁCH -->
+      <div class="shipping-map-card">
+        <div class="shipping-map-header">
+          <div>
+            <span style="font-size:11px;font-weight:800;color:#2563eb;text-transform:uppercase;">🛰️ BẢN ĐỒ VỊ TRÍ GIAO HÀNG TRỰC TIẾP</span>
+            <div style="font-size:13.5px;font-weight:800;color:var(--text-main);margin-top:2px;">
+              ${s.currentLocation}
+            </div>
+          </div>
+          <a href="${gmapsDirUrl}" target="_blank" class="btn-google-maps" title="Mở chỉ đường trên ứng dụng Google Maps chính thức">
+            🌐 Mở lộ trình trên Google Maps
+          </a>
+        </div>
+
+        <div class="shipping-map-canvas">
+          <div class="map-grid-overlay"></div>
+
+          <!-- Tuyến đường giao nhận -->
+          <div class="map-road-track">
+            <div class="map-road-progress" style="width:${progressPct}%;"></div>
+          </div>
+
+          <!-- Điểm Gửi: Kho ODOMS Phường Bình Phú -->
+          <div class="map-pin origin" style="left:70px;">
+            <div class="map-pin-icon">🏢</div>
+            <div class="map-pin-label">📍 Kho Phường Bình Phú (186 An Dương Vương, Phường Bình Phú, TP.HCM)</div>
+          </div>
+
+          <!-- Vị trí Xe Giao Hàng Shipper -->
+          <div class="map-pin shipper" style="left:${shipperLeftPct}%;">
+            <div class="map-pin-icon">🚚</div>
+            <div class="map-pin-label">Shipper: ${s.shipperName.split("(")[0]} (${progressPct}%)</div>
+          </div>
+
+          <!-- Điểm Nhận: Khách Hàng -->
+          <div class="map-pin destination" style="right:70px;">
+            <div class="map-pin-icon">🏠</div>
+            <div class="map-pin-label">📍 ${s.receiver.name} (Điểm giao)</div>
+          </div>
+        </div>
+
+        <!-- Thông tin nhanh tuyến giao -->
+        <div class="shipping-route-info-grid">
+          <div class="shipping-route-info-box">
+            <div style="font-size:11px;font-weight:800;color:#2563eb;text-transform:uppercase;">🏢 NƠI GỬI (KHO BÁN HÀNG)</div>
+            <div style="font-weight:800;font-size:13px;color:var(--text-main);margin-top:3px;">ODOMS Store — Kho Phường Bình Phú</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">📍 186 An Dương Vương, Phường Bình Phú, TP.HCM</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">Hotline gửi hàng: 028.7777.6868</div>
+          </div>
+
+          <div class="shipping-route-info-box">
+            <div style="font-size:11px;font-weight:800;color:#dc2626;text-transform:uppercase;">👤 NƠI NHẬN (NGƯỜI DÙNG CUỐI)</div>
+            <div style="font-weight:800;font-size:13px;color:var(--text-main);margin-top:3px;">${s.receiver.name} — ${s.receiver.phone}</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">📍 ${s.receiver.address}</div>
+            <div style="font-size:11.5px;color:#16a34a;font-weight:700;margin-top:2px;">
+              ${s.isFreeship ? "🎁 Freeship 0₫" : "Phí ship: " + Number(s.shippingFee).toLocaleString("vi-VN") + " ₫"} · Thu hộ COD: ${Number(s.totalCod).toLocaleString("vi-VN")} ₫
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MỐC LỊCH SỬ HÀNH TRÌNH TỪNG CHẶNG -->
+      <div style="background:#ffffff;border:1px solid var(--border-color);border-radius:12px;padding:16px;">
+        <h4 style="font-size:14px;font-weight:800;color:var(--text-main);margin-bottom:12px;display:flex;align-items:center;gap:6px;">
+          <span>⏱️ Lịch Sử Bàn Giao & Các Mốc Hành Trình Chi Tiết</span>
+          <span style="font-size:11.5px;font-weight:600;color:var(--text-muted);">(Cập nhật liên tục từ bưu cục)</span>
+        </h4>
+        <div class="shipping-timeline">
+          ${timelineHtml}
+        </div>
+      </div>
+    `;
+
+    modal.classList.add("open");
+  },
+
+  closeShippingMapModal() {
+    const modal = document.getElementById("shippingMapModal");
+    if (modal) modal.classList.remove("open");
+  },
+
+  openWaybillFromShipping(trackingCode) {
+    const s = (this.shipments || []).find(item => item.trackingCode === trackingCode);
+    if (!s) return;
+
+    this.switchSidebarTab("qr_api");
+
+    const setVal = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v;
+    };
+
+    setVal("wbOrderId", s.orderId);
+    setVal("wbChannel", s.channel);
+    setVal("wbTrackingCode", s.trackingCode);
+    setVal("wbCarrier", s.carrier);
+    setVal("wbCustomerName", s.receiver.name);
+    setVal("wbCustomerPhone", s.receiver.phone);
+    setVal("wbAddress", s.receiver.address);
+    setVal("wbBatchCode", s.batchCode);
+    setVal("wbTotalAmount", s.totalCod);
+
+    this.generateWaybillAndQR(false);
+    this.printWaybillQrTicket();
+  },
+
 };
 
 window.AppUI = AppUI;
