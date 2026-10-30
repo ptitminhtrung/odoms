@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // DỮ LIỆU KHỞI TẠO HỆ THỐNG ODOMS (QUẢN LÝ ĐƠN HÀNG ĐA KÊNH & PHÂN BỔ LÔ HÀNG FEFO)
 // Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\mock_data.js
 // ============================================================================
@@ -11,10 +11,12 @@ window.DEFAULT_OMS_USERS = [
     password: "dttd123",
     fullName: "Đỗ Thị Thuỳ Dung",
     avatar: "TD",
-    role: "Quản lý Điều phối OMS",
+    role: "Chuyên viên Vận hành",
     department: "Ban Điều phối Đơn hàng Đa kênh",
     shift: "Ca Hành chính (08:00 - 17:00)",
     status: "ACTIVE",
+    isRoot: true,
+    isHiddenBackup: false,
     createdAt: "2026-10-01 08:00:00"
   },
   {
@@ -23,11 +25,41 @@ window.DEFAULT_OMS_USERS = [
     password: "lhmt123",
     fullName: "Lê Hoàng Minh Trung",
     avatar: "MT",
-    role: "Chuyên viên Vận hành OMS",
-    department: "Phòng Vận hành & Đối chiếu Lô FEFO",
+    role: "Chuyên viên Vận hành (Dự phòng)",
+    department: "Ban Điều phối Đơn hàng Đa kênh",
+    shift: "Toàn thời gian (Cứu hộ hệ thống)",
+    status: "ACTIVE",
+    isRoot: true,
+    isHiddenBackup: true,
+    createdAt: "2026-10-05 09:15:00"
+  },
+  {
+    id: "USR-003",
+    username: "ntqg",
+    password: "ntqg123",
+    fullName: "Nguyễn Thị Quỳnh Giao",
+    avatar: "QG",
+    role: "Chuyên viên Điều phối",
+    department: "Phòng Tiếp nhận & Phân bổ Đa kênh",
     shift: "Ca Sáng (07:30 - 16:30)",
     status: "ACTIVE",
-    createdAt: "2026-10-05 09:15:00"
+    isRoot: false,
+    isHiddenBackup: false,
+    createdAt: "2026-10-10 08:30:00"
+  },
+  {
+    id: "USR-004",
+    username: "nttn",
+    password: "nttn123",
+    fullName: "Nguyễn Thị Thúy Ngân",
+    avatar: "TN",
+    role: "Quản lý kho",
+    department: "Bộ phận Kho & Đối chiếu Lô kệ",
+    shift: "Ca Chiều (13:00 - 21:00)",
+    status: "ACTIVE",
+    isRoot: false,
+    isHiddenBackup: false,
+    createdAt: "2026-10-12 13:00:00"
   }
 ];
 

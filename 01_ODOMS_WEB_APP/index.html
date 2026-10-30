@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="vi" data-theme="navy">
 <head>
   <meta charset="UTF-8" />
@@ -1108,7 +1108,7 @@
               <div class="wms-card-header">
                 <div>
                   <div class="wms-card-title">Danh sách Nhân sự & Tài khoản Truy cập OMS</div>
-                  <div class="wms-card-subtitle">Tài khoản mặc định: Đỗ Thị Thuỳ Dung (dttd) & Lê Hoàng Minh Trung (lhmt)</div>
+                  <div class="wms-card-subtitle">Quản trị người dùng và phân quyền truy cập chức năng hệ thống ODOMS</div>
                 </div>
               </div>
 
@@ -1159,12 +1159,14 @@
                 </div>
 
                 <div style="margin-bottom:12px;">
-                  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Chức vụ / Vai trò phân quyền</label>
+                  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Vai trò</label>
                   <select id="newUserRole" class="form-control">
-                    <option value="Chuyên viên Vận hành OMS">Chuyên viên Vận hành OMS</option>
-                    <option value="Quản lý Điều phối OMS">Quản lý Điều phối OMS</option>
-                    <option value="Chuyên viên Kiểm soát Lô FEFO">Chuyên viên Kiểm soát Lô FEFO</option>
-                    <option value="Chuyên viên Đối chiếu Đa kênh">Chuyên viên Đối chiếu Đa kênh</option>
+                    <option value="Chuyên viên Điều phối">Chuyên viên Điều phối</option>
+                    <option value="Chuyên viên Vận hành">Chuyên viên Vận hành</option>
+                    <option value="Quản lý kho">Quản lý kho</option>
+                    <option value="Chuyên viên CSKH">Chuyên viên CSKH</option>
+                    <option value="Chuyên viên RMA">Chuyên viên RMA</option>
+                    <option value="Kế toán">Kế toán</option>
                   </select>
                 </div>
 
@@ -1285,9 +1287,9 @@
               <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;">
                 <h4 style="margin-bottom:8px;">2. Quản trị Danh sách Tài khoản</h4>
                 <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
-                  Khôi phục danh sách tài khoản về 2 user gốc: <strong>Đỗ Thị Thuỳ Dung (dttd)</strong> và <strong>Lê Hoàng Minh Trung (lhmt)</strong>.
+                  Khôi phục danh sách người dùng về cấu hình tài khoản phân quyền mặc định của hệ thống ODOMS.
                 </p>
-                <button class="btn btn-danger-outline btn-sm" onclick="window.userAuth.resetUsersToDefault(); AppUI.renderStaffManagement(); AppUI.renderLoginQuickAccounts(); alert('Đã khôi phục 2 tài khoản gốc (dttd & lhmt)!');">
+                <button class="btn btn-danger-outline btn-sm" onclick="window.userAuth.resetUsersToDefault(); AppUI.renderStaffManagement(); AppUI.renderLoginQuickAccounts(); alert('Đã khôi phục danh sách tài khoản về mặc định!');">
                   Khôi phục tài khoản mặc định
                 </button>
               </div>

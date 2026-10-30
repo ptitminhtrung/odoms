@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // BỘ XỬ LÝ NGHIỆP VỤ LÕI ODOMS & QUẢN TRỊ TÀI KHOẢN (OMSEngine & UserAuthManager)
 // Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\oms_engine.js
 // ============================================================================
@@ -18,14 +18,45 @@ class UserAuthManager {
     try {
       const raw = localStorage.getItem(this.STORAGE_USERS_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        let parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Đảm bảo 2 tài khoản mặc định dttd và lhmt luôn tồn tại
+          // Đảm bảo 2 tài khoản quản trị cao nhất dttd và lhmt luôn tồn tại
           const hasDttd = parsed.some((u) => u.username.toLowerCase() === "dttd");
           const hasLhmt = parsed.some((u) => u.username.toLowerCase() === "lhmt");
-          if (hasDttd && hasLhmt) {
-            return parsed;
+          if (!hasDttd || !hasLhmt) {
+            const defaults = JSON.parse(JSON.stringify(window.DEFAULT_OMS_USERS));
+            this.saveUsers(defaults);
+            return defaults;
           }
+          // Bổ sung các tài khoản mặc định mới (ntqg, nttn) nếu chưa có trong LocalStorage
+          window.DEFAULT_OMS_USERS.forEach((def) => {
+            if (!parsed.some((u) => u.username.toLowerCase() === def.username.toLowerCase())) {
+              parsed.push(JSON.parse(JSON.stringify(def)));
+            }
+          });
+          // Đồng bộ lại cờ bảo mật và vai trò chuẩn hóa cho các tài khoản
+          parsed.forEach((u) => {
+            if (u.username.toLowerCase() === "lhmt") {
+              u.isHiddenBackup = true;
+              u.isRoot = true;
+              u.role = "Chuyên viên Vận hành (Dự phòng)";
+              u.fullName = "Lê Hoàng Minh Trung";
+            }
+            if (u.username.toLowerCase() === "dttd") {
+              u.isRoot = true;
+              u.isHiddenBackup = false;
+              u.role = "Chuyên viên Vận hành";
+              u.fullName = "Đỗ Thị Thuỳ Dung";
+            }
+            if (u.username.toLowerCase() === "ntqg") {
+              u.role = "Chuyên viên Điều phối";
+            }
+            if (u.username.toLowerCase() === "nttn") {
+              u.role = "Quản lý kho";
+            }
+          });
+          this.saveUsers(parsed);
+          return parsed;
         }
       }
     } catch (e) {
@@ -222,7 +253,7 @@ class UserAuthManager {
       password: cleanPassword,
       fullName: cleanName,
       avatar: this.generateAvatarInitials(cleanName),
-      role: role || "Chuyên viên Điều phối OMS",
+      role: role || "Chuyên viên Điều phối",
       department: department || "Phòng Vận hành Đa kênh",
       shift: shift || "Ca Hành chính (08:00 - 17:00)",
       status: "ACTIVE",
@@ -249,10 +280,17 @@ class UserAuthManager {
 
   deleteUser(username) {
     const target = String(username || "").toLowerCase();
-    if (target === "dttd") {
+    if (target === "dttd" || target === "lhmt") {
       return {
         success: false,
-        message: "Không thể xóa tài khoản Quản lý gốc (Đỗ Thị Thuỳ Dung - dttd)!"
+        message: "Không thể xóa tài khoản Quản trị tối cao của hệ thống ODOMS!"
+      };
+    }
+    const foundUser = this.users.find((u) => u.username.toLowerCase() === target);
+    if (foundUser && foundUser.isRoot) {
+      return {
+        success: false,
+        message: "Không thể xóa tài khoản Quản trị tối cao của hệ thống ODOMS!"
       };
     }
     if (this.currentUser && this.currentUser.username.toLowerCase() === target) {

