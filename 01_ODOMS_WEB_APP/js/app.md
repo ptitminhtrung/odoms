@@ -2584,13 +2584,15 @@ handleResetPassword(username) {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">
             <div>Mã đơn gốc: <strong style="color:#0f172a;">${data.orderId}</strong></div>
+            <div>Thu tiền người nhận:</div>
             <div>Ngày tạo: <strong>${createdAtStr}</strong></div>
-            <div>Mã lô xuất FEFO: <strong style="color:#15803d;">${data.batchCode}</strong></div>
-            <div>Thu tiền người nhận: ${
+            <div>
+              <div style="display:inline-block;min-width:110px;padding:3px 10px;border:1.5px solid ${data.totalAmount > 0 ? '#dc2626' : '#16a34a'};background:${data.totalAmount > 0 ? '#fef2f2' : '#f0fdf4'};border-radius:6px;text-align:center;">${
               data.totalAmount > 0
                 ? `<strong style="color:#dc2626;font-size:13.5px;">${data.totalAmount.toLocaleString("vi-VN")} VND</strong>`
                 : `<strong style="color:#15803d;font-size:13px;">0 VND</strong>`
-            }</div>
+              }</div>
+            </div>
           </div>
         </div>
       </div>
@@ -2615,12 +2617,12 @@ handleResetPassword(username) {
           <div style="font-size:11px;color:#475569;margin-top:2px;">📦 Hàng hóa: ${data.sku} × <strong style="color:#dc2626;">${data.quantity} SP</strong> (${data.productName})</div>
         </div>
       </div>
-          <div style="font-size:12px;color:#334155;margin-top:3px;">${data.productName}</div>
+          <div style="font-size:12px;color:#334155;margin-top:3px;font-weight:700;">${data.trackingCode}</div>
         </div>
       </div>
 
       <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#475569;border-top:1px dashed #cbd5e1;padding-top:8px;">
-        <span>✔ Đã kiểm tra tồn khả dụng (ATP) & khóa lô hàng tự động</span>
+        <span>✔ Được đồng kiểm hàng</span>
         <span>Chữ ký Nhân viên Đóng gói / Bưu tá</span>
       </div>
     `;
