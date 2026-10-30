@@ -1160,14 +1160,23 @@
 
                 <div style="margin-bottom:12px;">
                   <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Vai trò</label>
-                  <select id="newUserRole" class="form-control">
+                  <select id="newUserRole" class="form-control" onchange="AppUI.handleRoleSelectChange(this.value)">
                     <option value="Chuyên viên Điều phối">Chuyên viên Điều phối</option>
                     <option value="Chuyên viên Vận hành">Chuyên viên Vận hành</option>
                     <option value="Quản lý kho">Quản lý kho</option>
                     <option value="Chuyên viên CSKH">Chuyên viên CSKH</option>
                     <option value="Chuyên viên RMA">Chuyên viên RMA</option>
                     <option value="Kế toán">Kế toán</option>
+                    <option value="Khác">Khác</option>
                   </select>
+                  <div id="customRoleWrap" class="hidden" style="margin-top:8px;">
+                    <input
+                      type="text"
+                      id="newUserCustomRole"
+                      class="form-control"
+                      placeholder="Nhập chức danh &quot;Khác&quot;"
+                    />
+                  </div>
                 </div>
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">

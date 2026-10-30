@@ -41,18 +41,22 @@ class UserAuthManager {
               u.isRoot = true;
               u.role = "Chuyên viên Vận hành (Dự phòng)";
               u.fullName = "Lê Hoàng Minh Trung";
+              u.department = "Chuyên viên Vận hành";
             }
             if (u.username.toLowerCase() === "dttd") {
               u.isRoot = true;
               u.isHiddenBackup = false;
               u.role = "Chuyên viên Vận hành";
               u.fullName = "Đỗ Thị Thuỳ Dung";
+              u.department = "Chuyên viên Vận hành";
             }
             if (u.username.toLowerCase() === "ntqg") {
               u.role = "Chuyên viên Điều phối";
+              u.department = "Chuyên viên Điều phối";
             }
             if (u.username.toLowerCase() === "nttn") {
               u.role = "Quản lý kho";
+              u.department = "Quản lý kho";
             }
           });
           this.saveUsers(parsed);

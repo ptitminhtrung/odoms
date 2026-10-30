@@ -302,6 +302,12 @@ const AppUI = {
         e.preventDefault();
         this.handleAddNewUser();
       });
+      const roleSel = document.getElementById("newUserRole");
+      if (roleSel) {
+        roleSel.addEventListener("change", (e) => {
+          this.handleRoleSelectChange(e.target.value);
+        });
+      }
     }
   },
 
@@ -684,14 +690,44 @@ const AppUI = {
   // ============================================================================
   // QUẢN LÝ NHÂN SỰ & THÊM USER TÙY Ý (Tab Nhân sự)
   // ============================================================================
+  handleRoleSelectChange(val) {
+    const customRoleWrap = document.getElementById("customRoleWrap");
+    const customRoleInput = document.getElementById("newUserCustomRole");
+    if (!customRoleWrap) return;
+    const isCustom = String(val || "").trim() === "Khác";
+    customRoleWrap.classList.toggle("hidden", !isCustom);
+    if (isCustom && customRoleInput) {
+      customRoleInput.focus();
+    }
+  },
+
   handleAddNewUser() {
     const fullName = document.getElementById("newUserFullName").value;
     const username = document.getElementById("newUserUsername").value;
     const password = document.getElementById("newUserPassword").value;
-    const role = document.getElementById("newUserRole").value;
+    const roleSelect = document.getElementById("newUserRole").value;
+    const customRoleInput = document.getElementById("newUserCustomRole");
+    const customRoleWrap = document.getElementById("customRoleWrap");
     const department = document.getElementById("newUserDept").value;
     const shift = document.getElementById("newUserShift").value;
     const msgBox = document.getElementById("userFormFeedback");
+
+    let role = roleSelect;
+    if (roleSelect === "Khác") {
+      const customRole = customRoleInput ? customRoleInput.value.trim() : "";
+      if (!customRole) {
+        if (msgBox) {
+          msgBox.classList.remove("hidden");
+          msgBox.style.background = "#fef2f2";
+          msgBox.style.color = "#dc2626";
+          msgBox.style.border = "1px solid #fecaca";
+          msgBox.innerText = "Vui lòng nhập tên chức danh cho vai trò 'Khác'!";
+        }
+        if (customRoleInput) customRoleInput.focus();
+        return;
+      }
+      role = customRole;
+    }
 
     const res = window.userAuth.addNewUser({
       fullName,
@@ -712,6 +748,7 @@ const AppUI = {
 
     if (res.success) {
       document.getElementById("addNewUserForm").reset();
+      if (customRoleWrap) customRoleWrap.classList.add("hidden");
       window.omsEngine.addLog("success", `[NHÂN SỰ OMS] ${res.message}`);
       this.renderStaffManagement();
       this.renderAccessLogsTable();
