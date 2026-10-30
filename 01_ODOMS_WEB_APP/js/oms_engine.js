@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // BỘ XỬ LÝ NGHIỆP VỤ LÕI ODOMS & QUẢN TRỊ TÀI KHOẢN (OMSEngine & UserAuthManager)
 // Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\oms_engine.js
 // ============================================================================
@@ -41,22 +41,22 @@ class UserAuthManager {
               u.isRoot = true;
               u.role = "Chuyên viên Vận hành (Dự phòng)";
               u.fullName = "Lê Hoàng Minh Trung";
-              u.department = "Chuyên viên Vận hành";
+              u.department = "Phòng Vận hành Đa kênh";
             }
             if (u.username.toLowerCase() === "dttd") {
               u.isRoot = true;
               u.isHiddenBackup = false;
               u.role = "Chuyên viên Vận hành";
               u.fullName = "Đỗ Thị Thuỳ Dung";
-              u.department = "Chuyên viên Vận hành";
+              u.department = "Phòng Vận hành Đa kênh";
             }
             if (u.username.toLowerCase() === "ntqg") {
               u.role = "Chuyên viên Điều phối";
-              u.department = "Chuyên viên Điều phối";
+              u.department = "Phòng Điều phối Đơn hàng";
             }
             if (u.username.toLowerCase() === "nttn") {
               u.role = "Quản lý kho";
-              u.department = "Quản lý kho";
+              u.department = "Bộ phận Kho Vận";
             }
           });
           this.saveUsers(parsed);
@@ -190,9 +190,10 @@ class UserAuthManager {
     }
 
     if (found.status !== "ACTIVE") {
+      const suspendNotice = found.suspendUntil ? " (Tạm ngừng đến: " + found.suspendUntil + ")" : "";
       return {
         success: false,
-        message: "Tài khoản này đang bị tạm khóa. Vui lòng liên hệ Quản lý OMS."
+        message: "Tài khoản [" + found.username + "] hiện đang bị tạm ngừng hoạt động (Inactive)" + suspendNotice + "! Vui lòng liên hệ Quản trị viên."
       };
     }
 
@@ -308,6 +309,147 @@ class UserAuthManager {
     return {
       success: true,
       message: `Đã xóa tài khoản [${username}] khỏi danh sách nhân sự.`
+    };
+  }
+
+  toggleUserStatus(username, targetStatus, suspendUntil = "", suspendReason = "") {
+    const target = String(username || "").toLowerCase();
+    const user = this.users.find((u) => u.username.toLowerCase() === target);
+    if (!user) {
+      return { success: false, message: "Không tìm thấy tài khoản người dùng!" };
+    }
+    if ((target === "dttd" || target === "lhmt" || user.isRoot) && targetStatus === "INACTIVE") {
+      return { success: false, message: "Không thể tạm ngừng hoạt động tài khoản Quản trị tối cao của hệ thống!" };
+    }
+    if (this.currentUser && this.currentUser.username.toLowerCase() === target && targetStatus === "INACTIVE") {
+      return { success: false, message: "Không thể tự tạm ngừng hoạt động tài khoản đang trong phiên đăng nhập hiện tại!" };
+    }
+
+    user.status = targetStatus === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+    if (user.status === "INACTIVE") {
+      user.suspendUntil = suspendUntil || "Cho đến khi mở lại";
+      user.suspendReason = suspendReason || "Tạm ngưng hoạt động bởi Quản trị viên";
+      user.suspendedAt = this.formatNow();
+    } else {
+      user.suspendUntil = "";
+      user.suspendReason = "";
+      user.resumedAt = this.formatNow();
+    }
+    this.saveUsers(this.users);
+
+    const actionText = user.status === "INACTIVE"
+      ? "Tạm ngừng hoạt động (OFF) tài khoản: " + user.fullName + " (" + user.username + ") đến: " + user.suspendUntil
+      : "Kích hoạt lại (ON) tài khoản: " + user.fullName + " (" + user.username + ")";
+
+    this.recordAccessLog({
+      username: this.currentUser ? this.currentUser.username : "system",
+      fullName: this.currentUser ? this.currentUser.fullName : "Hệ thống",
+      role: this.currentUser ? this.currentUser.role : "Admin",
+      action: actionText,
+      status: "SUCCESS"
+    });
+
+    return {
+      success: true,
+      user,
+      message: user.status === "INACTIVE"
+        ? "Đã tạm ngừng hoạt động (Inactive) tài khoản [" + user.username + "]!"
+        : "Đã kích hoạt lại (Active) tài khoản [" + user.username + "] thành công!"
+    };
+  }
+
+
+  updateUser(originalUsername, updatedData) {
+    const origTarget = String(originalUsername || "").toLowerCase();
+    const userIndex = this.users.findIndex((u) => u.username.toLowerCase() === origTarget);
+    if (userIndex === -1) {
+      return { success: false, message: "Không tìm thấy tài khoản cần chỉnh sửa!" };
+    }
+
+    const newUsername = String(updatedData.username || "").trim().toLowerCase();
+    if (!newUsername) {
+      return { success: false, message: "Tên đăng nhập không được để trống!" };
+    }
+
+    // Nếu đổi tên đăng nhập, kiểm tra trùng lặp
+    if (newUsername !== origTarget && this.users.some((u) => u.username.toLowerCase() === newUsername)) {
+      return { success: false, message: "Tên đăng nhập mới đã tồn tại trên hệ thống!" };
+    }
+
+    const user = this.users[userIndex];
+    const isRoot = origTarget === "dttd" || origTarget === "lhmt" || user.isRoot;
+
+    // Không cho đổi username của tài khoản Root
+    if (isRoot && newUsername !== origTarget) {
+      return { success: false, message: "Không được phép thay đổi tên đăng nhập của tài khoản Quản trị tối cao!" };
+    }
+
+    user.fullName = String(updatedData.fullName || user.fullName).trim();
+    user.username = isRoot ? origTarget : newUsername;
+    if (updatedData.password) {
+      user.password = String(updatedData.password).trim();
+    }
+    user.role = updatedData.role || user.role;
+    user.department = updatedData.department || user.department;
+    user.shift = updatedData.shift || user.shift;
+
+    // Cập nhật avatar ký tự đầu họ tên
+    const nameParts = user.fullName.split(" ").filter(Boolean);
+    if (nameParts.length >= 2) {
+      user.avatar = (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
+    } else if (nameParts.length === 1) {
+      user.avatar = nameParts[0].substring(0, 2).toUpperCase();
+    }
+
+    // Nếu đang đăng nhập tài khoản này, cập nhật currentUser
+    if (this.currentUser && this.currentUser.username.toLowerCase() === origTarget) {
+      this.currentUser = JSON.parse(JSON.stringify(user));
+      try {
+        localStorage.setItem("ODOMS_SESSION_USER", JSON.stringify(this.currentUser));
+      } catch (e) {}
+    }
+
+    this.saveUsers(this.users);
+
+    this.recordAccessLog({
+      username: this.currentUser ? this.currentUser.username : "system",
+      fullName: this.currentUser ? this.currentUser.fullName : "Hệ thống",
+      role: this.currentUser ? this.currentUser.role : "Admin",
+      action: "Chỉnh sửa thông tin tài khoản: " + user.fullName + " (" + user.username + ")",
+      status: "SUCCESS"
+    });
+
+    return {
+      success: true,
+      user,
+      message: "Đã cập nhật thông tin tài khoản [" + user.username + "] thành công!"
+    };
+  }
+
+  resetUserPassword(username, newPassword) {
+    const target = String(username || "").toLowerCase();
+    const user = this.users.find((u) => u.username.toLowerCase() === target);
+    if (!user) {
+      return { success: false, message: "Không tìm thấy tài khoản người dùng cần đổi mật khẩu!" };
+    }
+    const cleanPass = String(newPassword || "").trim();
+    if (!cleanPass) {
+      return { success: false, message: "Mật khẩu mới không được để trống!" };
+    }
+    user.password = cleanPass;
+    this.saveUsers(this.users);
+
+    this.recordAccessLog({
+      username: this.currentUser ? this.currentUser.username : "system",
+      fullName: this.currentUser ? this.currentUser.fullName : "Hệ thống",
+      role: this.currentUser ? this.currentUser.role : "Admin",
+      action: "Đặt lại mật khẩu cho tài khoản: " + user.fullName + " (" + user.username + ")",
+      status: "SUCCESS"
+    });
+
+    return {
+      success: true,
+      message: "Đã đặt lại mật khẩu mới cho tài khoản [" + user.username + "] thành công!"
     };
   }
 

@@ -765,6 +765,292 @@ const AppUI = {
     }
   },
 
+    
+  pendingDeleteUsername: null,
+
+  promptDeleteUser(username) {
+    const u = (window.userAuth.users || []).find(
+      (item) => item.username.toLowerCase() === String(username).toLowerCase()
+    );
+    if (!u) return;
+
+    const isRoot = u.username.toLowerCase() === "dttd" || u.username.toLowerCase() === "lhmt" || u.isRoot;
+    const activeUser = window.userAuth.currentUser;
+    const isCurrent = activeUser && activeUser.username.toLowerCase() === u.username.toLowerCase();
+
+    if (isRoot) {
+      alert("Tài khoản Quản trị tối cao (Root Super Admin) được bảo vệ và không thể xóa!");
+      return;
+    }
+    if (isCurrent) {
+      alert("Không thể xóa tài khoản đang đăng nhập trong phiên làm việc hiện tại!");
+      return;
+    }
+
+    this.pendingDeleteUsername = u.username;
+    const infoEl = document.getElementById("deleteTargetUserInfo");
+    if (infoEl) {
+      infoEl.textContent = `${u.fullName} (@${u.username}) - ${u.role}`;
+    }
+    const modal = document.getElementById("confirmDeleteUserModal");
+    if (modal) modal.classList.add("open");
+  },
+
+  closeConfirmDeleteModal() {
+    this.pendingDeleteUsername = null;
+    const modal = document.getElementById("confirmDeleteUserModal");
+    if (modal) modal.classList.remove("open");
+  },
+
+  executeDeleteUser() {
+    if (!this.pendingDeleteUsername) {
+      this.closeConfirmDeleteModal();
+      return;
+    }
+    const username = this.pendingDeleteUsername;
+    const res = window.userAuth.deleteUser(username);
+    this.closeConfirmDeleteModal();
+    alert(res.message);
+    if (res.success) {
+      this.renderStaffManagement();
+      this.renderAccessLogsTable();
+      this.renderLoginQuickAccounts();
+    }
+  },
+
+  openEditUserModal(username) {
+    const u = (window.userAuth.users || []).find(
+      (item) => item.username.toLowerCase() === String(username).toLowerCase()
+    );
+    if (!u) {
+      alert("Không tìm thấy thông tin tài khoản nhân sự!");
+      return;
+    }
+
+    const modal = document.getElementById("editUserModal");
+    if (!modal) return;
+
+    document.getElementById("editOriginalUsername").value = u.username;
+    document.getElementById("editFullName").value = u.fullName || "";
+    document.getElementById("editUsername").value = u.username || "";
+    document.getElementById("editPassword").value = u.password || "";
+    document.getElementById("editDepartment").value = u.department || "";
+    document.getElementById("editShift").value = u.shift || "Ca Hành chính (08:00 - 17:00)";
+
+    const standardRoles = [
+      "Chuyên viên Điều phối",
+      "Chuyên viên Vận hành",
+      "Quản lý kho",
+      "Chuyên viên CSKH",
+      "Chuyên viên RMA",
+      "Kế toán"
+    ];
+
+    const roleSelect = document.getElementById("editRole");
+    const customWrap = document.getElementById("editCustomRoleWrap");
+    const customInput = document.getElementById("editCustomRoleInput");
+
+    if (standardRoles.includes(u.role)) {
+      roleSelect.value = u.role;
+      if (customWrap) customWrap.style.display = "none";
+      if (customInput) customInput.value = "";
+    } else {
+      roleSelect.value = "Khác";
+      if (customWrap) customWrap.style.display = "block";
+      if (customInput) customInput.value = u.role || "";
+    }
+
+    // Nếu là Root Super Admin thì khóa không cho sửa username
+    const isRoot = u.username.toLowerCase() === "dttd" || u.username.toLowerCase() === "lhmt" || u.isRoot;
+    const usernameInput = document.getElementById("editUsername");
+    if (usernameInput) {
+      usernameInput.readOnly = isRoot;
+      usernameInput.title = isRoot ? "Không được đổi tên đăng nhập tài khoản Quản trị tối cao" : "";
+    }
+
+    modal.classList.add("open");
+  },
+
+  handleEditRoleChange() {
+    const roleSelect = document.getElementById("editRole");
+    const customWrap = document.getElementById("editCustomRoleWrap");
+    const customInput = document.getElementById("editCustomRoleInput");
+    if (!roleSelect || !customWrap) return;
+
+    if (roleSelect.value === "Khác") {
+      customWrap.style.display = "block";
+      if (customInput) customInput.focus();
+    } else {
+      customWrap.style.display = "none";
+      if (customInput) customInput.value = "";
+    }
+  },
+
+  closeEditUserModal() {
+    const modal = document.getElementById("editUserModal");
+    if (modal) modal.classList.remove("open");
+  },
+
+  saveEditUser() {
+    const origUsername = document.getElementById("editOriginalUsername").value;
+    const fullName = document.getElementById("editFullName").value.trim();
+    const username = document.getElementById("editUsername").value.trim().toLowerCase();
+    const password = document.getElementById("editPassword").value.trim();
+    const roleSelect = document.getElementById("editRole").value;
+    const customRole = (document.getElementById("editCustomRoleInput") ? document.getElementById("editCustomRoleInput").value.trim() : "");
+    const department = document.getElementById("editDepartment").value.trim();
+    const shift = document.getElementById("editShift").value;
+
+    if (!fullName) {
+      alert("Họ và tên nhân sự không được để trống!");
+      return;
+    }
+    if (!username) {
+      alert("Tên đăng nhập không được để trống!");
+      return;
+    }
+    if (!password) {
+      alert("Mật khẩu không được để trống!");
+      return;
+    }
+
+    let finalRole = roleSelect;
+    if (roleSelect === "Khác") {
+      if (!customRole) {
+        alert("Vui lòng nhập tên chức danh 'Khác'!");
+        return;
+      }
+      finalRole = customRole;
+    }
+
+    const res = window.userAuth.updateUser(origUsername, {
+      fullName,
+      username,
+      password,
+      role: finalRole,
+      department: department || "Phòng Vận hành OMS",
+      shift
+    });
+
+    alert(res.message);
+    if (res.success) {
+      this.closeEditUserModal();
+      this.renderStaffManagement();
+      this.renderAccessLogsTable();
+      this.renderLoginQuickAccounts();
+    }
+  },
+
+handleResetPassword(username) {
+    const defaultNewPass = username + "123";
+    const newPass = prompt("Nhập mật khẩu mới cho tài khoản [" + username + "]:", defaultNewPass);
+    if (newPass === null) return;
+    const passTrim = newPass.trim();
+    if (!passTrim) {
+      alert("Mật khẩu không được để trống!");
+      return;
+    }
+    const res = window.userAuth.resetUserPassword(username, passTrim);
+    alert(res.message);
+    if (res.success) {
+      window.omsEngine.addLog("info", "[BẢO MẬT] " + res.message);
+      this.renderStaffManagement();
+      this.renderAccessLogsTable();
+      this.renderLoginQuickAccounts();
+    }
+  },
+
+  pendingSuspendUsername: null,
+
+  handleToggleUserStatus(username, isCurrentlyActive) {
+    const u = (window.userAuth.users || []).find(
+      (item) => item.username.toLowerCase() === String(username).toLowerCase()
+    );
+    if (!u) return;
+
+    const isRoot = u.username.toLowerCase() === "dttd" || u.username.toLowerCase() === "lhmt" || u.isRoot;
+    const activeUser = window.userAuth.currentUser;
+    const isCurrent = activeUser && activeUser.username.toLowerCase() === u.username.toLowerCase();
+
+    if (isCurrentlyActive) {
+      if (isRoot) {
+        alert("Tài khoản Quản trị tối cao (Root Admin) không thể tạm ngừng hoạt động!");
+        return;
+      }
+      if (isCurrent) {
+        alert("Không thể tạm ngừng hoạt động tài khoản đang trong phiên làm việc hiện tại!");
+        return;
+      }
+
+      this.pendingSuspendUsername = u.username;
+      const targetInfoEl = document.getElementById("suspendTargetUserInfo");
+      if (targetInfoEl) {
+        targetInfoEl.innerHTML = `<strong>${u.fullName}</strong> (<code>${u.username}</code>) &bull; ${u.role} &bull; <em>${u.department || 'Phòng ban'}</em>`;
+      }
+      const untilInput = document.getElementById("suspendUntilInput");
+      if (untilInput) untilInput.value = "Cho đến khi mở lại";
+      const reasonInput = document.getElementById("suspendReasonInput");
+      if (reasonInput) reasonInput.value = "";
+
+      const modal = document.getElementById("userSuspendModal");
+      if (modal) modal.classList.add("open");
+    } else {
+      if (confirm(`Xác nhận kích hoạt lại (ON) tài khoản [${u.username}] sang trạng thái Đang hoạt động?`)) {
+        const res = window.userAuth.toggleUserStatus(u.username, "ACTIVE");
+        alert(res.message);
+        if (res.success) {
+          window.omsEngine.addLog("info", "[NHÂN SỰ] " + res.message);
+          this.renderStaffManagement();
+          this.renderAccessLogsTable();
+        }
+      }
+    }
+  },
+
+  setSuspendPreset(days) {
+    const input = document.getElementById("suspendUntilInput");
+    if (!input) return;
+    if (days === 0) {
+      input.value = "Cho đến khi mở lại";
+      return;
+    }
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    const dayStr = String(d.getDate()).padStart(2, "0");
+    const monthStr = String(d.getMonth() + 1).padStart(2, "0");
+    const yearStr = d.getFullYear();
+    input.value = `${dayStr}/${monthStr}/${yearStr} (${days} ngày tới)`;
+  },
+
+  closeUserSuspendModal() {
+    this.pendingSuspendUsername = null;
+    const modal = document.getElementById("userSuspendModal");
+    if (modal) modal.classList.remove("open");
+  },
+
+  confirmSuspendUser() {
+    if (!this.pendingSuspendUsername) return;
+    const untilInput = document.getElementById("suspendUntilInput");
+    const reasonInput = document.getElementById("suspendReasonInput");
+    const suspendUntil = untilInput ? untilInput.value.trim() : "Cho đến khi mở lại";
+    const suspendReason = reasonInput ? reasonInput.value.trim() : "";
+
+    const res = window.userAuth.toggleUserStatus(
+      this.pendingSuspendUsername,
+      "INACTIVE",
+      suspendUntil,
+      suspendReason
+    );
+    alert(res.message);
+    if (res.success) {
+      window.omsEngine.addLog("warning", "[NHÂN SỰ] " + res.message + (suspendReason ? " - Lý do: " + suspendReason : ""));
+      this.closeUserSuspendModal();
+      this.renderStaffManagement();
+      this.renderAccessLogsTable();
+    }
+  },
+
+
   switchAndTestUser(username, password) {
     this.handleLogout();
     this.fillLoginCredentials(username, password);
@@ -2554,6 +2840,7 @@ const AppUI = {
       .map((u, idx) => {
         const isCurrent = activeUser && activeUser.username.toLowerCase() === u.username.toLowerCase();
         const isRoot = u.username.toLowerCase() === "dttd" || u.username.toLowerCase() === "lhmt" || u.isRoot;
+        const isActive = u.status !== "INACTIVE";
 
         return `
         <tr>
@@ -2571,19 +2858,46 @@ const AppUI = {
             </div>
           </td>
           <td><code style="background:var(--bg-subtle);padding:3px 7px;border-radius:5px;font-weight:700;color:var(--text-main);">${u.username}</code></td>
-          <td><code style="background:var(--bg-subtle);padding:3px 7px;border-radius:5px;color:var(--text-secondary);">${u.password}</code></td>
           <td><strong>${u.role}</strong></td>
           <td>${u.shift || "Ca Hành chính"}</td>
-          <td><span class="status-badge st-ALLOCATED">● Đang hoạt động</span></td>
           <td>
-            <div style="display:flex;gap:6px;">
-              <button class="btn btn-outline btn-sm" onclick="AppUI.switchAndTestUser('${u.username}', '${u.password}')" title="Đăng xuất và điền sẵn tài khoản này để đăng nhập">
-                🔑 Chuyển TK
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <div class="status-toggle-wrap">
+                <button
+                  type="button"
+                  class="toggle-switch-btn ${isActive ? 'state-on' : 'state-off'}"
+                  onclick="AppUI.handleToggleUserStatus('${u.username}', ${isActive})"
+                  title="${isActive ? 'Bấm để Tạm ngừng hoạt động (Chuyển sang OFF)' : 'Bấm để Kích hoạt lại (Chuyển sang ON)'}"
+                  ${isRoot || isCurrent ? 'style="cursor:not-allowed;opacity:0.75;"' : ''}
+                >
+                  ${isActive ? '🟢 ON' : '🔴 OFF'}
+                </button>
+                <span class="status-badge ${isActive ? 'st-ALLOCATED' : 'st-INACTIVE'}">
+                  ${isActive ? '● Đang hoạt động' : '● Inactive'}
+                </span>
+              </div>
+              ${
+                !isActive && u.suspendUntil
+                  ? `<div style="font-size:11px;color:#dc2626;font-weight:600;display:flex;align-items:center;gap:3px;" title="Lý do: ${u.suspendReason || 'Tạm ngưng'}">
+                      <span>⏳ Đến: ${u.suspendUntil}</span>
+                    </div>`
+                  : ''
+              }
+            </div>
+          </td>
+          <td>
+            <div class="staff-action-btns">
+              <button type="button" class="btn-action-icon btn-edit" onclick="AppUI.openEditUserModal('${u.username}')" title="✏️ Chỉnh sửa thông tin nhân sự">
+                ✏️
               </button>
               ${
                 !isRoot && !isCurrent
-                  ? `<button class="btn btn-danger-outline btn-sm" onclick="AppUI.handleDeleteUser('${u.username}')">Xóa</button>`
-                  : ""
+                  ? `<button type="button" class="btn-action-icon btn-delete" onclick="AppUI.promptDeleteUser('${u.username}')" title="🗑️ Xóa tài khoản nhân sự">
+                      🗑️
+                    </button>`
+                  : `<button type="button" class="btn-action-icon" style="opacity:0.35;cursor:not-allowed;" title="Không thể xóa tài khoản Quản trị tối cao hoặc phiên đăng nhập hiện tại" disabled>
+                      🗑️
+                    </button>`
               }
             </div>
           </td>

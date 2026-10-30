@@ -2906,3 +2906,88 @@ body {
   gap: 8px;
   font-size: 12px;
 }
+
+/* Trạng thái On / Off Toggle và Inactive cho Quản trị Tài khoản Nhân sự */
+.status-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.toggle-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.toggle-switch-btn.state-on {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+.toggle-switch-btn.state-on:hover {
+  background: #bbf7d0;
+}
+.toggle-switch-btn.state-off {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.toggle-switch-btn.state-off:hover {
+  background: #fecaca;
+}
+.status-badge.st-INACTIVE {
+  background: #fef2f2 !important;
+  color: #ef4444 !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 800 !important;
+}
+
+/* Nút icon thao tác hàng nhân sự (Cây viết & Thùng rác) */
+.staff-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-action-icon {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--theme-card-bg);
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.btn-action-icon:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.btn-action-icon.btn-edit {
+  color: #2563eb;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+.btn-action-icon.btn-edit:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+.btn-action-icon.btn-delete {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.btn-action-icon.btn-delete:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}

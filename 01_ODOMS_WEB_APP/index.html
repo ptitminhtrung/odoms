@@ -1119,7 +1119,6 @@
                       <th>STT</th>
                       <th>Họ và Tên / Phòng Ban</th>
                       <th>Tên Đăng Nhập</th>
-                      <th>Mật Khẩu</th>
                       <th>Vai Trò</th>
                       <th>Ca Trực</th>
                       <th>Trạng Thái</th>
@@ -1366,5 +1365,144 @@
       <div id="shippingMapModalBody"></div>
     </div>
   </div>
+  <!-- MODAL XÁC NHẬN TẠM NGỪNG HOẠT ĐỘNG TÀI KHOẢN (OFF / INACTIVE) -->
+  <div id="userSuspendModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeUserSuspendModal()">
+    <div class="modal-dialog" style="max-width:480px;width:92%;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:10px;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;">⏸️</div>
+          <div>
+            <h3 style="font-size:16px;font-weight:800;color:var(--text-main);margin:0;">Tạm Ngừng Hoạt Động Tài Khoản</h3>
+            <div id="suspendModalSubtitle" style="font-size:12px;color:var(--text-muted);margin-top:2px;">Chuyển tài khoản sang trạng thái Inactive (Khóa tạm thời)</div>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="AppUI.closeUserSuspendModal()">✖</button>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="padding:10px 12px;background:var(--bg-subtle);border-radius:8px;border:1px solid var(--border-color);margin-bottom:12px;">
+          <div style="font-size:12.5px;color:var(--text-secondary);">Tài khoản nhân sự:</div>
+          <div id="suspendTargetUserInfo" style="font-size:14px;font-weight:700;color:var(--text-main);margin-top:2px;">-</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:6px;color:var(--text-main);">Tạm ngừng hoạt động đến khi nào? *</label>
+          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(7)">1 tuần</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(30)">1 tháng</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(90)">3 tháng</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(0)">Vô thời hạn</button>
+          </div>
+          <input type="text" id="suspendUntilInput" class="form-control" placeholder="VD: 15/11/2026 hoặc 'Cho đến khi mở lại'" value="Cho đến khi mở lại" />
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:6px;color:var(--text-main);">Lý do tạm ngưng (Tùy chọn):</label>
+          <input type="text" id="suspendReasonInput" class="form-control" placeholder="VD: Nghỉ phép / Kiểm tra đối soát / Tạm ngưng thời vụ" />
+        </div>
+        <div style="padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#b91c1c;line-height:1.4;">
+          ⚠️ <strong>Lưu ý:</strong> Khi chuyển sang <strong>Inactive (OFF)</strong>, nhân viên sẽ không thể đăng nhập vào hệ thống. Mọi dữ liệu đơn hàng và lịch sử đã xử lý trước đây của nhân viên vẫn được bảo lưu 100%.
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.closeUserSuspendModal()">Hủy</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="AppUI.confirmSuspendUser()">⏸️ Xác nhận Tạm ngưng (OFF)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CHỈNH SỬA THÔNG TIN NHÂN SỰ -->
+  <div id="editUserModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeEditUserModal()">
+    <div class="modal-dialog" style="max-width:540px;width:92%;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--theme-accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;">✏️</div>
+          <div>
+            <h3 style="font-size:16px;font-weight:800;color:var(--text-main);margin:0;">Chỉnh sửa thông tin</h3>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Cập nhật hồ sơ tài khoản nhân sự truy cập OMS</div>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="AppUI.closeEditUserModal()">✖</button>
+      </div>
+
+      <form id="editUserForm" onsubmit="event.preventDefault(); AppUI.saveEditUser();">
+        <input type="hidden" id="editOriginalUsername" />
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div style="grid-column: span 2;">
+            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Họ và tên nhân sự *</label>
+            <input type="text" id="editFullName" class="form-control" placeholder="VD: Nguyễn Văn A" required />
+          </div>
+
+          <div>
+            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Tên đăng nhập *</label>
+            <input type="text" id="editUsername" class="form-control" placeholder="VD: nva" required />
+          </div>
+
+          <div>
+            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Mật khẩu *</label>
+            <input type="text" id="editPassword" class="form-control" placeholder="Nhập mật khẩu" required />
+          </div>
+
+          <div>
+            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Vai trò</label>
+            <select id="editRole" class="form-control" onchange="AppUI.handleEditRoleChange()">
+              <option value="Chuyên viên Điều phối">Chuyên viên Điều phối</option>
+              <option value="Chuyên viên Vận hành">Chuyên viên Vận hành</option>
+              <option value="Quản lý kho">Quản lý kho</option>
+              <option value="Chuyên viên CSKH">Chuyên viên CSKH</option>
+              <option value="Chuyên viên RMA">Chuyên viên RMA</option>
+              <option value="Kế toán">Kế toán</option>
+              <option value="Khác">Khác</option>
+            </select>
+          </div>
+
+          <div id="editCustomRoleWrap" style="display:none;">
+            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Nhập chức danh "Khác" *</label>
+            <input type="text" id="editCustomRoleInput" class="form-control" placeholder="Nhập chức danh 'Khác'" />
+          </div>
+
+          <div>
+            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Bộ phận</label>
+            <input type="text" id="editDepartment" class="form-control" placeholder="VD: Phòng Vận hành Đa kênh" />
+          </div>
+
+          <div style="grid-column: span 2;">
+            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Ca làm việc</label>
+            <select id="editShift" class="form-control">
+              <option value="Ca Hành chính (08:00 - 17:00)">Ca Hành chính (08:00 - 17:00)</option>
+              <option value="Ca Sáng (07:30 - 16:30)">Ca Sáng (07:30 - 16:30)</option>
+              <option value="Ca Chiều (13:00 - 21:00)">Ca Chiều (13:00 - 21:00)</option>
+              <option value="Ca Tối (17:00 - 01:00)">Ca Tối (17:00 - 01:00)</option>
+              <option value="Toàn thời gian (Cứu hộ hệ thống)">Toàn thời gian (Cứu hộ hệ thống)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;border-top:1px solid var(--border-color);padding-top:12px;margin-top:14px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.closeEditUserModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary btn-sm">💾 Lưu thay đổi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL XÁC NHẬN XÓA TÀI KHOẢN (CÓ / KHÔNG) -->
+  <div id="confirmDeleteUserModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeConfirmDeleteModal()">
+    <div class="modal-dialog" style="max-width:420px;width:90%;text-align:center;">
+      <div style="width:48px;height:48px;border-radius:50%;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px auto;">
+        🗑️
+      </div>
+      <h3 style="font-size:16px;font-weight:800;color:var(--text-main);margin-bottom:8px;">Xác nhận xóa tài khoản</h3>
+      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:6px;">
+        Bạn xác nhận xoá tài khoản này?
+      </p>
+      <div id="deleteTargetUserInfo" style="font-size:13px;font-weight:700;color:#dc2626;background:#fef2f2;padding:8px 12px;border-radius:6px;border:1px solid #fecaca;margin-bottom:18px;">
+        -
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button type="button" class="btn btn-outline btn-sm" style="min-width:90px;" onclick="AppUI.closeConfirmDeleteModal()">Không</button>
+        <button type="button" class="btn btn-danger btn-sm" style="min-width:90px;" onclick="AppUI.executeDeleteUser()">Có</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
