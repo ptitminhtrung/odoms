@@ -1,12 +1,15 @@
-﻿Mã đơn hàng,Sàn TMĐT,Thời gian đặt hàng,SKU phân loại,Tên sản phẩm,Số lượng,Đơn giá,Người Mua,Số điện thoại,Địa chỉ nhận hàng,Trạng thái đơn hàng,Phương thức thanh toán
-SP261022001,SHOPEE,2026-10-22 08:15:10,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),4,250000,Nguyễn Văn An,0901234567,"123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM",Đã xác nhận,Ví ShopeePay
-SP261022002,SHOPEE,2026-10-22 08:20:00,SP-TAI-NGHE-02,Tai nghe Bluetooth Không dây TWS ANC Pro,3,490000,Trần Thị Bích,0912345678,"45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng",Đã xác nhận,COD (Thanh toán khi nhận hàng)
-SP261022003,SHOPEE,2026-10-22 08:25:30,SP-BAN-PHIM-05,Bàn Phím Cơ Không Dây RGB K68 Hotswap,4,650000,Lê Hoàng Nam,0987654321,"88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội",Chưa xác nhận,Ví ShopeePay
-,,,,,,,,,,,
-,,,,,,,,,,,
-,,,,,,,,,,,
-,,,,,,,,,,,
-,,,,,,,,,,,
-,,,,,,,,,,,
-,,,,,,,,,,,
-,,,,,,,,,,,
+﻿BẢNG DỮ LIỆU: 1_BANG_GOM_DON_DA_KENH_TONG_HOP - BẢNG GOM ĐƠN HÀNG ĐA KÊNH TỔNG HỢP (11 ĐƠN),,,,,,,,,,,,,
+"Tổng hợp toàn bộ 11 đơn hàng từ 5 kênh (Shopee, TikTok Shop, Lazada, POS, Facebook) đã chuẩn hóa đầy đủ 14 trường thông số Canonical Schema.",,,,,,,,,,,,,
+,,,,,,,,,,,,,
+Mã đơn hàng,Sàn TMĐT,Thời gian đặt hàng,SKU phân loại,Tên sản phẩm,Đơn vị tính,Số lượng,Đơn giá,Thành tiền (VNĐ),Người Mua,Số điện thoại,Địa chỉ nhận hàng,Trạng thái đơn hàng,Phương thức thanh toán
+SP261022001,SHOPEE,22-10-2026 8:15,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),Cái,4,250000,1000000,Nguyễn Văn An,901234567,"123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM",Đã xác nhận,Ví ShopeePay
+SP261022002,SHOPEE,22-10-2026 8:20,SP-TAI-NGHE-02,Tai nghe Bluetooth Không dây TWS ANC Pro,Hộp,3,490000,1470000,Trần Thị Bích,912345678,"45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng",Đã xác nhận,COD (Thanh toán khi nhận hàng)
+SP261022003,SHOPEE,22-10-2026 8:25,SP-BAN-PHIM-05,Bàn Phím Cơ Không Dây RGB K68 Hotswap,Bộ,4,650000,2600000,Lê Hoàng Nam,987654321,"88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội",Chưa xác nhận,Ví ShopeePay
+TT261022101,TIKTOK,22-10-2026 8:16,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),Cái,4,250000,1000000,Phạm Minh Tuấn,933445566,"56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM",Đã xác nhận,COD (Thanh toán khi nhận hàng)
+TT261022102,TIKTOK,22-10-2026 8:21,SP-BALO-LAP-03,Balo Laptop Chống Nước 15.6 inch Urban,Chiếc,5,380000,1900000,Hoàng Thùy Linh,977889900,"12 Trần Phú, Phường Nha Trang, tỉnh Khánh Hòa",Đã xác nhận,Ví ZaloPay
+TT261022103,TIKTOK,22-10-2026 8:27,SP-BAN-PHIM-05,Bàn Phím Cơ Không Dây RGB K68 Hotswap,Bộ,3,650000,1950000,Đặng Quốc Khánh,966112233,"90 Lạch Tray, Phường Lê Chân, TP.Hải Phòng",Chờ xác nhận,COD (Thanh toán khi nhận hàng)
+LZ261022201,LAZADA,22-10-2026 8:18,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),Cái,3,250000,750000,Võ Thành Đạt,944556677,"78 Nguyễn Văn Linh, Phường Tân Thuận, TP.HCM",Đã xác nhận,Thẻ Visa / Mastercard
+LZ261022202,LAZADA,22-10-2026 8:19,SP-BINH-NHIET-04,Bình Giữ Nhiệt Inox 304 Lock&Lock 900ml,Bình,6,310000,1860000,Ngô Thanh Vân,918273645,"22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ",Đã xác nhận,COD (Thanh toán khi nhận hàng)
+POS261022301,POS,22-10-2026 8:17,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),Cái,2,250000,500000,Khách lẻ tại Quầy POS Phường Bình Phú,909888777,"186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)",Đã xác nhận,Tiền mặt tại quầy
+FB261022401,FACEBOOK,22-10-2026 8:22,SP-TAI-NGHE-02,Tai nghe Bluetooth Không dây TWS ANC Pro,Hộp,4,490000,1960000,Bùi Anh Tuấn (Chốt đơn Livestream FB),922334455,"34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội",Đã xác nhận,Chuyển khoản VietQR
+FB261022402,FACEBOOK,22-10-2026 8:24,SP-MA-LOI-999,Áo Khoác Gió Nhập Sai Mã SKU (Đơn lỗi mẫu),Cái,2,350000,700000,Đỗ Mỹ Linh,938111222,"15 Hai Bà Trưng, Phường Tân Định, TP.HCM",Đã hủy đơn,COD (Thu hộ khi giao)

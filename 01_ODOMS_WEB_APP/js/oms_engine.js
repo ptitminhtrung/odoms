@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // BỘ XỬ LÝ NGHIỆP VỤ LÕI ODOMS & QUẢN TRỊ TÀI KHOẢN (OMSEngine & UserAuthManager)
 // Lưu trữ tại: S:\HTTT\01_ODOMS_WEB_APP\js\oms_engine.js
 // ============================================================================
@@ -75,6 +75,9 @@ class UserAuthManager {
     this.users = usersList || this.users;
     try {
       localStorage.setItem(this.STORAGE_USERS_KEY, JSON.stringify(this.users));
+      if (window.cloudSync && !window.cloudSync.isPulling) {
+        window.cloudSync.scheduleCloudPush("USERS_RBAC_SYNC");
+      }
     } catch (e) {
       // Ignore storage error
     }
@@ -119,6 +122,9 @@ class UserAuthManager {
     this.accessLogs = logsList || this.accessLogs;
     try {
       localStorage.setItem(this.STORAGE_LOGS_KEY, JSON.stringify(this.accessLogs));
+      if (window.cloudSync && !window.cloudSync.isPulling) {
+        window.cloudSync.scheduleCloudPush("AUDIT_LOGS_SYNC");
+      }
     } catch (e) {
       // Ignore
     }
@@ -488,10 +494,14 @@ class OMSEngine {
     this.logs = [];
     this.channels = JSON.parse(JSON.stringify(window.CHANNELS_CONFIG));
     this.allocationMode = "FIFO_TIME"; // FIFO_TIME (Ai tới trước ưu tiên trước) | CHANNEL_PRIORITY
+    this.baseInitialInventory = JSON.parse(JSON.stringify(window.INITIAL_INVENTORY));
     this.resetSystem();
   }
 
   resetSystem() {
+    if (this.baseInitialInventory) {
+      window.INITIAL_INVENTORY = JSON.parse(JSON.stringify(this.baseInitialInventory));
+    }
     this.inventory = JSON.parse(JSON.stringify(window.INITIAL_INVENTORY));
     this.orders = [];
     this.logs = [];
@@ -877,6 +887,9 @@ class OMSEngine {
     }
 
     this.broadcastInventorySync();
+    if (window.cloudSync && !window.cloudSync.isPulling) {
+      window.cloudSync.scheduleCloudPush("ALLOCATION_SYNC");
+    }
   }
 
   broadcastInventorySync() {
@@ -921,3 +934,349 @@ class OMSEngine {
 
 window.userAuth = new UserAuthManager();
 window.omsEngine = new OMSEngine();
+
+// ============================================================================
+// BỘ ĐỒNG BỘ DỮ LIỆU ĐÁM MÂY & ĐA THIẾT BỊ (CloudSyncAdapter — Hybrid LocalStorage + Google Sheets)
+// ============================================================================
+class CloudSyncAdapter {
+  constructor() {
+    this.STORAGE_CONFIG_KEY = "ODOMS_CLOUD_CONFIG_V3";
+    this.STORAGE_ENGINE_STATE_KEY = "ODOMS_ENGINE_STATE_V3";
+    this.isPulling = false;
+    this.pushDebounceTimer = null;
+
+    const savedCfg = this.loadConfig();
+    this.endpointUrl = savedCfg.endpointUrl || "";
+    this.secretToken = savedCfg.secretToken || "ODOMS_SECURE_TOKEN_2026";
+    this.autoSync = savedCfg.autoSync !== false;
+    this.lastSyncTime = savedCfg.lastSyncTime || "Chưa đồng bộ";
+    this.syncStatus = this.endpointUrl ? "CLOUD_READY" : "LOCAL_READY";
+
+    this.initCrossTabSync();
+  }
+
+  formatNow() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  loadConfig() {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_CONFIG_KEY);
+      if (raw) {
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      // Ignore
+    }
+    return {
+      endpointUrl: "",
+      secretToken: "ODOMS_SECURE_TOKEN_2026",
+      autoSync: true,
+      lastSyncTime: "Chưa đồng bộ"
+    };
+  }
+
+  saveConfig(partial = {}) {
+    if (partial.endpointUrl !== undefined) {
+      this.endpointUrl = String(partial.endpointUrl || "").trim();
+    }
+    if (partial.secretToken !== undefined) {
+      this.secretToken = String(partial.secretToken || "ODOMS_SECURE_TOKEN_2026").trim();
+    }
+    if (partial.autoSync !== undefined) {
+      this.autoSync = Boolean(partial.autoSync);
+    }
+    if (partial.lastSyncTime !== undefined) {
+      this.lastSyncTime = partial.lastSyncTime;
+    }
+
+    try {
+      localStorage.setItem(
+        this.STORAGE_CONFIG_KEY,
+        JSON.stringify({
+          endpointUrl: this.endpointUrl,
+          secretToken: this.secretToken,
+          autoSync: this.autoSync,
+          lastSyncTime: this.lastSyncTime
+        })
+      );
+    } catch (e) {
+      // Ignore
+    }
+    this.notifyUI();
+  }
+
+  // 1. Lưu tức thì trạng thái OMSEngine vào LocalStorage (Zero-latency 0ms)
+  saveLocalStateSnapshot() {
+    if (!window.omsEngine) return;
+    try {
+      const snapshot = {
+        updatedAt: this.formatNow(),
+        allocationMode: window.omsEngine.allocationMode,
+        initialInventory: window.INITIAL_INVENTORY,
+        inventory: window.omsEngine.inventory,
+        orders: window.omsEngine.orders
+      };
+      localStorage.setItem(this.STORAGE_ENGINE_STATE_KEY, JSON.stringify(snapshot));
+    } catch (e) {
+      console.warn("Không thể lưu snapshot LocalStorage:", e);
+    }
+  }
+
+  // 2. Khôi phục trạng thái OMSEngine từ LocalStorage khi mở lại trang hoặc đồng bộ giữa các Tab
+  restoreLocalStateSnapshot() {
+    if (!window.omsEngine) return false;
+    try {
+      const raw = localStorage.getItem(this.STORAGE_ENGINE_STATE_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.inventory) || !Array.isArray(parsed.orders)) {
+        return false;
+      }
+      this.isPulling = true;
+      if (Array.isArray(parsed.initialInventory) && parsed.initialInventory.length > 0) {
+        window.INITIAL_INVENTORY = parsed.initialInventory;
+      }
+      window.omsEngine.allocationMode = parsed.allocationMode || "FIFO_TIME";
+      window.omsEngine.inventory = parsed.inventory;
+      window.omsEngine.orders = parsed.orders;
+      this.isPulling = false;
+      return true;
+    } catch (e) {
+      this.isPulling = false;
+      return false;
+    }
+  }
+
+  // 3. Đặt lịch đẩy ngầm lên Google Sheets (Non-blocking Debounced Push)
+  scheduleCloudPush(reason = "AUTO_SYNC") {
+    this.saveLocalStateSnapshot();
+    this.saveConfig({ lastSyncTime: `${this.formatNow()} (Local)` });
+
+    if (!this.autoSync || !this.endpointUrl) {
+      this.syncStatus = "LOCAL_READY";
+      this.notifyUI();
+      return;
+    }
+
+    if (this.pushDebounceTimer) {
+      clearTimeout(this.pushDebounceTimer);
+    }
+    this.pushDebounceTimer = setTimeout(() => {
+      this.pushStateToCloud(reason, true);
+    }, 350);
+  }
+
+  // 4. Đẩy toàn bộ 5 bảng (Orders, Inventory_ATP, Batches, Users_RBAC, AuditLogs) lên Google Sheets
+  async pushStateToCloud(reason = "MANUAL_PUSH", silent = false) {
+    this.saveLocalStateSnapshot();
+
+    if (!this.endpointUrl) {
+      this.syncStatus = "LOCAL_READY";
+      this.saveConfig({ lastSyncTime: `${this.formatNow()} (LocalStorage)` });
+      if (!silent && window.omsEngine) {
+        window.omsEngine.addLog(
+          "info",
+          `💾 [LOCAL SYNC] Đã lưu trạng thái 5 bảng vào LocalStorage tức thì (${reason}). Hãy nhập Google Apps Script Web App URL trong mục Cài đặt nếu muốn đẩy lên Google Sheets.`
+        );
+      }
+      this.notifyUI();
+      return {
+        success: true,
+        mode: "LOCAL_ONLY",
+        message: "Đã lưu tức thì vào LocalStorage! (Chưa cấu hình URL Google Apps Script)"
+      };
+    }
+
+    this.syncStatus = "SYNCING";
+    this.notifyUI();
+
+    const payload = {
+      action: "SYNC_ALL",
+      reason,
+      secret_token: this.secretToken,
+      orders: window.omsEngine ? window.omsEngine.orders : [],
+      inventory: window.omsEngine ? window.omsEngine.inventory : [],
+      users: window.userAuth ? window.userAuth.users : [],
+      auditLogs: window.userAuth ? window.userAuth.accessLogs : []
+    };
+
+    try {
+      const response = await fetch(this.endpointUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const resJson = await response.json();
+      if (resJson && resJson.status === "SUCCESS") {
+        this.syncStatus = "CLOUD_CONNECTED";
+        this.saveConfig({ lastSyncTime: `${this.formatNow()} (Google Sheets)` });
+        if (window.omsEngine) {
+          window.omsEngine.addLog(
+            "sync",
+            `☁️ [CLOUD SYNC ➔ GOOGLE SHEETS] Đồng bộ thành công 5 bảng (Orders: ${payload.orders.length}, SKU: ${payload.inventory.length}, Users: ${payload.users.length}) lên Cloud.`
+          );
+        }
+        this.notifyUI();
+        return {
+          success: true,
+          mode: "CLOUD",
+          message: resJson.message || "Đồng bộ lên Google Sheets thành công!",
+          details: resJson.details
+        };
+      } else {
+        throw new Error((resJson && resJson.message) || "Phản hồi không hợp lệ từ Google Apps Script");
+      }
+    } catch (err) {
+      this.syncStatus = "CLOUD_ERROR";
+      this.saveConfig({ lastSyncTime: `${this.formatNow()} (Lưu dự phòng Local)` });
+      if (window.omsEngine && !silent) {
+        window.omsEngine.addLog(
+          "warn",
+          `⚠️ [CLOUD FALLBACK] Không thể kết nối Google Apps Script (${err.message}). Dữ liệu vẫn được bảo toàn 100% trên LocalStorage.`
+        );
+      }
+      this.notifyUI();
+      return {
+        success: false,
+        mode: "FALLBACK_LOCAL",
+        message: `Đã lưu an toàn trên LocalStorage. Lỗi kết nối Cloud: ${err.message}`
+      };
+    }
+  }
+
+  // 5. Kéo dữ liệu 5 bảng từ Google Sheets về Web App ODOMS
+  async pullStateFromCloud(silent = false) {
+    if (!this.endpointUrl) {
+      const restored = this.restoreLocalStateSnapshot();
+      this.syncStatus = "LOCAL_READY";
+      this.notifyUI();
+      return {
+        success: restored,
+        mode: "LOCAL_ONLY",
+        message: restored
+          ? "Đã khôi phục dữ liệu từ LocalStorage."
+          : "Chưa cấu hình URL Google Apps Script. Đang sử dụng dữ liệu khởi tạo mặc định."
+      };
+    }
+
+    this.syncStatus = "SYNCING";
+    this.notifyUI();
+
+    try {
+      const sep = this.endpointUrl.includes("?") ? "&" : "?";
+      const url = `${this.endpointUrl}${sep}action=PULL_ALL&t=${Date.now()}`;
+      const response = await fetch(url, { method: "GET" });
+      const resJson = await response.json();
+
+      if (resJson && resJson.status === "SUCCESS" && resJson.data) {
+        this.isPulling = true;
+        const { orders, inventory, users, auditLogs } = resJson.data;
+
+        if (Array.isArray(inventory) && inventory.length > 0 && window.omsEngine) {
+          window.omsEngine.inventory = inventory;
+        }
+        if (Array.isArray(orders) && window.omsEngine) {
+          window.omsEngine.orders = orders.map((ord) =>
+            window.omsEngine.normalizeRawOrder(
+              {
+                "Mã đơn hàng": ord.orderId,
+                "Sàn TMĐT": ord.channel,
+                "Thời gian đặt hàng": ord.orderTime,
+                "SKU phân loại": ord.sku,
+                "Tên sản phẩm": ord.productName,
+                "Số lượng": ord.quantity,
+                "Đơn giá": ord.unitPrice,
+                "Người Mua": ord.customerName,
+                "Số điện thoại": ord.customerPhone,
+                "Địa chỉ nhận hàng": ord.shippingAddress,
+                "Trạng thái đơn hàng":
+                  ord.platformStatus === "CANCELLED"
+                    ? "Đã hủy đơn"
+                    : ord.platformStatus === "UNCONFIRMED"
+                    ? "Chưa xác nhận"
+                    : "Đã xác nhận",
+                "Phương thức thanh toán": ord.paymentMethod
+              },
+              ord.sourceMethod || "EXCEL_IMPORT"
+            )
+          );
+          window.omsEngine.recalculateAllAllocations();
+        }
+        if (Array.isArray(users) && users.length > 0 && window.userAuth) {
+          window.userAuth.saveUsers(users);
+        }
+        if (Array.isArray(auditLogs) && auditLogs.length > 0 && window.userAuth) {
+          window.userAuth.saveAccessLogs(auditLogs);
+        }
+
+        this.isPulling = false;
+        this.saveLocalStateSnapshot();
+        this.syncStatus = "CLOUD_CONNECTED";
+        this.saveConfig({ lastSyncTime: `${this.formatNow()} (Tải từ Cloud)` });
+
+        if (window.omsEngine && !silent) {
+          window.omsEngine.addLog(
+            "sync",
+            `📥 [CLOUD PULL ⬅ GOOGLE SHEETS] Đã đồng bộ dữ liệu từ Google Sheets về máy (${(orders || []).length} đơn hàng, ${(inventory || []).length} SKU).`
+          );
+        }
+        this.notifyUI(true);
+        return {
+          success: true,
+          mode: "CLOUD",
+          message: "Đã tải và đồng bộ dữ liệu 5 bảng từ Google Sheets thành công!"
+        };
+      } else {
+        throw new Error((resJson && resJson.message) || "Dữ liệu trả về từ Google Sheets không hợp lệ");
+      }
+    } catch (err) {
+      this.isPulling = false;
+      this.syncStatus = "CLOUD_ERROR";
+      this.notifyUI();
+      return {
+        success: false,
+        mode: "ERROR",
+        message: `Không thể tải từ Google Sheets: ${err.message}`
+      };
+    }
+  }
+
+  // 6. Đồng bộ thời gian thực giữa nhiều Tab trình duyệt trên cùng máy (Storage Event)
+  initCrossTabSync() {
+    window.addEventListener("storage", (event) => {
+      if (!event.key) return;
+      if (event.key === this.STORAGE_ENGINE_STATE_KEY) {
+        if (this.restoreLocalStateSnapshot() && window.AppUI) {
+          window.AppUI.renderAll();
+        }
+      } else if (event.key === "ODOMS_USERS_V3" && window.userAuth) {
+        window.userAuth.users = window.userAuth.loadUsers();
+        if (window.AppUI) {
+          window.AppUI.renderStaffManagement();
+          window.AppUI.renderLoginQuickAccounts();
+        }
+      }
+    });
+  }
+
+  notifyUI(shouldRenderAll = false) {
+    if (window.AppUI) {
+      if (typeof window.AppUI.updateCloudSyncStatusUI === "function") {
+        window.AppUI.updateCloudSyncStatusUI();
+      }
+      if (shouldRenderAll && typeof window.AppUI.renderAll === "function") {
+        window.AppUI.renderAll();
+      } else if (typeof window.AppUI.renderLogs === "function") {
+        window.AppUI.renderLogs();
+      }
+    }
+  }
+}
+
+window.cloudSync = new CloudSyncAdapter();

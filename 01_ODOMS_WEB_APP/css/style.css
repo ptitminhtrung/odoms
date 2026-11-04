@@ -683,7 +683,8 @@ body {
 
 /* SIDEBAR TRÁI */
 .wms-sidebar {
-  width: 260px;
+  min-width: 260px;
+  width: max-content;
   background-color: var(--theme-sidebar-bg);
   color: #ffffff;
   display: flex;
@@ -723,6 +724,7 @@ body {
 .sidebar-brand-text-wrap {
   display: flex;
   flex-direction: column;
+  max-width: 175px;
 }
 
 .sidebar-brand-title {
@@ -750,13 +752,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
 }
 
 .user-card-left {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;
 }
 
 .user-avatar-circle {
@@ -774,7 +776,6 @@ body {
 }
 
 .user-info-text {
-  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -783,6 +784,7 @@ body {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.72);
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .user-info-name {
@@ -790,8 +792,6 @@ body {
   font-weight: 800;
   color: #ffffff;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.3;
   margin-top: 1px;
 }
@@ -2990,4 +2990,41 @@ body {
 .btn-action-icon.btn-delete:hover {
   background: #fee2e2;
   border-color: #fca5a5;
+}
+
+
+/* ==========================================================================
+   TƯƠNG TÁC ĐIỂM CHẤM BIỂU ĐỒ (DASHBOARD MONTHLY TRENDS CHART)
+   ========================================================================== */
+.chart-interactive-dot {
+  cursor: pointer;
+  transition: r 0.2s cubic-bezier(0.4, 0, 0.2, 1), stroke-width 0.2s ease, filter 0.2s ease;
+}
+.chart-interactive-dot:hover {
+  r: 7.5px !important;
+  stroke: #ffffff !important;
+  stroke-width: 2.5px !important;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+}
+.chart-interactive-dot.active {
+  r: 8.5px !important;
+  stroke: #ffffff !important;
+  stroke-width: 3px !important;
+  filter: drop-shadow(0 0 7px rgba(0, 0, 0, 0.6));
+}
+.chart-dot-number-badge {
+  pointer-events: none;
+  animation: dotBadgePop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes dotBadgePop {
+  0% {
+    opacity: 0;
+    transform: scale(0.65);
+    transform-origin: center;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    transform-origin: center;
+  }
 }

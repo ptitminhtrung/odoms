@@ -89,6 +89,7 @@ const AppUI = {
   init() {
     this.initTheme();
     this.initShipping();
+    this.initCloudSyncPanel();
     this.bindEvents();
     this.renderLoginQuickAccounts();
     // Luôn khởi đầu tại Màn hình Đăng nhập (căn giữa, màu mặc định Navy)
@@ -187,6 +188,9 @@ const AppUI = {
     }
     if (typeof this.renderTop3ChannelsBarChart === "function") {
       this.renderTop3ChannelsBarChart();
+    }
+    if (typeof this.renderMonthlyTrendsChartLabels === "function") {
+      this.renderMonthlyTrendsChartLabels();
     }
 
     // 5. Ghi nhật ký hệ thống nếu người dùng bấm đổi trực tiếp
@@ -328,6 +332,7 @@ const AppUI = {
     if (loginEl) loginEl.classList.add("hidden");
     if (appEl) appEl.classList.remove("hidden");
     this.updateSidebarUserProfile();
+    this.applyRoleBasedAccessControl();
     this.renderAll();
   },
 
@@ -382,7 +387,17 @@ const AppUI = {
     const nameEl = document.getElementById("sidebarUserName");
 
     if (avatarEl) avatarEl.innerText = user.avatar || "TD";
-    if (nameEl) nameEl.innerText = user.fullName;
+    if ( nameEl ) nameEl.innerText = user.fullName;
+
+    const greetingEl = document.getElementById("sidebarUserGreeting");
+    if (greetingEl) {
+      const isBackupAdmin = String(user.username || "").toLowerCase() === "lhmt";
+      if (isBackupAdmin) {
+        greetingEl.innerHTML = 'Chào bạn, <span style="color:#fbbf24;font-weight:800;">Admin</span>';
+      } else {
+        greetingEl.innerText = "Chào bạn,";
+      }
+    }
   },
 
   renderLoginQuickAccounts() {
@@ -433,7 +448,50 @@ const AppUI = {
     }
   },
 
+  isCurrentUserAdmin() {
+    const user =
+      (window.userAuth && window.userAuth.currentUser) ||
+      (window.userAuth && window.userAuth.users && window.userAuth.users[0]);
+    if (!user) return false;
+    const uname = String(user.username || "").toLowerCase();
+    const roleLower = String(user.role || "").toLowerCase();
+    return Boolean(
+      user.isRoot === true ||
+      uname === "dttd" ||
+      uname === "lhmt" ||
+      roleLower.includes("admin") ||
+      roleLower.includes("quản trị")
+    );
+  },
+
+  applyRoleBasedAccessControl() {
+    const isAdmin = this.isCurrentUserAdmin();
+    const adminOnlyTabs = ["logs", "staff"];
+
+    document.querySelectorAll('[data-admin-only="true"]').forEach((el) => {
+      el.classList.toggle("hidden", !isAdmin);
+      el.style.display = isAdmin ? "" : "none";
+      if (el.parentElement && el.parentElement.tagName === "LI") {
+        el.parentElement.style.display = isAdmin ? "" : "none";
+      }
+    });
+
+    if (!isAdmin && adminOnlyTabs.includes(this.currentMenuTab)) {
+      this.switchSidebarTab("dashboard");
+    }
+  },
+
   switchSidebarTab(tabKey) {
+    const adminOnlyTabs = ["logs", "staff"];
+    if (adminOnlyTabs.includes(tabKey) && !this.isCurrentUserAdmin()) {
+      if (window.omsEngine) {
+        window.omsEngine.addLog(
+          "warn",
+          `[PHÂN QUYỀN RBAC] Tài khoản Nhân viên vận hành (Staff) không có quyền truy cập mục Quản trị [${tabKey}].`
+        );
+      }
+      tabKey = "dashboard";
+    }
     this.currentMenuTab = tabKey;
 
     // Cập nhật trạng thái active cho menu Sidebar
@@ -509,7 +567,7 @@ const AppUI = {
   // ============================================================================
   handleFilesSelected(fileList) {
     Array.from(fileList).forEach((file) => {
-      window.ExcelHandler.parseUploadedFile(file, (err, rows) => {
+      window.ExcelHandler.parseWorkbook(file, (err, rows) => {
         if (err || !rows || rows.length === 0) {
           window.omsEngine.addLog("error", `Không thể đọc file [${file.name}]. Vui lòng kiểm tra định dạng .xlsx hoặc .csv.`);
           this.renderLogs();
@@ -580,6 +638,9 @@ const AppUI = {
       this.demoTimer = null;
     }
     window.omsEngine.resetSystem();
+    if (window.cloudSync) {
+      window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
+    }
     this.renderAll();
 
     const demoSequence = [
@@ -662,6 +723,9 @@ const AppUI = {
       btn.innerText = "▶️ Chạy Mô Phỏng FIFO (4 Bước)";
     }
     window.omsEngine.resetSystem();
+    if (window.cloudSync) {
+      window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
+    }
     this.renderAll();
   },
 
@@ -2009,6 +2073,131 @@ handleResetPassword(username) {
       segInv.setAttribute("stroke-dasharray", `${lenInv} ${circumference}`);
       segInv.setAttribute("stroke-dashoffset", `${-(lenAlloc + lenBack)}`);
     }
+    if (typeof this.renderMonthlyTrendsChartLabels === "function") {
+      this.renderMonthlyTrendsChartLabels();
+    }
+  },
+
+  // ============================================================================
+  // TƯƠNG TÁC ĐIỂM CHẤM BIỂU ĐỒ TIẾP NHẬN ĐƠN / XUẤT GIỮ HÀNG THEO THÁNG
+  // ============================================================================
+  activeMonthlyChartDots: new Set(),
+
+  handleMonthlyChartDotClick(circleEl) {
+    if (!circleEl) return;
+    const type = circleEl.getAttribute("data-type") || "import";
+    const month = circleEl.getAttribute("data-month") || "";
+    const monthName = circleEl.getAttribute("data-month-name") || month;
+    const val = circleEl.getAttribute("data-val") || "0";
+    const series = circleEl.getAttribute("data-series") || (type === "import" ? "Đơn tiếp nhận" : "Xuất giữ hàng");
+    const key = `${type}_${month}`;
+
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+
+    if (this.activeMonthlyChartDots.has(key)) {
+      this.activeMonthlyChartDots.delete(key);
+      circleEl.classList.remove("active");
+    } else {
+      this.activeMonthlyChartDots.add(key);
+      circleEl.classList.add("active");
+    }
+
+    this.renderMonthlyTrendsChartLabels();
+
+    // Cập nhật trạng thái nút xem tất cả
+    const allDotsCount = document.querySelectorAll(".chart-interactive-dot").length;
+    const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
+    if (btnToggle) {
+      const isAllActive = allDotsCount > 0 && this.activeMonthlyChartDots.size >= allDotsCount;
+      btnToggle.innerText = isAllActive ? "✕ Ẩn tất cả số" : "👁️ Xem tất cả số";
+    }
+
+    if (window.omsEngine) {
+      const isNowActive = this.activeMonthlyChartDots.has(key);
+      if (isNowActive) {
+        window.omsEngine.addLog(
+          "info",
+          `📊 [BIỂU ĐỒ XU HƯỚNG] Điểm ${series} (${monthName}): ${val} đơn hàng`
+        );
+        this.renderLogs();
+      }
+    }
+  },
+
+  renderMonthlyTrendsChartLabels() {
+    const group = document.getElementById("chartDotsLabelsGroup");
+    if (!group) return;
+
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+
+    const allDots = document.querySelectorAll(".chart-interactive-dot");
+    let markup = "";
+
+    allDots.forEach((circle) => {
+      const type = circle.getAttribute("data-type") || "import";
+      const month = circle.getAttribute("data-month") || "";
+      const val = circle.getAttribute("data-val") || "0";
+      const key = `${type}_${month}`;
+      const isActive = this.activeMonthlyChartDots.has(key);
+
+      circle.classList.toggle("active", isActive);
+
+      if (!isActive) return;
+
+      const cx = parseFloat(circle.getAttribute("cx")) || 0;
+      const cy = parseFloat(circle.getAttribute("cy")) || 0;
+
+      // Lấy màu tương ứng theo chủ đề giao diện hiện tại
+      let color = type === "import" ? "#F97316" : "#2563EB";
+      const activeTheme = THEMES_LIST.find((t) => t.key === (this.currentTheme || "navy"));
+      if (activeTheme) {
+        color = type === "import" ? activeTheme.chartSecondary : activeTheme.chartPrimary;
+      }
+
+      // Tính vị trí hiển thị: Đơn tiếp nhận (import) hiển thị phía trên, Xuất giữ hàng (export) hiển thị phía dưới
+      const boxWidth = val.length >= 3 ? 42 : 36;
+      const boxHeight = 18;
+      const boxX = cx - boxWidth / 2;
+      let boxY = type === "import" ? cy - 24 : cy + 8;
+      if (boxY < 4) boxY = cy + 8;
+      if (boxY > 175) boxY = cy - 24;
+
+      markup += `
+        <g class="chart-dot-number-badge">
+          <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="5" fill="${color}" stroke="#ffffff" stroke-width="1.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.35))" />
+          <text x="${cx}" y="${boxY + 12.5}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800" font-family="system-ui, -apple-system, sans-serif">${val}</text>
+        </g>
+      `;
+    });
+
+    group.innerHTML = markup;
+  },
+
+  toggleAllMonthlyTrendsNumbers() {
+    const allDots = document.querySelectorAll(".chart-interactive-dot");
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+
+    const allKeys = Array.from(allDots).map((c) => `${c.getAttribute("data-type")}_${c.getAttribute("data-month")}`);
+    const isAllActive = allKeys.length > 0 && this.activeMonthlyChartDots.size >= allKeys.length;
+
+    if (isAllActive) {
+      this.activeMonthlyChartDots.clear();
+    } else {
+      allKeys.forEach((k) => this.activeMonthlyChartDots.add(k));
+    }
+
+    const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
+    if (btnToggle) {
+      btnToggle.innerText = isAllActive ? "👁️ Xem tất cả số" : "✕ Ẩn tất cả số";
+    }
+
+    this.renderMonthlyTrendsChartLabels();
   },
 
   renderChannelStrip() {
@@ -3313,6 +3502,161 @@ handleResetPassword(username) {
   closeShippingMapModal() {
     const modal = document.getElementById("shippingMapModal");
     if (modal) modal.classList.remove("open");
+  },
+
+  // ============================================================================
+  // ĐỒNG BỘ ĐÁM MÂY GOOGLE SHEETS & LOCALSTORAGE (CloudSyncAdapter UI)
+  // ============================================================================
+  initCloudSyncPanel() {
+    if (window.cloudSync) {
+      window.cloudSync.restoreLocalStateSnapshot();
+      if (window.cloudSync.endpointUrl && window.cloudSync.autoSync) {
+        window.cloudSync.pullStateFromCloud(true);
+      }
+    }
+
+    const settingsSection = document.querySelector('section.oms-view-section[data-views="settings"] .wms-card');
+    if (settingsSection && !document.getElementById("cloudSyncConfigBox")) {
+      const box = document.createElement("div");
+      box.id = "cloudSyncConfigBox";
+      box.style.cssText =
+        "margin-top:16px;padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;";
+
+      const cfg = window.cloudSync ? window.cloudSync : { endpointUrl: "", autoSync: true, lastSyncTime: "Chưa đồng bộ" };
+
+      box.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div>
+            <h4 style="margin:0;display:flex;align-items:center;gap:8px;">
+              <span>☁️ 3. Đồng bộ Đám mây Google Sheets & LocalStorage (CloudSyncAdapter)</span>
+              <span id="cloudSyncStatusBadge" class="status-badge st-ALLOCATED" style="font-size:11px;">● LocalStorage Sẵn sàng</span>
+            </h4>
+            <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;">
+              Chạy song song: Lưu tức thì vào <code>LocalStorage</code> (0ms) + Đồng bộ ngầm 5 bảng (<code>Orders</code>, <code>Inventory_ATP</code>, <code>Batches</code>, <code>Users_RBAC</code>, <code>AuditLogs</code>) lên Google Sheets qua <code>ODOMS_Backend_API.gs</code>.
+            </p>
+          </div>
+          <div id="cloudLastSyncLabel" style="font-size:11.5px;font-weight:700;color:var(--text-muted);">
+            Lần đồng bộ cuối: ${cfg.lastSyncTime || "Chưa đồng bộ"}
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:10px;">
+          <input
+            type="url"
+            id="cloudEndpointUrlInput"
+            class="form-control"
+            placeholder="Dán link Google Apps Script Web App URL (https://script.google.com/macros/s/.../exec)"
+            value="${cfg.endpointUrl || ""}"
+          />
+          <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.handleSaveCloudConfig()">
+            💾 Lưu cấu hình Cloud
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer;">
+            <input type="checkbox" id="cloudAutoSyncCheckbox" ${cfg.autoSync !== false ? "checked" : ""} onchange="AppUI.handleSaveCloudConfig(true)" />
+            <span>Tự động đẩy ngầm lên Google Sheets khi phát sinh đơn hàng / tồn kho / nhân sự mới</span>
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.handleManualCloudPush()">
+              ☁️ Đồng bộ lên Google Sheets ngay
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.handleManualCloudPull()">
+              📥 Tải dữ liệu từ Google Sheets về
+            </button>
+          </div>
+        </div>
+        <div id="cloudSyncFeedbackMsg" class="hidden" style="margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+      `;
+
+      settingsSection.appendChild(box);
+      this.updateCloudSyncStatusUI();
+    }
+  },
+
+  updateCloudSyncStatusUI() {
+    if (!window.cloudSync) return;
+    const badgeEl = document.getElementById("cloudSyncStatusBadge");
+    const lastSyncEl = document.getElementById("cloudLastSyncLabel");
+
+    if (lastSyncEl) {
+      lastSyncEl.innerText = `Lần đồng bộ cuối: ${window.cloudSync.lastSyncTime || "Chưa đồng bộ"}`;
+    }
+    if (!badgeEl) return;
+
+    const status = window.cloudSync.syncStatus;
+    if (status === "SYNCING") {
+      badgeEl.className = "status-badge";
+      badgeEl.style.background = "#fef3c7";
+      badgeEl.style.color = "#b45309";
+      badgeEl.innerText = "⏳ Đang đồng bộ Cloud...";
+    } else if (status === "CLOUD_CONNECTED") {
+      badgeEl.className = "status-badge st-ALLOCATED";
+      badgeEl.style.background = "";
+      badgeEl.style.color = "";
+      badgeEl.innerText = "☁️ Đã đồng bộ Google Sheets";
+    } else if (status === "CLOUD_ERROR") {
+      badgeEl.className = "status-badge st-INVALID";
+      badgeEl.style.background = "";
+      badgeEl.style.color = "";
+      badgeEl.innerText = "⚠️ Lưu dự phòng LocalStorage";
+    } else {
+      badgeEl.className = "status-badge st-ALLOCATED";
+      badgeEl.style.background = "";
+      badgeEl.style.color = "";
+      badgeEl.innerText = window.cloudSync.endpointUrl
+        ? "☁️ Cloud Sẵn sàng"
+        : "💾 LocalStorage Sẵn sàng";
+    }
+  },
+
+  showCloudFeedback(message, isSuccess = true) {
+    const msgEl = document.getElementById("cloudSyncFeedbackMsg");
+    if (!msgEl) return;
+    msgEl.classList.remove("hidden");
+    msgEl.style.background = isSuccess ? "#dcfce7" : "#fef2f2";
+    msgEl.style.color = isSuccess ? "#15803d" : "#dc2626";
+    msgEl.style.border = isSuccess ? "1px solid #86efac" : "1px solid #fecaca";
+    msgEl.innerText = message;
+  },
+
+  handleSaveCloudConfig(silent = false) {
+    if (!window.cloudSync) return;
+    const urlInput = document.getElementById("cloudEndpointUrlInput");
+    const autoCheck = document.getElementById("cloudAutoSyncCheckbox");
+
+    const endpointUrl = urlInput ? urlInput.value.trim() : "";
+    const autoSync = autoCheck ? autoCheck.checked : true;
+
+    window.cloudSync.saveConfig({ endpointUrl, autoSync });
+    window.cloudSync.syncStatus = endpointUrl ? "CLOUD_READY" : "LOCAL_READY";
+    this.updateCloudSyncStatusUI();
+
+    if (!silent) {
+      this.showCloudFeedback(
+        endpointUrl
+          ? "Đã lưu đường dẫn Google Apps Script Web App URL! Hệ thống đã sẵn sàng đồng bộ 2 chiều với Google Sheets."
+          : "Đã lưu chế độ đồng bộ cục bộ (LocalStorage).",
+        true
+      );
+    }
+  },
+
+  async handleManualCloudPush() {
+    if (!window.cloudSync) return;
+    this.handleSaveCloudConfig(true);
+    const res = await window.cloudSync.pushStateToCloud("MANUAL_UI_PUSH", false);
+    this.showCloudFeedback(res.message, res.success);
+    this.renderLogs();
+  },
+
+  async handleManualCloudPull() {
+    if (!window.cloudSync) return;
+    this.handleSaveCloudConfig(true);
+    const res = await window.cloudSync.pullStateFromCloud(false);
+    this.showCloudFeedback(res.message, res.success);
+    this.renderAll();
   },
 
   openWaybillFromShipping(trackingCode) {

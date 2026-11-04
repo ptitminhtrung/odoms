@@ -188,6 +188,9 @@ const AppUI = {
     if (typeof this.renderTop3ChannelsBarChart === "function") {
       this.renderTop3ChannelsBarChart();
     }
+    if (typeof this.renderMonthlyTrendsChartLabels === "function") {
+      this.renderMonthlyTrendsChartLabels();
+    }
 
     // 5. Ghi nhật ký hệ thống nếu người dùng bấm đổi trực tiếp
     if (recordLog && window.omsEngine) {
@@ -2009,6 +2012,131 @@ handleResetPassword(username) {
       segInv.setAttribute("stroke-dasharray", `${lenInv} ${circumference}`);
       segInv.setAttribute("stroke-dashoffset", `${-(lenAlloc + lenBack)}`);
     }
+    if (typeof this.renderMonthlyTrendsChartLabels === "function") {
+      this.renderMonthlyTrendsChartLabels();
+    }
+  },
+
+  // ============================================================================
+  // TƯƠNG TÁC ĐIỂM CHẤM BIỂU ĐỒ TIẾP NHẬN ĐƠN / XUẤT GIỮ HÀNG THEO THÁNG
+  // ============================================================================
+  activeMonthlyChartDots: new Set(),
+
+  handleMonthlyChartDotClick(circleEl) {
+    if (!circleEl) return;
+    const type = circleEl.getAttribute("data-type") || "import";
+    const month = circleEl.getAttribute("data-month") || "";
+    const monthName = circleEl.getAttribute("data-month-name") || month;
+    const val = circleEl.getAttribute("data-val") || "0";
+    const series = circleEl.getAttribute("data-series") || (type === "import" ? "Đơn tiếp nhận" : "Xuất giữ hàng");
+    const key = `${type}_${month}`;
+
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+
+    if (this.activeMonthlyChartDots.has(key)) {
+      this.activeMonthlyChartDots.delete(key);
+      circleEl.classList.remove("active");
+    } else {
+      this.activeMonthlyChartDots.add(key);
+      circleEl.classList.add("active");
+    }
+
+    this.renderMonthlyTrendsChartLabels();
+
+    // Cập nhật trạng thái nút xem tất cả
+    const allDotsCount = document.querySelectorAll(".chart-interactive-dot").length;
+    const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
+    if (btnToggle) {
+      const isAllActive = allDotsCount > 0 && this.activeMonthlyChartDots.size >= allDotsCount;
+      btnToggle.innerText = isAllActive ? "✕ Ẩn tất cả số" : "👁️ Xem tất cả số";
+    }
+
+    if (window.omsEngine) {
+      const isNowActive = this.activeMonthlyChartDots.has(key);
+      if (isNowActive) {
+        window.omsEngine.addLog(
+          "info",
+          `📊 [BIỂU ĐỒ XU HƯỚNG] Điểm ${series} (${monthName}): ${val} đơn hàng`
+        );
+        this.renderLogs();
+      }
+    }
+  },
+
+  renderMonthlyTrendsChartLabels() {
+    const group = document.getElementById("chartDotsLabelsGroup");
+    if (!group) return;
+
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+
+    const allDots = document.querySelectorAll(".chart-interactive-dot");
+    let markup = "";
+
+    allDots.forEach((circle) => {
+      const type = circle.getAttribute("data-type") || "import";
+      const month = circle.getAttribute("data-month") || "";
+      const val = circle.getAttribute("data-val") || "0";
+      const key = `${type}_${month}`;
+      const isActive = this.activeMonthlyChartDots.has(key);
+
+      circle.classList.toggle("active", isActive);
+
+      if (!isActive) return;
+
+      const cx = parseFloat(circle.getAttribute("cx")) || 0;
+      const cy = parseFloat(circle.getAttribute("cy")) || 0;
+
+      // Lấy màu tương ứng theo chủ đề giao diện hiện tại
+      let color = type === "import" ? "#F97316" : "#2563EB";
+      const activeTheme = THEMES_LIST.find((t) => t.key === (this.currentTheme || "navy"));
+      if (activeTheme) {
+        color = type === "import" ? activeTheme.chartSecondary : activeTheme.chartPrimary;
+      }
+
+      // Tính vị trí hiển thị: Đơn tiếp nhận (import) hiển thị phía trên, Xuất giữ hàng (export) hiển thị phía dưới
+      const boxWidth = val.length >= 3 ? 42 : 36;
+      const boxHeight = 18;
+      const boxX = cx - boxWidth / 2;
+      let boxY = type === "import" ? cy - 24 : cy + 8;
+      if (boxY < 4) boxY = cy + 8;
+      if (boxY > 175) boxY = cy - 24;
+
+      markup += `
+        <g class="chart-dot-number-badge">
+          <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="5" fill="${color}" stroke="#ffffff" stroke-width="1.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.35))" />
+          <text x="${cx}" y="${boxY + 12.5}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800" font-family="system-ui, -apple-system, sans-serif">${val}</text>
+        </g>
+      `;
+    });
+
+    group.innerHTML = markup;
+  },
+
+  toggleAllMonthlyTrendsNumbers() {
+    const allDots = document.querySelectorAll(".chart-interactive-dot");
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+
+    const allKeys = Array.from(allDots).map((c) => `${c.getAttribute("data-type")}_${c.getAttribute("data-month")}`);
+    const isAllActive = allKeys.length > 0 && this.activeMonthlyChartDots.size >= allKeys.length;
+
+    if (isAllActive) {
+      this.activeMonthlyChartDots.clear();
+    } else {
+      allKeys.forEach((k) => this.activeMonthlyChartDots.add(k));
+    }
+
+    const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
+    if (btnToggle) {
+      btnToggle.innerText = isAllActive ? "👁️ Xem tất cả số" : "✕ Ẩn tất cả số";
+    }
+
+    this.renderMonthlyTrendsChartLabels();
   },
 
   renderChannelStrip() {
