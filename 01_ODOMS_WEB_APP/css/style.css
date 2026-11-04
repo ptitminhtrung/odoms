@@ -3034,3 +3034,82 @@ body {
     transform-origin: center;
   }
 }
+
+
+/* ==========================================================================
+   NÚT GẠT XÁC NHẬN ĐƠN HÀNG & ĐỒNG BỘ SÀN TMĐT (CỘT TRẠNG THÁI XỬ LÝ)
+   ========================================================================== */
+.order-confirm-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.order-confirm-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  user-select: none;
+  padding: 3px 8px 3px 5px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+.order-confirm-switch:hover {
+  border-color: var(--theme-primary);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+.order-confirm-switch input {
+  display: none;
+}
+.order-switch-track {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  background: #cbd5e1;
+  border-radius: 999px;
+  transition: background 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+.order-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.order-confirm-switch input:checked + .order-switch-track {
+  background: #16a34a;
+}
+.order-confirm-switch input:checked + .order-switch-track .order-switch-thumb {
+  transform: translateX(14px);
+}
+.order-switch-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.1px;
+}
+.order-switch-label.is-on {
+  color: #15803d;
+}
+.order-switch-label.is-off {
+  color: #64748b;
+}
+.order-confirm-subtext {
+  font-size: 11px;
+  font-weight: 700;
+  padding-left: 2px;
+  line-height: 1.25;
+}
+.order-confirm-subtext.is-confirmed {
+  color: #15803d;
+}
+.order-confirm-subtext.is-waiting {
+  color: #d97706;
+}

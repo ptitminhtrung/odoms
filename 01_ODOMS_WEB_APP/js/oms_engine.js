@@ -860,6 +860,21 @@ class OMSEngine {
       const inv = this.inventory.find((i) => i.sku === ord.sku);
       const beforeAvailable = inv.availableStock;
 
+      if (ord.platformStatus === "UNCONFIRMED") {
+        ord.status = "PENDING";
+        ord.stockSnapshot = {
+          before: beforeAvailable,
+          requested: ord.quantity,
+          after: beforeAvailable
+        };
+        ord.auditSteps.push({
+          step: "Bước 3: Trạng thái Chờ Xác Nhận Điều Phối",
+          status: "WARN",
+          detail: `Xếp hạng FIFO #${ord.fifoRank} của mã ${ord.sku}. Đơn hàng đang ở trạng thái [Chờ xác nhận] — Hệ thống chưa khóa tồn kho cho đến khi người dùng gạt nút "Xác nhận" để đồng bộ về sàn [${ord.channel}].`
+        });
+        continue;
+      }
+
       if (inv.availableStock >= ord.quantity) {
         let needQty = ord.quantity;
         const batchDetails = [];
@@ -979,6 +994,30 @@ class OMSEngine {
       `[NHẬP KHO BỔ SUNG] Đã nhập bù +${additionalQty} sản phẩm cho mã [${sku}]. Hệ thống tự động chạy lại phân bổ FIFO cho đơn đang chờ!`
     );
     this.recalculateAllAllocations();
+  }
+
+  toggleOrderConfirmation(orderId, forceState) {
+    const ord = this.orders.find((o) => o.orderId === orderId);
+    if (!ord || ord.platformStatus === "CANCELLED" || ord.status === "INVALID") return null;
+
+    const currentConfirmed = ord.platformStatus !== "UNCONFIRMED";
+    const nextConfirmed = typeof forceState === "boolean" ? forceState : !currentConfirmed;
+    ord.platformStatus = nextConfirmed ? "CONFIRMED" : "UNCONFIRMED";
+
+    if (nextConfirmed) {
+      this.addLog(
+        "sync",
+        `[XÁC NHẬN ĐƠN ➔ SÀN ${ord.channel}] Người dùng đã gạt Xác nhận đơn ${ord.orderId}. Đã gửi xác nhận về sàn ${ord.channel} và kích hoạt phân bổ giữ hàng!`
+      );
+    } else {
+      this.addLog(
+        "warn",
+        `[CHỜ XÁC NHẬN] Đơn ${ord.orderId} (${ord.channel}) được chuyển về trạng thái "Chờ xác nhận". Đã giải phóng tồn kho tạm giữ để điều phối linh hoạt.`
+      );
+    }
+
+    this.recalculateAllAllocations();
+    return ord;
   }
 }
 

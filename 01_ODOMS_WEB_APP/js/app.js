@@ -2399,14 +2399,22 @@ handleResetPassword(username) {
       .map((ord) => {
         let statusBadge = "";
         const ps = ord.platformStatus || (ord.status === "CANCELLED" || ord.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
-        if (ps === "CONFIRMED") {
-          statusBadge = `<span class="status-badge st-ALLOCATED">✔️ Đã xác nhận</span>`;
-        } else if (ps === "UNCONFIRMED") {
-          statusBadge = `<span class="status-badge st-PENDING" style="background:#fffbeb;color:#b45309;border:1px solid #fef3c7;">⏳ Chưa xác nhận</span>`;
-        } else if (ps === "CANCELLED") {
+        if (ps === "CANCELLED" || ord.status === "INVALID") {
           statusBadge = `<span class="status-badge st-INVALID">✖️ Đã hủy đơn</span>`;
         } else {
-          statusBadge = `<span class="status-badge st-PENDING">⏳ Chưa xác nhận</span>`;
+          const isConfirmed = ps === "CONFIRMED";
+          statusBadge = `
+            <div class="order-confirm-cell">
+              <label class="order-confirm-switch" title="Gạt để xác nhận đơn hàng và tự động gửi xác nhận về sàn ${ord.channel}">
+                <input type="checkbox" ${isConfirmed ? "checked" : ""} onchange="AppUI.handleToggleOrderConfirm('${ord.orderId}', this.checked)" />
+                <span class="order-switch-track"><span class="order-switch-thumb"></span></span>
+                <span class="order-switch-label ${isConfirmed ? "is-on" : "is-off"}">Xác nhận</span>
+              </label>
+              <div class="order-confirm-subtext ${isConfirmed ? "is-confirmed" : "is-waiting"}">
+                ${isConfirmed ? "Đã gửi xác nhận về sàn" : "Chờ xác nhận"}
+              </div>
+            </div>
+          `;
         }
 
         const fifoBadge = ord.fifoRank
@@ -2481,6 +2489,13 @@ handleResetPassword(username) {
       `;
       })
       .join("");
+  },
+
+  handleToggleOrderConfirm(orderId, isChecked) {
+    if (!window.omsEngine || typeof window.omsEngine.toggleOrderConfirmation !== "function") return;
+    window.omsEngine.toggleOrderConfirmation(orderId, isChecked);
+    this.triggerChannelSyncAnimation();
+    this.renderAll();
   },
 
   renderInventoryTable() {
