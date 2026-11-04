@@ -942,11 +942,12 @@ class CloudSyncAdapter {
   constructor() {
     this.STORAGE_CONFIG_KEY = "ODOMS_CLOUD_CONFIG_V3";
     this.STORAGE_ENGINE_STATE_KEY = "ODOMS_ENGINE_STATE_V3";
+    this.DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbz6rZY-zx9nslSBnilGuggzeXFGbAe_3IwaQazglnCoh9lwZ7rrB6IDaAIAdqrfegUb/exec";
     this.isPulling = false;
     this.pushDebounceTimer = null;
 
     const savedCfg = this.loadConfig();
-    this.endpointUrl = savedCfg.endpointUrl || "";
+    this.endpointUrl = savedCfg.endpointUrl || this.DEFAULT_ENDPOINT_URL;
     this.secretToken = savedCfg.secretToken || "ODOMS_SECURE_TOKEN_2026";
     this.autoSync = savedCfg.autoSync !== false;
     this.lastSyncTime = savedCfg.lastSyncTime || "Chưa đồng bộ";
@@ -962,16 +963,21 @@ class CloudSyncAdapter {
   }
 
   loadConfig() {
+    const defaultUrl = "https://script.google.com/macros/s/AKfycbz6rZY-zx9nslSBnilGuggzeXFGbAe_3IwaQazglnCoh9lwZ7rrB6IDaAIAdqrfegUb/exec";
     try {
       const raw = localStorage.getItem(this.STORAGE_CONFIG_KEY);
       if (raw) {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (!parsed.endpointUrl) {
+          parsed.endpointUrl = defaultUrl;
+        }
+        return parsed;
       }
     } catch (e) {
       // Ignore
     }
     return {
-      endpointUrl: "",
+      endpointUrl: defaultUrl,
       secretToken: "ODOMS_SECURE_TOKEN_2026",
       autoSync: true,
       lastSyncTime: "Chưa đồng bộ"
