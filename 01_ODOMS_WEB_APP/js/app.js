@@ -89,6 +89,10 @@ const AppUI = {
   init() {
     this.initTheme();
     this.initShipping();
+    const wbInput = document.getElementById("wbTrackingCode");
+    if (wbInput && !wbInput.value && this.waybillHistory && this.waybillHistory[0]) {
+      wbInput.value = this.waybillHistory[0].trackingCode;
+    }
     this.initCloudSyncPanel();
     this.bindEvents();
     this.renderLoginQuickAccounts();
@@ -595,18 +599,79 @@ const AppUI = {
     }
   },
 
+  fillRandomWebhookOrder() {
+    const channels = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
+    const skus = [
+      "SP-AO-POLO-01",
+      "SP-TAI-NGHE-02",
+      "SP-BALO-LAP-03",
+      "SP-BINH-NHIET-04",
+      "SP-BAN-PHIM-05"
+    ];
+    const sampleCustomers = [
+      "Nguyễn Minh Tuấn",
+      "Trần Thu Hà",
+      "Lê Hoàng Nam",
+      "Phạm Ngọc Ánh",
+      "Võ Quốc Bảo",
+      "Đặng Thùy Trang",
+      "Bùi Quang Huy",
+      "Hoàng Lan Anh"
+    ];
+    const sampleAddresses = [
+      "123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM",
+      "456 Lê Lợi, Phường Bến Thành, Quận 1, TP.HCM",
+      "88 Cách Mạng Tháng 8, Phường Võ Thị Sáu, Quận 3, TP.HCM",
+      "215 Điện Biên Phủ, Phường 15, Quận Bình Thạnh, TP.HCM",
+      "52 Nguyễn Văn Linh, Quận Hải Châu, TP. Đà Nẵng",
+      "108 Trần Phú, Quận Hà Đông, TP. Hà Nội",
+      "35 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP.HCM",
+      "190 Cộng Hòa, Phường 12, Quận Tân Bình, TP.HCM"
+    ];
+
+    const randChannel = channels[Math.floor(Math.random() * channels.length)];
+    const randSku = skus[Math.floor(Math.random() * skus.length)];
+    const randQty = Math.floor(1 + Math.random() * 4);
+    const randCustomer = sampleCustomers[Math.floor(Math.random() * sampleCustomers.length)];
+    const randAddress =
+      randChannel === "POS"
+        ? "Mua trực tiếp tại Cửa hàng ODOMS (Quầy POS)"
+        : sampleAddresses[Math.floor(Math.random() * sampleAddresses.length)];
+
+    const chEl = document.getElementById("simChannel");
+    const skuEl = document.getElementById("simSku");
+    const qtyEl = document.getElementById("simQty");
+    const custEl = document.getElementById("simCustomer");
+    const addrEl = document.getElementById("simAddress");
+
+    if (chEl) chEl.value = randChannel;
+    if (skuEl) skuEl.value = randSku;
+    if (qtyEl) qtyEl.value = randQty;
+    if (custEl) custEl.value = randCustomer;
+    if (addrEl) addrEl.value = randAddress;
+  },
+
   simulateWebhookOrder() {
     const channel = document.getElementById("simChannel").value;
     const sku = document.getElementById("simSku").value;
     const qty = parseInt(document.getElementById("simQty").value, 10) || 1;
     const customer = document.getElementById("simCustomer").value.trim() || "Khách đặt Online Real-time";
+    const addressEl = document.getElementById("simAddress");
+    const address =
+      addressEl && addressEl.value.trim()
+        ? addressEl.value.trim()
+        : channel === "POS"
+        ? "Mua trực tiếp tại Cửa hàng ODOMS (Quầy POS)"
+        : `Đơn đồng bộ qua Webhook ${channel}`;
 
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
-    const timestampStr = `2026-10-24 ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const dateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+    const shortDateStr = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+    const timestampStr = `${dateStr} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     const randomSuffix = Math.floor(100 + Math.random() * 900);
     const prefixMap = { SHOPEE: "SP", TIKTOK: "TT", LAZADA: "LZ", FACEBOOK: "FB", POS: "POS" };
-    const orderId = `${prefixMap[channel] || "OD"}261024${randomSuffix}`;
+    const orderId = `${prefixMap[channel] || "OD"}${shortDateStr}${randomSuffix}`;
 
     const invItem = window.omsEngine.inventory.find((i) => i.sku === sku);
     const unitPrice = invItem ? invItem.price : 250000;
@@ -622,7 +687,7 @@ const AppUI = {
       "Đơn giá": unitPrice,
       "Người Mua": customer,
       "Số điện thoại": "090" + Math.floor(1000000 + Math.random() * 8999999),
-      "Địa chỉ nhận hàng": `Đơn đồng bộ qua Webhook ${channel}`,
+      "Địa chỉ nhận hàng": address,
       "Trạng thái đơn hàng": "Đã xác nhận",
       "Phương thức thanh toán": channel === "POS" ? "Tiền mặt tại quầy" : "Ví điện tử / Chuyển khoản"
     };
@@ -2379,7 +2444,7 @@ handleResetPassword(username) {
 
         const sourceBadge =
           ord.sourceMethod === "WEBHOOK_API"
-            ? `<span style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ API 2 chiều</span>`
+            ? `<span style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Sàn TMDT</span>`
             : `<span style="font-size:11px;color:var(--theme-primary);font-weight:600;">📊 File Excel</span>`;
 
         return `
@@ -2391,8 +2456,8 @@ handleResetPassword(username) {
           </td>
           <td><span class="channel-badge badge-${ord.channel}">${ord.channel}</span></td>
           <td>
-            <div style="font-weight:700;">${ord.orderTime.split(" ")[1] || ord.orderTime}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${ord.orderTime.split(" ")[0]}</div>
+            <div style="font-weight:700;font-family:monospace;font-size:12px;">${window.omsEngine && typeof window.omsEngine.parseAndFormatOrderTime === "function" ? window.omsEngine.parseAndFormatOrderTime(ord.orderTime).formatted : ord.orderTime}</div>
+
           </td>
           <td>
             <div style="font-weight:700;color:var(--theme-primary);">${ord.sku}</div>
@@ -2529,7 +2594,7 @@ handleResetPassword(username) {
   // ============================================================================
   waybillHistory: [
     {
-      trackingCode: "VD-ODOMS-261025-8801",
+      trackingCode: `VD-ODOMS-${String(new Date().getFullYear()).slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-8801`,
       orderId: "SP261022001",
       channel: "SHOPEE",
       carrier: "SPX Express",
@@ -2542,7 +2607,7 @@ handleResetPassword(username) {
       batchCode: "LO-2026-A1",
       totalAmount: 0,
       paymentMethod: "Ví ShopeePay",
-      createdAt: "25/10/2026 08:30:15"
+      createdAt: `${String(new Date().getDate()).padStart(2, "0")}/${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()} 08:30:15`
     }
   ],
 
@@ -2587,7 +2652,9 @@ handleResetPassword(username) {
     };
 
     const randSuffix = Math.floor(1000 + Math.random() * 9000);
-    const trackingCode = `VD-${ord.channel.slice(0, 2)}-261025-${randSuffix}`;
+    const nowWb = new Date();
+    const shortWbDate = `${String(nowWb.getFullYear()).slice(-2)}${String(nowWb.getMonth() + 1).padStart(2, "0")}${String(nowWb.getDate()).padStart(2, "0")}`;
+    const trackingCode = `VD-${ord.channel.slice(0, 2)}-${shortWbDate}-${randSuffix}`;
 
     const batchText =
       ord.allocatedBatches && ord.allocatedBatches.length > 0
@@ -2626,7 +2693,9 @@ handleResetPassword(username) {
   regenerateTrackingCodeOnly() {
     const ch = document.getElementById("wbChannel")?.value || "SHOPEE";
     const rand = Math.floor(1000 + Math.random() * 9000);
-    const code = `VD-${ch.slice(0, 2)}-261025-${rand}`;
+    const nowReg = new Date();
+    const shortRegDate = `${String(nowReg.getFullYear()).slice(-2)}${String(nowReg.getMonth() + 1).padStart(2, "0")}${String(nowReg.getDate()).padStart(2, "0")}`;
+    const code = `VD-${ch.slice(0, 2)}-${shortRegDate}-${rand}`;
     const el = document.getElementById("wbTrackingCode");
     if (el) el.value = code;
     this.generateWaybillAndQR(false);
@@ -2720,7 +2789,7 @@ handleResetPassword(username) {
     return {
       orderId,
       channel: val("wbChannel", "SHOPEE"),
-      trackingCode: val("wbTrackingCode", "VD-ODOMS-261025-8801"),
+      trackingCode: val("wbTrackingCode", `VD-ODOMS-${String(new Date().getFullYear()).slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-8801`),
       carrier: val("wbCarrier", "SPX Express"),
       customerName: val("wbCustomerName", "Nguyễn Văn An"),
       customerPhone: val("wbCustomerPhone", "0901234567"),
@@ -3201,7 +3270,7 @@ handleResetPassword(username) {
           <p><strong>Mã đơn hàng:</strong> ${ord.orderId}</p>
           <p><strong>Kênh bán (Sàn):</strong> <span class="channel-badge badge-${ord.channel}">${ord.channel}</span></p>
           <p><strong>Thời gian đặt:</strong> ${ord.orderTime}</p>
-          <p><strong>Phương thức nhận:</strong> ${ord.sourceMethod === "WEBHOOK_API" ? "Đồng bộ API / Webhook 2 chiều" : "Nạp từ bảng dữ liệu Excel"}</p>
+          <p><strong>Phương thức nhận:</strong> ${ord.sourceMethod === "WEBHOOK_API" ? "Đồng bộ từ Sàn TMDT" : "Nạp từ File Excel"}</p>
         </div>
         <div>
           <p><strong>Khách hàng:</strong> ${ord.customerName} (${ord.customerPhone})</p>
@@ -3532,7 +3601,7 @@ handleResetPassword(username) {
               <span id="cloudSyncStatusBadge" class="status-badge st-ALLOCATED" style="font-size:11px;">● LocalStorage Sẵn sàng</span>
             </h4>
             <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;">
-              Chạy song song: Lưu tức thì vào <code>LocalStorage</code> (0ms) + Đồng bộ ngầm 5 bảng (<code>Orders</code>, <code>Inventory_ATP</code>, <code>Batches</code>, <code>Users_RBAC</code>, <code>AuditLogs</code>) lên Google Sheets qua <code>ODOMS_Backend_API.gs</code>.
+              Chạy song song: Lưu tức thì vào <code>LocalStorage</code> (0ms) + Đồng bộ ngầm 5 bảng (<code>DatHang</code>, <code>TonKho</code>, <code>LuuKho</code>, <code>NhanSu</code>, <code>NhatKy</code>) lên Google Sheets qua <code>ODOMS_Backend_API.gs</code>.
             </p>
           </div>
           <div id="cloudLastSyncLabel" style="font-size:11.5px;font-weight:700;color:var(--text-muted);">

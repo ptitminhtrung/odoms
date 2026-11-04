@@ -611,45 +611,12 @@
         <!-- 5. PHÂN HỆ TIẾP NHẬN EXCEL & GIẢ LẬP API 2 CHIỀU -->
         <section class="oms-view-section" data-views="dashboard ingest">
           <div class="charts-grid-2col">
-            <!-- Phương thức 1: Nạp bảng Excel đa kênh -->
-            <div class="wms-card" style="margin-bottom:0;">
+            <!-- Phương thức 1: Tiếp nhận đơn hàng từ các sàn theo thời gian thực -->
+            <div class="wms-card" style="margin-bottom:0;display:flex;flex-direction:column;">
               <div class="wms-card-header">
                 <div>
-                  <div class="wms-card-title">Phương thức 1: Nạp Bảng Dữ Liệu Đơn Hàng Excel (.xlsx / .csv)</div>
-                  <div class="wms-card-subtitle">Tự động nhận diện cột của từng sàn TMĐT và chuẩn hóa về Canonical Schema</div>
-                </div>
-                <button class="btn btn-outline btn-sm" onclick="window.ExcelHandler.downloadAllSampleExcelWorkbook()">
-                  ⬇️ Tải Bộ File Excel Mẫu (.xlsx)
-                </button>
-              </div>
-
-              <div id="uploadDropZone" class="upload-dropzone">
-                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" multiple class="hidden" />
-                <div style="font-weight:700;color:var(--theme-primary);font-size:14px;margin-bottom:4px;">
-                  📂 Nhấp để chọn hoặc Kéo thả file Excel (.xlsx, .csv) của các sàn vào đây
-                </div>
-                <div style="font-size:12px;color:var(--text-muted);">
-                  Hỗ trợ các file trong thư mục <code>du_lieu_mau_excel/</code> hoặc dùng các nút nạp nhanh bên dưới:
-                </div>
-              </div>
-
-              <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;">
-                <button class="btn btn-primary btn-sm" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
-                  📥 Nạp Gom Chung 5 Kênh (11 Đơn)
-                </button>
-                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('SHOPEE')">+ Đơn Shopee (3)</button>
-                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('TIKTOK')">+ Đơn TikTok (3)</button>
-                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('LAZADA')">+ Đơn Lazada (2)</button>
-                <button class="btn btn-outline btn-sm" onclick="AppUI.loadSampleChannelData('FACEBOOK_POS')">+ Đơn FB & POS (3)</button>
-              </div>
-            </div>
-
-            <!-- Phương thức 2: Giả lập kết nối tự động 2 chiều qua mạng -->
-            <div class="wms-card" style="margin-bottom:0;">
-              <div class="wms-card-header">
-                <div>
-                  <div class="wms-card-title">Phương thức 2: Giả Lập Kết Nối Tự Động 2 Chiều (Webhook / API)</div>
-                  <div class="wms-card-subtitle">Bắn đơn hàng thời gian thực từ sàn về OMS và tự động trừ kho ngay lập tức</div>
+                  <div class="wms-card-title">Phương thức 1: Tiếp Nhận Đơn Hàng Từ Các Sàn</div>
+                  <div class="wms-card-subtitle">Mô phỏng tiếp nhận đơn hàng từ sàn TMĐT về hệ thống ODOMS theo thời gian thực</div>
                 </div>
               </div>
 
@@ -677,7 +644,7 @@
                 </div>
               </div>
 
-              <div style="display:grid;grid-template-columns:110px 1fr;gap:10px;margin-bottom:12px;">
+              <div style="display:grid;grid-template-columns:110px 1fr;gap:10px;margin-bottom:10px;">
                 <div>
                   <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Số lượng</label>
                   <input type="number" id="simQty" class="form-control" value="2" min="1" max="50" />
@@ -688,9 +655,39 @@
                 </div>
               </div>
 
-              <button class="btn btn-primary" style="width:100%;" onclick="AppUI.simulateWebhookOrder()">
-                🚀 Bắn Đơn Hàng Qua API & Tự Động Trừ Kho Ngay
-              </button>
+              <div style="margin-bottom:12px;">
+                <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Địa chỉ giao hàng</label>
+                <input type="text" id="simAddress" class="form-control" value="" placeholder="Nhập địa chỉ giao hàng..." />
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">
+                <button type="button" class="btn btn-outline" style="width:100%;" onclick="AppUI.fillRandomWebhookOrder()">
+                  🎲 Tạo ngẫu nhiên
+                </button>
+                <button class="btn btn-primary" style="width:100%;" onclick="AppUI.simulateWebhookOrder()">
+                  🚀 Kích Hoạt
+                </button>
+              </div>
+            </div>
+
+            <!-- Phương thức 2: Nạp bảng dữ liệu đơn hàng Excel đa kênh -->
+            <div class="wms-card" style="margin-bottom:0;display:flex;flex-direction:column;">
+              <div class="wms-card-header">
+                <div>
+                  <div class="wms-card-title">Phương thức 2: Nạp Bảng Dữ Liệu Đơn Hàng Excel (.xlsx / .csv)</div>
+                  <div class="wms-card-subtitle">Đồng bộ danh sách đơn hàng từ file Excel của các sàn TMĐT về hệ thống ODOMS</div>
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="window.ExcelHandler.downloadAllSampleExcelWorkbook()">
+                  ⬇️ Tải mẫu về
+                </button>
+              </div>
+
+              <div id="uploadDropZone" class="upload-dropzone" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" multiple class="hidden" />
+                <div style="font-weight:700;color:var(--theme-primary);font-size:14px;">
+                  📂 Kéo thả / Chọn file Excel của các sàn vào đây
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -968,7 +965,7 @@
                   <div>
                     <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã vận đơn (Waybill Code)</label>
                     <div style="display:flex;gap:6px;">
-                      <input type="text" id="wbTrackingCode" class="form-control" style="font-family:monospace;font-weight:700;" placeholder="Tự động tạo..." value="VD-ODOMS-261025-8801" />
+                      <input type="text" id="wbTrackingCode" class="form-control" style="font-family:monospace;font-weight:700;" placeholder="Tự động tạo theo ngày thực tế..." value="" />
                       <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.regenerateTrackingCodeOnly()" title="Đổi mã vận đơn ngẫu nhiên mới">🎲 Đổi mã</button>
                     </div>
                   </div>

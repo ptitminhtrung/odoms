@@ -444,9 +444,18 @@ window.ODOMS_WAREHOUSE_CONFIG = {
 };
 
 // 7. Dữ liệu Vận chuyển Đơn hàng Đa kênh & Hành trình Giao nhận (Logistics & Live Tracking)
+const _odNow = new Date();
+const _odYesterday = new Date(_odNow.getTime() - 24 * 60 * 60 * 1000);
+const _odPad = (n) => String(n).padStart(2, "0");
+const _odTodayStr = `${_odPad(_odNow.getDate())}/${_odPad(_odNow.getMonth() + 1)}/${_odNow.getFullYear()}`;
+const _odYesterdayStr = `${_odPad(_odYesterday.getDate())}/${_odPad(_odYesterday.getMonth() + 1)}/${_odYesterday.getFullYear()}`;
+const _odTodayDM = `${_odPad(_odNow.getDate())}/${_odPad(_odNow.getMonth() + 1)}`;
+const _odYesterdayDM = `${_odPad(_odYesterday.getDate())}/${_odPad(_odYesterday.getMonth() + 1)}`;
+const _odShortDate = `${String(_odNow.getFullYear()).slice(-2)}${_odPad(_odNow.getMonth() + 1)}${_odPad(_odNow.getDate())}`;
+
 window.SAMPLE_SHIPMENTS_DATA = [
   {
-    trackingCode: "VD-SP-261028-8801",
+    trackingCode: `VD-SP-${_odShortDate}-8801`,
     orderId: "SP261022001",
     channel: "SHOPEE",
     carrier: "SPX Express",
@@ -469,8 +478,8 @@ window.SAMPLE_SHIPMENTS_DATA = [
     },
     itemsSummary: "Áo Polo Nam Coolmate Pro (Đen - L) × 4",
     batchCode: "LO-2026-A1",
-    handoverTime: "28/10/2026 08:30:15",
-    lastUpdateTime: "28/10/2026 14:20:00",
+    handoverTime: `${_odTodayStr} 08:30:15`,
+    lastUpdateTime: `${_odTodayStr} 14:20:00`,
     currentLocation: "Đang trên đường phát — Cách người nhận 1.2 km (Gần Ngã tư Lê Lợi - Pasteur, Phường Sài Gòn, TP.HCM)",
     shipperName: "Trần Quốc Bảo (Bưu tá SPX Express)",
     shipperPhone: "0934.567.890",
@@ -483,7 +492,7 @@ window.SAMPLE_SHIPMENTS_DATA = [
     ]
   },
   {
-    trackingCode: "VD-TT-261028-4420",
+    trackingCode: `VD-TT-${_odShortDate}-4420`,
     orderId: "TT261022101",
     channel: "TIKTOK",
     carrier: "J&T Express",
@@ -506,8 +515,8 @@ window.SAMPLE_SHIPMENTS_DATA = [
     },
     itemsSummary: "Áo Polo Nam Coolmate Pro × 4 (Chia 2 lô A1 + A2)",
     batchCode: "LO-2026-A1 + LO-2026-A2",
-    handoverTime: "28/10/2026 09:10:00",
-    lastUpdateTime: "28/10/2026 13:50:00",
+    handoverTime: `${_odTodayStr} 09:10:00`,
+    lastUpdateTime: `${_odTodayStr} 13:50:00`,
     currentLocation: "Đang giao hàng — Cách người nhận 2.0 km (Khu vực cầu Lê Văn Sỹ)",
     shipperName: "Lê Minh Tuấn (J&T Express)",
     shipperPhone: "0908.776.554",
@@ -520,7 +529,7 @@ window.SAMPLE_SHIPMENTS_DATA = [
     ]
   },
   {
-    trackingCode: "VD-LZ-261028-9102",
+    trackingCode: `VD-LZ-${_odShortDate}-9102`,
     orderId: "LZ261022202",
     channel: "LAZADA",
     carrier: "GHN (Giao Hàng Nhanh)",
@@ -543,21 +552,21 @@ window.SAMPLE_SHIPMENTS_DATA = [
     },
     itemsSummary: "Bình Giữ Nhiệt Inox Lock&Lock 900ml × 6",
     batchCode: "LO-2026-D1",
-    handoverTime: "27/10/2026 14:00:00",
-    lastUpdateTime: "28/10/2026 11:30:00",
+    handoverTime: `${_odYesterdayStr} 14:00:00`,
+    lastUpdateTime: `${_odTodayStr} 11:30:00`,
     currentLocation: "Đã giao thành công — Khách ký nhận e-POD lúc 11:28",
     shipperName: "Phạm Văn Hùng (GHN Cần Thơ)",
     shipperPhone: "0977.123.456",
     progressPercent: 100,
     timeline: [
-      { time: "27/10 14:00", title: "Xuất kho ODOMS Phường Bình Phú", desc: "Xuất từ 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
-      { time: "27/10 16:30", title: "Rời trung tâm phân loại TP.HCM", desc: "Kiện hàng lên xe tải liên tỉnh đi Tây Nam Bộ.", location: "Hub GHN Tân Bình" },
-      { time: "28/10 07:15", title: "Đến bưu cục Phường An Cư", desc: "Đã tới bưu cục phát Cần Thơ.", location: "Bưu cục GHN Phường An Cư, TP.Cần Thơ" },
-      { time: "28/10 11:28", title: "Giao thành công & Ký e-POD", desc: "Khách hàng Ngô Thanh Vân đã nhận hàng và thanh toán đủ COD.", location: "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ" }
+      { time: `${_odYesterdayDM} 14:00`, title: "Xuất kho ODOMS Phường Bình Phú", desc: "Xuất từ 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
+      { time: `${_odYesterdayDM} 16:30`, title: "Rời trung tâm phân loại TP.HCM", desc: "Kiện hàng lên xe tải liên tỉnh đi Tây Nam Bộ.", location: "Hub GHN Tân Bình" },
+      { time: `${_odTodayDM} 07:15`, title: "Đến bưu cục Phường An Cư", desc: "Đã tới bưu cục phát Cần Thơ.", location: "Bưu cục GHN Phường An Cư, TP.Cần Thơ" },
+      { time: `${_odTodayDM} 11:28`, title: "Giao thành công & Ký e-POD", desc: "Khách hàng Ngô Thanh Vân đã nhận hàng và thanh toán đủ COD.", location: "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ" }
     ]
   },
   {
-    trackingCode: "VD-FB-261028-3351",
+    trackingCode: `VD-FB-${_odShortDate}-3351`,
     orderId: "FB261022401",
     channel: "FACEBOOK",
     carrier: "GHTK (Giao Hàng Tiết Kiệm)",
@@ -580,19 +589,19 @@ window.SAMPLE_SHIPMENTS_DATA = [
     },
     itemsSummary: "Tai nghe Bluetooth Không dây TWS ANC Pro × 4",
     batchCode: "LO-2026-B1",
-    handoverTime: "28/10/2026 14:00:00",
-    lastUpdateTime: "28/10/2026 14:05:00",
+    handoverTime: `${_odTodayStr} 14:00:00`,
+    lastUpdateTime: `${_odTodayStr} 14:05:00`,
     currentLocation: "Đã đóng gói — Chờ bưu tá GHTK tới lấy tại 186 An Dương Vương, Phường Bình Phú, TP.HCM",
     shipperName: "Đang điều phối bưu tá GHTK",
     shipperPhone: "1900.6092",
     progressPercent: 20,
     timeline: [
-      { time: "13:50:00", title: "Duyệt đơn & Đóng gói", desc: "Đã in mã vận đơn VD-FB-261028-3351 và đóng thùng carton.", location: "Kho ODOMS Phường Bình Phú" },
+      { time: "13:50:00", title: "Duyệt đơn & Đóng gói", desc: `Đã in mã vận đơn VD-FB-${_odShortDate}-3351 và đóng thùng carton.`, location: "Kho ODOMS Phường Bình Phú" },
       { time: "14:05:00", title: "Bắn tín hiệu lấy hàng", desc: "Đã phát yêu cầu bưu tá GHTK ghé 186 An Dương Vương, Phường Bình Phú, TP.HCM lấy hàng.", location: "Kho ODOMS Phường Bình Phú" }
     ]
   },
   {
-    trackingCode: "VD-SP-261028-5519",
+    trackingCode: `VD-SP-${_odShortDate}-5519`,
     orderId: "SP261022002",
     channel: "SHOPEE",
     carrier: "SPX Express",
@@ -615,8 +624,8 @@ window.SAMPLE_SHIPMENTS_DATA = [
     },
     itemsSummary: "Tai nghe Bluetooth TWS ANC Pro × 2",
     batchCode: "LO-2026-B1",
-    handoverTime: "28/10/2026 09:30:00",
-    lastUpdateTime: "28/10/2026 15:10:00",
+    handoverTime: `${_odTodayStr} 09:30:00`,
+    lastUpdateTime: `${_odTodayStr} 15:10:00`,
     currentLocation: "Bưu tá gọi 3 cuộc không nghe máy — Lưu kho Phường Gò Vấp chờ giao lại lần 2",
     shipperName: "Vũ Đình Trọng (SPX Express)",
     shipperPhone: "0961.889.900",

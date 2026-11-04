@@ -3,9 +3,14 @@
  * DỰ ÁN: HỆ THỐNG QUẢN LÝ ĐƠN HÀNG ĐA KÊNH THÔNG MINH (ODOMS)
  * TỆP TIN: S:\HTTT\02_REALTIME_BACKEND_SYNC\ODOMS_Backend_API.gs
  * MÔ TẢ:
- *   Backend Serverless trên Google Apps Script kết nối Cơ sở dữ liệu Google Sheets (5 bảng chuẩn)
+ *   Backend Serverless trên Google Apps Script kết nối Cơ sở dữ liệu Google Sheets (5 bảng chuẩn PascalCase)
  *   kế thừa kiến trúc khóa tương tranh LockService & bộ Parser từ FIFO_Engine.gs.
- *   1. Tự động khởi tạo 5 Sheet chuẩn: Orders, Inventory_ATP, Batches, Users_RBAC, AuditLogs.
+ *   1. Tự động khởi tạo & chuyển đổi 5 Sheet chuẩn Tiếng Việt không dấu (PascalCase):
+ *      - DatHang (18 cột)
+ *      - TonKho (15 cột)
+ *      - LuuKho (8 cột)
+ *      - NhanSu (14 cột)
+ *      - NhatKy (7 cột)
  *   2. Cổng doGet(e): Trả toàn bộ trạng thái 5 bảng dưới dạng JSON chuẩn cho Web App ODOMS & AppSheet.
  *   3. Cổng doPost(e): Nhận đồng bộ 2 chiều từ Web App (CloudSyncAdapter) và Webhook Postman
  *      với cơ chế khóa độc quyền LockService.getScriptLock() chống xung đột cho <= 10 người dùng.
@@ -14,85 +19,91 @@
 
 const ODOMS_CONFIG = {
   SHEETS: {
-    ORDERS: "Orders",
-    INVENTORY: "Inventory_ATP",
-    BATCHES: "Batches",
-    USERS: "Users_RBAC",
-    LOGS: "AuditLogs"
+    ORDERS: "DatHang",
+    INVENTORY: "TonKho",
+    BATCHES: "LuuKho",
+    USERS: "NhanSu",
+    LOGS: "NhatKy"
+  },
+  LEGACY_SHEET_MAP: {
+    Orders: "DatHang",
+    Inventory_ATP: "TonKho",
+    Batches: "LuuKho",
+    Users_RBAC: "NhanSu",
+    AuditLogs: "NhatKy"
   },
   HEADERS: {
-    Orders: [
-      "orderId",
-      "channel",
-      "orderTime",
-      "sku",
-      "productName",
-      "quantity",
-      "unitPrice",
-      "customerName",
-      "customerPhone",
-      "shippingAddress",
-      "platformStatus",
-      "paymentMethod",
-      "sourceMethod",
-      "status",
-      "fifoRank",
-      "allocatedBatchesJson",
-      "trackingCode",
-      "updatedAt"
+    DatHang: [
+      "MaDonGoc",
+      "SanTMDT",
+      "ThoiGianDat",
+      "MaSanPhamSKU",
+      "TenSanPham",
+      "SoLuong",
+      "DonGia",
+      "KhachHang",
+      "SoDienThoai",
+      "DiaChiGiao",
+      "TrangThaiSan",
+      "PhuongThucThanhToan",
+      "NguonTiepNhan",
+      "TrangThaiDieuPhoi",
+      "ThuTuGiuHang",
+      "PhanBoLoHang",
+      "MaVanDon",
+      "ThoiGianCapNhat"
     ],
-    Inventory_ATP: [
-      "sku",
-      "name",
-      "category",
-      "unit",
-      "price",
-      "maxCapacity",
-      "physicalStock",
-      "reservedStock",
-      "availableStock",
-      "holdShopee",
-      "holdTikTok",
-      "holdLazada",
-      "holdFacebook",
-      "holdPOS",
-      "updatedAt"
+    TonKho: [
+      "MaSanPhamSKU",
+      "TenSanPham",
+      "NhomHang",
+      "DonViTinh",
+      "DonGia",
+      "SucChuaToiDa",
+      "TonKho",
+      "KhachDat",
+      "CoTheBan",
+      "GiuChoShopee",
+      "GiuChoTikTok",
+      "GiuChoLazada",
+      "GiuChoFacebook",
+      "GiuChoPOS",
+      "ThoiGianCapNhat"
     ],
-    Batches: [
-      "batchCode",
-      "qrCode",
-      "sku",
-      "importDate",
-      "expiryDate",
-      "initialQty",
-      "remainingQty",
-      "updatedAt"
+    LuuKho: [
+      "MaLoHang",
+      "MaQR",
+      "MaSanPhamSKU",
+      "NgayNhapKho",
+      "HanSuDung",
+      "SoLuongBanDau",
+      "SoLuongConLai",
+      "ThoiGianCapNhat"
     ],
-    Users_RBAC: [
-      "id",
-      "username",
-      "password",
-      "fullName",
-      "avatar",
-      "role",
-      "department",
-      "shift",
-      "status",
-      "isRoot",
-      "isHiddenBackup",
-      "suspendUntil",
-      "suspendReason",
-      "createdAt"
+    NhanSu: [
+      "MaNhanSu",
+      "TenDangNhap",
+      "MatKhau",
+      "HoVaTen",
+      "KyHieuAvatar",
+      "VaiTro",
+      "PhongBan",
+      "CaLamViec",
+      "TrangThaiTaiKhoan",
+      "QuyenQuanTriGoc",
+      "TaiKhoanDuPhongAn",
+      "TamNgungDen",
+      "LyDoTamNgung",
+      "ThoiGianCapNhat"
     ],
-    AuditLogs: [
-      "id",
-      "time",
-      "username",
-      "fullName",
-      "role",
-      "action",
-      "ip",
-      "status"
+    NhatKy: [
+      "MaNhatKy",
+      "ThoiGianThucHien",
+      "TenDangNhap",
+      "HoVaTen",
+      "NoiDungThaoTac",
+      "DiaChiIP",
+      "KetQua"
     ]
   },
   LOCK_TIMEOUT_MS: 30000,
@@ -101,9 +112,35 @@ const ODOMS_CONFIG = {
 
 /**
  * =========================================================================================
- * 1. KHỞI TẠO CƠ SỞ DỮ LIỆU 5 BẢNG CHUẨN TRÊN GOOGLE SHEETS (CHẠY LẦN ĐẦU HOẶC TỰ ĐỘNG)
+ * 1. KHỞI TẠO & CHUYỂN ĐỔI CƠ SỞ DỮ LIỆU 5 BẢNG CHUẨN PASCALCASE TRÊN GOOGLE SHEETS
  * =========================================================================================
  */
+function migrateLegacySheets(ss) {
+  const legacyMap = ODOMS_CONFIG.LEGACY_SHEET_MAP;
+  Object.keys(legacyMap).forEach(function (oldName) {
+    const newName = legacyMap[oldName];
+    const oldSheet = ss.getSheetByName(oldName);
+    const newSheet = ss.getSheetByName(newName);
+    if (oldSheet && !newSheet) {
+      oldSheet.setName(newName);
+    }
+  });
+}
+
+function applySheetHeaderRow(sheet, headers) {
+  if (!sheet || !headers || headers.length === 0) return;
+  const maxCols = Math.max(sheet.getLastColumn(), headers.length);
+  if (maxCols > headers.length) {
+    sheet.getRange(1, headers.length + 1, Math.max(1, sheet.getLastRow()), maxCols - headers.length).clearContent();
+  }
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  headerRange.setBackground("#0A2947");
+  headerRange.setFontColor("#F3E4C9");
+  headerRange.setFontWeight("bold");
+  sheet.setFrozenRows(1);
+}
+
 function setupODOMSDatabase() {
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty("SECRET_TOKEN")) {
@@ -111,29 +148,23 @@ function setupODOMSDatabase() {
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetNames = Object.values(ODOMS_CONFIG.SHEETS);
+  migrateLegacySheets(ss);
 
+  const sheetNames = Object.values(ODOMS_CONFIG.SHEETS);
   sheetNames.forEach(function (sheetName) {
     let sheet = ss.getSheetByName(sheetName);
     if (!sheet) {
       sheet = ss.insertSheet(sheetName);
     }
     const headers = ODOMS_CONFIG.HEADERS[sheetName];
-    if (sheet.getLastRow() === 0 && headers && headers.length > 0) {
-      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      const headerRange = sheet.getRange(1, 1, 1, headers.length);
-      headerRange.setBackground("#0A2947");
-      headerRange.setFontColor("#F3E4C9");
-      headerRange.setFontWeight("bold");
-      sheet.setFrozenRows(1);
-    }
+    applySheetHeaderRow(sheet, headers);
   });
 
   seedDefaultDataIfEmpty(ss);
 
   return {
     status: "SUCCESS",
-    message: "Đã khởi tạo hoàn tất 5 bảng chuẩn ODOMS (Orders, Inventory_ATP, Batches, Users_RBAC, AuditLogs).",
+    message: "Đã khởi tạo hoàn tất 5 bảng chuẩn PascalCase ODOMS (DatHang, TonKho, LuuKho, NhanSu, NhatKy).",
     sheets: sheetNames,
     timestamp: formatNowVN()
   };
@@ -141,10 +172,17 @@ function setupODOMSDatabase() {
 
 function ensureSheetsInitialized() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const missing = Object.values(ODOMS_CONFIG.SHEETS).some(function (name) {
-    return !ss.getSheetByName(name);
+  migrateLegacySheets(ss);
+
+  const missingOrLegacyHeader = Object.values(ODOMS_CONFIG.SHEETS).some(function (name) {
+    const sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() === 0) return true;
+    const expectedFirstCol = ODOMS_CONFIG.HEADERS[name][0];
+    const actualFirstCol = String(sh.getRange(1, 1).getValue() || "").trim();
+    return actualFirstCol !== expectedFirstCol;
   });
-  if (missing) {
+
+  if (missingOrLegacyHeader) {
     setupODOMSDatabase();
   }
   return ss;
@@ -153,7 +191,7 @@ function ensureSheetsInitialized() {
 function seedDefaultDataIfEmpty(ss) {
   const nowStr = formatNowVN();
 
-  // 1. Seed Inventory_ATP & Batches nếu đang trống
+  // 1. Seed TonKho & LuuKho nếu đang trống
   const invSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.INVENTORY);
   const batchSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.BATCHES);
   if (invSheet && invSheet.getLastRow() <= 1) {
@@ -181,7 +219,7 @@ function seedDefaultDataIfEmpty(ss) {
     batchSheet.getRange(2, 1, defaultBatchRows.length, defaultBatchRows[0].length).setValues(defaultBatchRows);
   }
 
-  // 2. Seed Users_RBAC nếu đang trống
+  // 2. Seed NhanSu nếu đang trống
   const userSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.USERS);
   if (userSheet && userSheet.getLastRow() <= 1) {
     const defaultUsers = [
@@ -193,11 +231,11 @@ function seedDefaultDataIfEmpty(ss) {
     userSheet.getRange(2, 1, defaultUsers.length, defaultUsers[0].length).setValues(defaultUsers);
   }
 
-  // 3. Seed AuditLogs nếu đang trống
+  // 3. Seed NhatKy (7 cột, không có VaiTro) nếu đang trống
   const logSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.LOGS);
   if (logSheet && logSheet.getLastRow() <= 1) {
     const defaultLogs = [
-      ["LOG-INIT-1", nowStr, "dttd", "Đỗ Thị Thuỳ Dung", "Quản lý Điều phối OMS", "Khởi tạo cơ sở dữ liệu 5 bảng trên Google Sheets", "Google Cloud Apps Script", "SUCCESS"]
+      ["LOG-INIT-1", nowStr, "dttd", "Đỗ Thị Thuỳ Dung", "Khởi tạo cơ sở dữ liệu 5 bảng chuẩn PascalCase trên Google Sheets", "Google Cloud Apps Script", "SUCCESS"]
     ];
     logSheet.getRange(2, 1, defaultLogs.length, defaultLogs[0].length).setValues(defaultLogs);
   }
@@ -272,7 +310,7 @@ function doPost(e) {
       return jsonResponse({
         status: "SUCCESS",
         action: action,
-        message: "Đã đồng bộ trạng thái ODOMS lên 5 bảng Google Sheets thành công!",
+        message: "Đã đồng bộ trạng thái ODOMS lên 5 bảng Google Sheets (DatHang, TonKho, LuuKho, NhanSu, NhatKy) thành công!",
         details: syncResult,
         serverTime: formatNowVN()
       });
@@ -288,7 +326,7 @@ function doPost(e) {
       return jsonResponse({
         status: "SUCCESS",
         action: "SYNC_USERS",
-        message: "Đã đồng bộ bảng Users_RBAC và AuditLogs lên Google Sheets.",
+        message: "Đã đồng bộ bảng NhanSu và NhatKy lên Google Sheets.",
         serverTime: formatNowVN()
       });
     }
@@ -303,29 +341,29 @@ function doPost(e) {
 
       let added = 0;
       incomingOrders.forEach(function (ord) {
-        const orderId = String(ord.orderId || ord.original_sn || ord["Mã đơn hàng"] || ("OD-" + Date.now())).trim();
+        const orderId = String(ord.orderId || ord.MaDonGoc || ord.original_sn || ord["Mã đơn hàng"] || ("OD-" + Date.now())).trim();
         const exists = currentState.orders.some(function (o) {
           return String(o.orderId) === orderId;
         });
         if (!exists) {
           currentState.orders.push({
             orderId: orderId,
-            channel: String(ord.channel || ord.channel_id || ord["Sàn TMĐT"] || "SHOPEE").toUpperCase(),
-            orderTime: ord.orderTime || formatNowVN(),
-            sku: String(ord.sku || ord.internal_sku || ord["SKU phân loại"] || "SP-AO-POLO-01").toUpperCase(),
-            productName: ord.productName || ord["Tên sản phẩm"] || "",
-            quantity: parseQuantity(ord.quantity || ord.order_qty || ord["Số lượng"] || 1),
-            unitPrice: parseCurrencyVND(ord.unitPrice || ord["Đơn giá"] || 250000),
-            customerName: ord.customerName || ord["Người Mua"] || "Khách đặt qua Webhook",
-            customerPhone: ord.customerPhone || ord["Số điện thoại"] || "N/A",
-            shippingAddress: ord.shippingAddress || ord.delivery_city || ord["Địa chỉ nhận hàng"] || "TP.HCM",
-            platformStatus: ord.platformStatus || "CONFIRMED",
-            paymentMethod: ord.paymentMethod || "COD",
+            channel: String(ord.channel || ord.SanTMDT || ord.channel_id || ord["Sàn TMĐT"] || "SHOPEE").toUpperCase(),
+            orderTime: ord.orderTime || ord.ThoiGianDat || formatNowVN(),
+            sku: String(ord.sku || ord.MaSanPhamSKU || ord.internal_sku || ord["SKU phân loại"] || "SP-AO-POLO-01").toUpperCase(),
+            productName: ord.productName || ord.TenSanPham || ord["Tên sản phẩm"] || "",
+            quantity: parseQuantity(ord.quantity || ord.SoLuong || ord.order_qty || ord["Số lượng"] || 1),
+            unitPrice: parseCurrencyVND(ord.unitPrice || ord.DonGia || ord["Đơn giá"] || 250000),
+            customerName: ord.customerName || ord.KhachHang || ord["Người Mua"] || "Khách đặt qua Webhook",
+            customerPhone: ord.customerPhone || ord.SoDienThoai || ord["Số điện thoại"] || "N/A",
+            shippingAddress: ord.shippingAddress || ord.DiaChiGiao || ord.delivery_city || ord["Địa chỉ nhận hàng"] || "TP.HCM",
+            platformStatus: ord.platformStatus || ord.TrangThaiSan || "CONFIRMED",
+            paymentMethod: ord.paymentMethod || ord.PhuongThucThanhToan || "COD",
             sourceMethod: "WEBHOOK_API",
-            status: ord.status || "ALLOCATED",
-            fifoRank: ord.fifoRank || "",
+            status: ord.status || ord.TrangThaiDieuPhoi || "ALLOCATED",
+            fifoRank: ord.fifoRank || ord.ThuTuGiuHang || "",
             allocatedBatches: ord.allocatedBatches || [],
-            trackingCode: ord.trackingCode || ""
+            trackingCode: ord.trackingCode || ord.MaVanDon || ""
           });
           added++;
         }
@@ -363,9 +401,90 @@ function doPost(e) {
 
 /**
  * =========================================================================================
- * 4. CÁC HÀM ĐỌC / GHI 5 BẢNG TRÊN GOOGLE SHEETS (BATCH READ / WRITE)
+ * 4. CÁC HÀM ĐỌC / GHI 5 BẢNG TRÊN GOOGLE SHEETS (HỖ TRỢ TƯƠNG THÍCH 2 CHIỀU PASCALCASE)
  * =========================================================================================
  */
+function pickVal(row, keys, defaultVal) {
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    if (row[k] !== undefined && row[k] !== null && row[k] !== "") {
+      return row[k];
+    }
+  }
+  return defaultVal !== undefined ? defaultVal : "";
+}
+
+function formatSourceMethodForSheet(sourceMethod, channel) {
+  const src = String(sourceMethod || "").trim();
+  const chUpper = String(channel || "SHOPEE").trim().toUpperCase();
+  const channelNameMap = {
+    SHOPEE: "Shopee",
+    TIKTOK: "TikTok",
+    LAZADA: "Lazada",
+    FACEBOOK: "Facebook",
+    POS: "POS"
+  };
+  const chLabel = channelNameMap[chUpper] || chUpper || "Shopee";
+
+  if (src === "WEBHOOK_API" || src.indexOf("NhanTuSanTMDT") === 0) {
+    return "NhanTuSanTMDT_" + chLabel;
+  }
+  return "NhapTuFileExcel";
+}
+
+function parseSourceMethodFromSheet(rawVal) {
+  const s = String(rawVal || "").trim();
+  if (s === "WEBHOOK_API" || s.indexOf("NhanTuSanTMDT") === 0) {
+    return "WEBHOOK_API";
+  }
+  return "EXCEL_IMPORT";
+}
+
+function formatAllocatedBatchesForSheet(batches) {
+  if (!Array.isArray(batches) || batches.length === 0) {
+    return "ChuaPhanBo";
+  }
+  return batches
+    .map(function (b) {
+      const code = String(b.batchCode || b.MaLoHang || "LO").trim();
+      const qty = parseQuantity(b.takenQty !== undefined ? b.takenQty : b.quantity);
+      return code + " (" + qty + " SP)";
+    })
+    .join(" + ");
+}
+
+function parseAllocatedBatchesFromSheet(rawVal) {
+  const s = String(rawVal || "").trim();
+  if (!s || s === "ChuaPhanBo") return [];
+
+  if (s.charAt(0) === "[") {
+    try {
+      const parsed = JSON.parse(s);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  return s
+    .split("+")
+    .map(function (part) {
+      const trimmed = part.trim();
+      const m = trimmed.match(/^([A-Za-z0-9\-_]+)\s*\((\d+)/);
+      if (m) {
+        return {
+          batchCode: m[1],
+          qrCode: m[1],
+          takenQty: parseInt(m[2], 10) || 1
+        };
+      }
+      return null;
+    })
+    .filter(function (item) {
+      return item !== null;
+    });
+}
+
 function readAllSheetsState(ss) {
   const ordersRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.ORDERS);
   const invRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.INVENTORY);
@@ -374,89 +493,101 @@ function readAllSheetsState(ss) {
   const logsRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.LOGS);
 
   const inventory = invRaw.map(function (row) {
-    const skuCode = String(row.sku || "").trim();
+    const skuCode = String(pickVal(row, ["MaSanPhamSKU", "sku"], "")).trim();
     const skuBatches = batchesRaw
       .filter(function (b) {
-        return String(b.sku || "").trim() === skuCode;
+        return String(pickVal(b, ["MaSanPhamSKU", "sku"], "")).trim() === skuCode;
       })
       .map(function (b) {
+        const bCode = String(pickVal(b, ["MaLoHang", "batchCode"], ""));
         return {
-          batchCode: String(b.batchCode || ""),
-          qrCode: String(b.qrCode || b.batchCode || ""),
-          importDate: String(b.importDate || ""),
-          expiryDate: String(b.expiryDate || ""),
-          initialQty: parseQuantity(b.initialQty),
-          remainingQty: parseQuantity(b.remainingQty)
+          batchCode: bCode,
+          qrCode: String(pickVal(b, ["MaQR", "qrCode"], bCode)),
+          importDate: String(pickVal(b, ["NgayNhapKho", "importDate"], "")),
+          expiryDate: String(pickVal(b, ["HanSuDung", "expiryDate"], "")),
+          initialQty: parseQuantity(pickVal(b, ["SoLuongBanDau", "initialQty"], 0)),
+          remainingQty: parseQuantity(pickVal(b, ["SoLuongConLai", "remainingQty"], 0))
         };
       });
 
     return {
       sku: skuCode,
-      name: String(row.name || ""),
-      category: String(row.category || ""),
-      unit: String(row.unit || "Cái"),
-      price: parseCurrencyVND(row.price),
-      maxCapacity: parseQuantity(row.maxCapacity) || 25,
-      physicalStock: parseQuantity(row.physicalStock),
-      reservedStock: parseQuantity(row.reservedStock),
-      availableStock: parseQuantity(row.availableStock),
+      name: String(pickVal(row, ["TenSanPham", "name"], "")),
+      category: String(pickVal(row, ["NhomHang", "category"], "")),
+      unit: String(pickVal(row, ["DonViTinh", "unit"], "Cái")),
+      price: parseCurrencyVND(pickVal(row, ["DonGia", "price"], 0)),
+      maxCapacity: parseQuantity(pickVal(row, ["SucChuaToiDa", "maxCapacity"], 25)) || 25,
+      physicalStock: parseQuantity(pickVal(row, ["TonKho", "physicalStock"], 0)),
+      reservedStock: parseQuantity(pickVal(row, ["KhachDat", "reservedStock"], 0)),
+      availableStock: parseQuantity(pickVal(row, ["CoTheBan", "availableStock"], 0)),
       channelReserved: {
-        SHOPEE: parseQuantity(row.holdShopee),
-        TIKTOK: parseQuantity(row.holdTikTok),
-        LAZADA: parseQuantity(row.holdLazada),
-        FACEBOOK: parseQuantity(row.holdFacebook),
-        POS: parseQuantity(row.holdPOS)
+        SHOPEE: parseQuantity(pickVal(row, ["GiuChoShopee", "holdShopee"], 0)),
+        TIKTOK: parseQuantity(pickVal(row, ["GiuChoTikTok", "holdTikTok"], 0)),
+        LAZADA: parseQuantity(pickVal(row, ["GiuChoLazada", "holdLazada"], 0)),
+        FACEBOOK: parseQuantity(pickVal(row, ["GiuChoFacebook", "holdFacebook"], 0)),
+        POS: parseQuantity(pickVal(row, ["GiuChoPOS", "holdPOS"], 0))
       },
       batches: skuBatches
     };
   });
 
   const orders = ordersRaw.map(function (r) {
-    let parsedBatches = [];
-    if (r.allocatedBatchesJson) {
-      try {
-        parsedBatches = JSON.parse(r.allocatedBatchesJson);
-      } catch (e) {
-        parsedBatches = [];
-      }
-    }
+    const rawBatchesVal = pickVal(r, ["PhanBoLoHang", "allocatedBatchesJson"], "");
+    const rawSourceVal = pickVal(r, ["NguonTiepNhan", "sourceMethod"], "NhapTuFileExcel");
+    const rankVal = pickVal(r, ["ThuTuGiuHang", "fifoRank"], "");
+
     return {
-      orderId: String(r.orderId || ""),
-      channel: String(r.channel || "SHOPEE"),
-      orderTime: String(r.orderTime || ""),
-      sku: String(r.sku || ""),
-      productName: String(r.productName || ""),
-      quantity: parseQuantity(r.quantity),
-      unitPrice: parseCurrencyVND(r.unitPrice),
-      customerName: String(r.customerName || ""),
-      customerPhone: String(r.customerPhone || ""),
-      shippingAddress: String(r.shippingAddress || ""),
-      platformStatus: String(r.platformStatus || "CONFIRMED"),
-      paymentMethod: String(r.paymentMethod || "COD"),
-      sourceMethod: String(r.sourceMethod || "EXCEL_IMPORT"),
-      status: String(r.status || "PENDING"),
-      fifoRank: r.fifoRank ? Number(r.fifoRank) : null,
-      allocatedBatches: parsedBatches,
-      trackingCode: String(r.trackingCode || "")
+      orderId: String(pickVal(r, ["MaDonGoc", "orderId"], "")),
+      channel: String(pickVal(r, ["SanTMDT", "channel"], "SHOPEE")),
+      orderTime: String(pickVal(r, ["ThoiGianDat", "orderTime"], "")),
+      sku: String(pickVal(r, ["MaSanPhamSKU", "sku"], "")),
+      productName: String(pickVal(r, ["TenSanPham", "productName"], "")),
+      quantity: parseQuantity(pickVal(r, ["SoLuong", "quantity"], 0)),
+      unitPrice: parseCurrencyVND(pickVal(r, ["DonGia", "unitPrice"], 0)),
+      customerName: String(pickVal(r, ["KhachHang", "customerName"], "")),
+      customerPhone: String(pickVal(r, ["SoDienThoai", "customerPhone"], "")),
+      shippingAddress: String(pickVal(r, ["DiaChiGiao", "shippingAddress"], "")),
+      platformStatus: String(pickVal(r, ["TrangThaiSan", "platformStatus"], "CONFIRMED")),
+      paymentMethod: String(pickVal(r, ["PhuongThucThanhToan", "paymentMethod"], "COD")),
+      sourceMethod: parseSourceMethodFromSheet(rawSourceVal),
+      status: String(pickVal(r, ["TrangThaiDieuPhoi", "status"], "PENDING")),
+      fifoRank: rankVal !== "" && rankVal !== null ? Number(rankVal) : null,
+      allocatedBatches: parseAllocatedBatchesFromSheet(rawBatchesVal),
+      trackingCode: String(pickVal(r, ["MaVanDon", "trackingCode"], ""))
     };
   });
 
   const users = usersRaw.map(function (u) {
+    const isRootRaw = pickVal(u, ["QuyenQuanTriGoc", "isRoot"], false);
+    const isHiddenRaw = pickVal(u, ["TaiKhoanDuPhongAn", "isHiddenBackup"], false);
     return {
-      id: String(u.id || ""),
-      username: String(u.username || ""),
-      password: String(u.password || ""),
-      fullName: String(u.fullName || ""),
-      avatar: String(u.avatar || "US"),
-      role: String(u.role || "Chuyên viên Điều phối"),
-      department: String(u.department || "Phòng Vận hành Đa kênh"),
-      shift: String(u.shift || "Ca Hành chính (08:00 - 17:00)"),
-      status: String(u.status || "ACTIVE"),
-      isRoot: u.isRoot === true || String(u.isRoot).toLowerCase() === "true",
-      isHiddenBackup: u.isHiddenBackup === true || String(u.isHiddenBackup).toLowerCase() === "true",
-      suspendUntil: String(u.suspendUntil || ""),
-      suspendReason: String(u.suspendReason || ""),
-      createdAt: String(u.createdAt || "")
+      id: String(pickVal(u, ["MaNhanSu", "id"], "")),
+      username: String(pickVal(u, ["TenDangNhap", "username"], "")),
+      password: String(pickVal(u, ["MatKhau", "password"], "")),
+      fullName: String(pickVal(u, ["HoVaTen", "fullName"], "")),
+      avatar: String(pickVal(u, ["KyHieuAvatar", "avatar"], "US")),
+      role: String(pickVal(u, ["VaiTro", "role"], "Chuyên viên Điều phối")),
+      department: String(pickVal(u, ["PhongBan", "department"], "Phòng Vận hành Đa kênh")),
+      shift: String(pickVal(u, ["CaLamViec", "shift"], "Ca Hành chính (08:00 - 17:00)")),
+      status: String(pickVal(u, ["TrangThaiTaiKhoan", "status"], "ACTIVE")),
+      isRoot: isRootRaw === true || String(isRootRaw).toLowerCase() === "true",
+      isHiddenBackup: isHiddenRaw === true || String(isHiddenRaw).toLowerCase() === "true",
+      suspendUntil: String(pickVal(u, ["TamNgungDen", "suspendUntil"], "")),
+      suspendReason: String(pickVal(u, ["LyDoTamNgung", "suspendReason"], "")),
+      createdAt: String(pickVal(u, ["ThoiGianCapNhat", "createdAt"], ""))
+    };
+  });
+
+  const auditLogs = logsRaw.map(function (l) {
+    return {
+      id: String(pickVal(l, ["MaNhatKy", "id"], "")),
+      time: String(pickVal(l, ["ThoiGianThucHien", "time"], "")),
+      username: String(pickVal(l, ["TenDangNhap", "username"], "system")),
+      fullName: String(pickVal(l, ["HoVaTen", "fullName"], "Hệ thống")),
+      role: "Quản trị viên OMS",
+      action: String(pickVal(l, ["NoiDungThaoTac", "action"], "")),
+      ip: String(pickVal(l, ["DiaChiIP", "ip"], "ODOMS Cloud Sync")),
+      status: String(pickVal(l, ["KetQua", "status"], "SUCCESS"))
     };
   });
 
@@ -464,7 +595,7 @@ function readAllSheetsState(ss) {
     orders: orders,
     inventory: inventory,
     users: users,
-    auditLogs: logsRaw
+    auditLogs: auditLogs
   };
 }
 
@@ -497,15 +628,16 @@ function writeFullStateToSheets(ss, payload) {
 
 function writeOrdersSheet(ss, orders) {
   const sheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.ORDERS);
-  const headers = ODOMS_CONFIG.HEADERS.Orders;
+  const headers = ODOMS_CONFIG.HEADERS.DatHang;
   clearSheetDataRows(sheet, headers);
 
   if (!orders || orders.length === 0) return 0;
   const nowStr = formatNowVN();
   const rows = orders.map(function (o) {
+    const ch = o.channel || "SHOPEE";
     return [
       o.orderId || "",
-      o.channel || "",
+      ch,
       o.orderTime || "",
       o.sku || "",
       o.productName || "",
@@ -516,10 +648,10 @@ function writeOrdersSheet(ss, orders) {
       o.shippingAddress || "",
       o.platformStatus || "CONFIRMED",
       o.paymentMethod || "COD",
-      o.sourceMethod || "EXCEL_IMPORT",
+      formatSourceMethodForSheet(o.sourceMethod, ch),
       o.status || "PENDING",
       o.fifoRank !== null && o.fifoRank !== undefined ? o.fifoRank : "",
-      JSON.stringify(o.allocatedBatches || []),
+      formatAllocatedBatchesForSheet(o.allocatedBatches),
       o.trackingCode || "",
       nowStr
     ];
@@ -531,8 +663,8 @@ function writeOrdersSheet(ss, orders) {
 function writeInventoryAndBatchesSheets(ss, inventory) {
   const invSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.INVENTORY);
   const batchSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.BATCHES);
-  const invHeaders = ODOMS_CONFIG.HEADERS.Inventory_ATP;
-  const batchHeaders = ODOMS_CONFIG.HEADERS.Batches;
+  const invHeaders = ODOMS_CONFIG.HEADERS.TonKho;
+  const batchHeaders = ODOMS_CONFIG.HEADERS.LuuKho;
 
   clearSheetDataRows(invSheet, invHeaders);
   clearSheetDataRows(batchSheet, batchHeaders);
@@ -590,7 +722,7 @@ function writeInventoryAndBatchesSheets(ss, inventory) {
 
 function writeUsersSheet(ss, users) {
   const sheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.USERS);
-  const headers = ODOMS_CONFIG.HEADERS.Users_RBAC;
+  const headers = ODOMS_CONFIG.HEADERS.NhanSu;
   clearSheetDataRows(sheet, headers);
 
   if (!users || users.length === 0) return 0;
@@ -618,7 +750,7 @@ function writeUsersSheet(ss, users) {
 
 function writeAuditLogsSheet(ss, logs) {
   const sheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.LOGS);
-  const headers = ODOMS_CONFIG.HEADERS.AuditLogs;
+  const headers = ODOMS_CONFIG.HEADERS.NhatKy;
   clearSheetDataRows(sheet, headers);
 
   if (!logs || logs.length === 0) return 0;
@@ -629,7 +761,6 @@ function writeAuditLogsSheet(ss, logs) {
       l.time || formatNowVN(),
       l.username || "system",
       l.fullName || "Hệ thống",
-      l.role || "OMS",
       l.action || l.message || "",
       l.ip || "ODOMS Cloud Sync",
       l.status || "SUCCESS"
@@ -654,7 +785,20 @@ function readSheetObjects(ss, sheetName) {
     const obj = {};
     for (let c = 0; c < headers.length; c++) {
       const key = String(headers[c] || "").trim();
-      if (key) obj[key] = row[c];
+      if (key) {
+        let cellVal = row[c];
+        if (cellVal instanceof Date && !isNaN(cellVal.getTime())) {
+          const pad = function (n) { return String(n).padStart(2, "0"); };
+          cellVal =
+            pad(cellVal.getDate()) + "/" +
+            pad(cellVal.getMonth() + 1) + "/" +
+            cellVal.getFullYear() + " " +
+            pad(cellVal.getHours()) + ":" +
+            pad(cellVal.getMinutes()) + ":" +
+            pad(cellVal.getSeconds());
+        }
+        obj[key] = cellVal;
+      }
     }
     result.push(obj);
   }
@@ -663,10 +807,7 @@ function readSheetObjects(ss, sheetName) {
 
 function clearSheetDataRows(sheet, headers) {
   if (!sheet) return;
-  if (sheet.getLastRow() === 0 && headers) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    return;
-  }
+  applySheetHeaderRow(sheet, headers);
   const lastRow = sheet.getLastRow();
   const lastCol = Math.max(sheet.getLastColumn(), headers ? headers.length : 1);
   if (lastRow > 1) {

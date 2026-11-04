@@ -89,6 +89,11 @@ const AppUI = {
   init() {
     this.initTheme();
     this.initShipping();
+    const wbInput = document.getElementById("wbTrackingCode");
+    if (wbInput && !wbInput.value && this.waybillHistory && this.waybillHistory[0]) {
+      wbInput.value = this.waybillHistory[0].trackingCode;
+    }
+    this.initCloudSyncPanel();
     this.bindEvents();
     this.renderLoginQuickAccounts();
     // Luôn khởi đầu tại Màn hình Đăng nhập (căn giữa, màu mặc định Navy)
@@ -331,6 +336,7 @@ const AppUI = {
     if (loginEl) loginEl.classList.add("hidden");
     if (appEl) appEl.classList.remove("hidden");
     this.updateSidebarUserProfile();
+    this.applyRoleBasedAccessControl();
     this.renderAll();
   },
 
@@ -385,7 +391,17 @@ const AppUI = {
     const nameEl = document.getElementById("sidebarUserName");
 
     if (avatarEl) avatarEl.innerText = user.avatar || "TD";
-    if (nameEl) nameEl.innerText = user.fullName;
+    if ( nameEl ) nameEl.innerText = user.fullName;
+
+    const greetingEl = document.getElementById("sidebarUserGreeting");
+    if (greetingEl) {
+      const isBackupAdmin = String(user.username || "").toLowerCase() === "lhmt";
+      if (isBackupAdmin) {
+        greetingEl.innerHTML = 'Chào bạn, <span style="color:#fbbf24;font-weight:800;">Admin</span>';
+      } else {
+        greetingEl.innerText = "Chào bạn,";
+      }
+    }
   },
 
   renderLoginQuickAccounts() {
@@ -436,7 +452,50 @@ const AppUI = {
     }
   },
 
+  isCurrentUserAdmin() {
+    const user =
+      (window.userAuth && window.userAuth.currentUser) ||
+      (window.userAuth && window.userAuth.users && window.userAuth.users[0]);
+    if (!user) return false;
+    const uname = String(user.username || "").toLowerCase();
+    const roleLower = String(user.role || "").toLowerCase();
+    return Boolean(
+      user.isRoot === true ||
+      uname === "dttd" ||
+      uname === "lhmt" ||
+      roleLower.includes("admin") ||
+      roleLower.includes("quản trị")
+    );
+  },
+
+  applyRoleBasedAccessControl() {
+    const isAdmin = this.isCurrentUserAdmin();
+    const adminOnlyTabs = ["logs", "staff"];
+
+    document.querySelectorAll('[data-admin-only="true"]').forEach((el) => {
+      el.classList.toggle("hidden", !isAdmin);
+      el.style.display = isAdmin ? "" : "none";
+      if (el.parentElement && el.parentElement.tagName === "LI") {
+        el.parentElement.style.display = isAdmin ? "" : "none";
+      }
+    });
+
+    if (!isAdmin && adminOnlyTabs.includes(this.currentMenuTab)) {
+      this.switchSidebarTab("dashboard");
+    }
+  },
+
   switchSidebarTab(tabKey) {
+    const adminOnlyTabs = ["logs", "staff"];
+    if (adminOnlyTabs.includes(tabKey) && !this.isCurrentUserAdmin()) {
+      if (window.omsEngine) {
+        window.omsEngine.addLog(
+          "warn",
+          `[PHÂN QUYỀN RBAC] Tài khoản Nhân viên vận hành (Staff) không có quyền truy cập mục Quản trị [${tabKey}].`
+        );
+      }
+      tabKey = "dashboard";
+    }
     this.currentMenuTab = tabKey;
 
     // Cập nhật trạng thái active cho menu Sidebar
@@ -512,7 +571,7 @@ const AppUI = {
   // ============================================================================
   handleFilesSelected(fileList) {
     Array.from(fileList).forEach((file) => {
-      window.ExcelHandler.parseUploadedFile(file, (err, rows) => {
+      window.ExcelHandler.parseWorkbook(file, (err, rows) => {
         if (err || !rows || rows.length === 0) {
           window.omsEngine.addLog("error", `Không thể đọc file [${file.name}]. Vui lòng kiểm tra định dạng .xlsx hoặc .csv.`);
           this.renderLogs();
@@ -540,18 +599,79 @@ const AppUI = {
     }
   },
 
+  fillRandomWebhookOrder() {
+    const channels = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
+    const skus = [
+      "SP-AO-POLO-01",
+      "SP-TAI-NGHE-02",
+      "SP-BALO-LAP-03",
+      "SP-BINH-NHIET-04",
+      "SP-BAN-PHIM-05"
+    ];
+    const sampleCustomers = [
+      "Nguyễn Minh Tuấn",
+      "Trần Thu Hà",
+      "Lê Hoàng Nam",
+      "Phạm Ngọc Ánh",
+      "Võ Quốc Bảo",
+      "Đặng Thùy Trang",
+      "Bùi Quang Huy",
+      "Hoàng Lan Anh"
+    ];
+    const sampleAddresses = [
+      "123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM",
+      "456 Lê Lợi, Phường Bến Thành, Quận 1, TP.HCM",
+      "88 Cách Mạng Tháng 8, Phường Võ Thị Sáu, Quận 3, TP.HCM",
+      "215 Điện Biên Phủ, Phường 15, Quận Bình Thạnh, TP.HCM",
+      "52 Nguyễn Văn Linh, Quận Hải Châu, TP. Đà Nẵng",
+      "108 Trần Phú, Quận Hà Đông, TP. Hà Nội",
+      "35 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP.HCM",
+      "190 Cộng Hòa, Phường 12, Quận Tân Bình, TP.HCM"
+    ];
+
+    const randChannel = channels[Math.floor(Math.random() * channels.length)];
+    const randSku = skus[Math.floor(Math.random() * skus.length)];
+    const randQty = Math.floor(1 + Math.random() * 4);
+    const randCustomer = sampleCustomers[Math.floor(Math.random() * sampleCustomers.length)];
+    const randAddress =
+      randChannel === "POS"
+        ? "Mua trực tiếp tại Cửa hàng ODOMS (Quầy POS)"
+        : sampleAddresses[Math.floor(Math.random() * sampleAddresses.length)];
+
+    const chEl = document.getElementById("simChannel");
+    const skuEl = document.getElementById("simSku");
+    const qtyEl = document.getElementById("simQty");
+    const custEl = document.getElementById("simCustomer");
+    const addrEl = document.getElementById("simAddress");
+
+    if (chEl) chEl.value = randChannel;
+    if (skuEl) skuEl.value = randSku;
+    if (qtyEl) qtyEl.value = randQty;
+    if (custEl) custEl.value = randCustomer;
+    if (addrEl) addrEl.value = randAddress;
+  },
+
   simulateWebhookOrder() {
     const channel = document.getElementById("simChannel").value;
     const sku = document.getElementById("simSku").value;
     const qty = parseInt(document.getElementById("simQty").value, 10) || 1;
     const customer = document.getElementById("simCustomer").value.trim() || "Khách đặt Online Real-time";
+    const addressEl = document.getElementById("simAddress");
+    const address =
+      addressEl && addressEl.value.trim()
+        ? addressEl.value.trim()
+        : channel === "POS"
+        ? "Mua trực tiếp tại Cửa hàng ODOMS (Quầy POS)"
+        : `Đơn đồng bộ qua Webhook ${channel}`;
 
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
-    const timestampStr = `2026-10-24 ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const dateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+    const shortDateStr = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
+    const timestampStr = `${dateStr} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     const randomSuffix = Math.floor(100 + Math.random() * 900);
     const prefixMap = { SHOPEE: "SP", TIKTOK: "TT", LAZADA: "LZ", FACEBOOK: "FB", POS: "POS" };
-    const orderId = `${prefixMap[channel] || "OD"}261024${randomSuffix}`;
+    const orderId = `${prefixMap[channel] || "OD"}${shortDateStr}${randomSuffix}`;
 
     const invItem = window.omsEngine.inventory.find((i) => i.sku === sku);
     const unitPrice = invItem ? invItem.price : 250000;
@@ -567,7 +687,7 @@ const AppUI = {
       "Đơn giá": unitPrice,
       "Người Mua": customer,
       "Số điện thoại": "090" + Math.floor(1000000 + Math.random() * 8999999),
-      "Địa chỉ nhận hàng": `Đơn đồng bộ qua Webhook ${channel}`,
+      "Địa chỉ nhận hàng": address,
       "Trạng thái đơn hàng": "Đã xác nhận",
       "Phương thức thanh toán": channel === "POS" ? "Tiền mặt tại quầy" : "Ví điện tử / Chuyển khoản"
     };
@@ -583,6 +703,9 @@ const AppUI = {
       this.demoTimer = null;
     }
     window.omsEngine.resetSystem();
+    if (window.cloudSync) {
+      window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
+    }
     this.renderAll();
 
     const demoSequence = [
@@ -665,6 +788,9 @@ const AppUI = {
       btn.innerText = "▶️ Chạy Mô Phỏng FIFO (4 Bước)";
     }
     window.omsEngine.resetSystem();
+    if (window.cloudSync) {
+      window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
+    }
     this.renderAll();
   },
 
@@ -2318,7 +2444,7 @@ handleResetPassword(username) {
 
         const sourceBadge =
           ord.sourceMethod === "WEBHOOK_API"
-            ? `<span style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ API 2 chiều</span>`
+            ? `<span style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Sàn TMDT</span>`
             : `<span style="font-size:11px;color:var(--theme-primary);font-weight:600;">📊 File Excel</span>`;
 
         return `
@@ -2330,8 +2456,8 @@ handleResetPassword(username) {
           </td>
           <td><span class="channel-badge badge-${ord.channel}">${ord.channel}</span></td>
           <td>
-            <div style="font-weight:700;">${ord.orderTime.split(" ")[1] || ord.orderTime}</div>
-            <div style="font-size:11px;color:var(--text-muted);">${ord.orderTime.split(" ")[0]}</div>
+            <div style="font-weight:700;font-family:monospace;font-size:12px;">${window.omsEngine && typeof window.omsEngine.parseAndFormatOrderTime === "function" ? window.omsEngine.parseAndFormatOrderTime(ord.orderTime).formatted : ord.orderTime}</div>
+
           </td>
           <td>
             <div style="font-weight:700;color:var(--theme-primary);">${ord.sku}</div>
@@ -2468,7 +2594,7 @@ handleResetPassword(username) {
   // ============================================================================
   waybillHistory: [
     {
-      trackingCode: "VD-ODOMS-261025-8801",
+      trackingCode: `VD-ODOMS-${String(new Date().getFullYear()).slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-8801`,
       orderId: "SP261022001",
       channel: "SHOPEE",
       carrier: "SPX Express",
@@ -2481,7 +2607,7 @@ handleResetPassword(username) {
       batchCode: "LO-2026-A1",
       totalAmount: 0,
       paymentMethod: "Ví ShopeePay",
-      createdAt: "25/10/2026 08:30:15"
+      createdAt: `${String(new Date().getDate()).padStart(2, "0")}/${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()} 08:30:15`
     }
   ],
 
@@ -2526,7 +2652,9 @@ handleResetPassword(username) {
     };
 
     const randSuffix = Math.floor(1000 + Math.random() * 9000);
-    const trackingCode = `VD-${ord.channel.slice(0, 2)}-261025-${randSuffix}`;
+    const nowWb = new Date();
+    const shortWbDate = `${String(nowWb.getFullYear()).slice(-2)}${String(nowWb.getMonth() + 1).padStart(2, "0")}${String(nowWb.getDate()).padStart(2, "0")}`;
+    const trackingCode = `VD-${ord.channel.slice(0, 2)}-${shortWbDate}-${randSuffix}`;
 
     const batchText =
       ord.allocatedBatches && ord.allocatedBatches.length > 0
@@ -2565,7 +2693,9 @@ handleResetPassword(username) {
   regenerateTrackingCodeOnly() {
     const ch = document.getElementById("wbChannel")?.value || "SHOPEE";
     const rand = Math.floor(1000 + Math.random() * 9000);
-    const code = `VD-${ch.slice(0, 2)}-261025-${rand}`;
+    const nowReg = new Date();
+    const shortRegDate = `${String(nowReg.getFullYear()).slice(-2)}${String(nowReg.getMonth() + 1).padStart(2, "0")}${String(nowReg.getDate()).padStart(2, "0")}`;
+    const code = `VD-${ch.slice(0, 2)}-${shortRegDate}-${rand}`;
     const el = document.getElementById("wbTrackingCode");
     if (el) el.value = code;
     this.generateWaybillAndQR(false);
@@ -2659,7 +2789,7 @@ handleResetPassword(username) {
     return {
       orderId,
       channel: val("wbChannel", "SHOPEE"),
-      trackingCode: val("wbTrackingCode", "VD-ODOMS-261025-8801"),
+      trackingCode: val("wbTrackingCode", `VD-ODOMS-${String(new Date().getFullYear()).slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-8801`),
       carrier: val("wbCarrier", "SPX Express"),
       customerName: val("wbCustomerName", "Nguyễn Văn An"),
       customerPhone: val("wbCustomerPhone", "0901234567"),
@@ -3140,7 +3270,7 @@ handleResetPassword(username) {
           <p><strong>Mã đơn hàng:</strong> ${ord.orderId}</p>
           <p><strong>Kênh bán (Sàn):</strong> <span class="channel-badge badge-${ord.channel}">${ord.channel}</span></p>
           <p><strong>Thời gian đặt:</strong> ${ord.orderTime}</p>
-          <p><strong>Phương thức nhận:</strong> ${ord.sourceMethod === "WEBHOOK_API" ? "Đồng bộ API / Webhook 2 chiều" : "Nạp từ bảng dữ liệu Excel"}</p>
+          <p><strong>Phương thức nhận:</strong> ${ord.sourceMethod === "WEBHOOK_API" ? "Đồng bộ từ Sàn TMDT" : "Nạp từ File Excel"}</p>
         </div>
         <div>
           <p><strong>Khách hàng:</strong> ${ord.customerName} (${ord.customerPhone})</p>
@@ -3441,6 +3571,161 @@ handleResetPassword(username) {
   closeShippingMapModal() {
     const modal = document.getElementById("shippingMapModal");
     if (modal) modal.classList.remove("open");
+  },
+
+  // ============================================================================
+  // ĐỒNG BỘ ĐÁM MÂY GOOGLE SHEETS & LOCALSTORAGE (CloudSyncAdapter UI)
+  // ============================================================================
+  initCloudSyncPanel() {
+    if (window.cloudSync) {
+      window.cloudSync.restoreLocalStateSnapshot();
+      if (window.cloudSync.endpointUrl && window.cloudSync.autoSync) {
+        window.cloudSync.pullStateFromCloud(true);
+      }
+    }
+
+    const settingsSection = document.querySelector('section.oms-view-section[data-views="settings"] .wms-card');
+    if (settingsSection && !document.getElementById("cloudSyncConfigBox")) {
+      const box = document.createElement("div");
+      box.id = "cloudSyncConfigBox";
+      box.style.cssText =
+        "margin-top:16px;padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;";
+
+      const cfg = window.cloudSync ? window.cloudSync : { endpointUrl: "", autoSync: true, lastSyncTime: "Chưa đồng bộ" };
+
+      box.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div>
+            <h4 style="margin:0;display:flex;align-items:center;gap:8px;">
+              <span>☁️ 3. Đồng bộ Đám mây Google Sheets & LocalStorage (CloudSyncAdapter)</span>
+              <span id="cloudSyncStatusBadge" class="status-badge st-ALLOCATED" style="font-size:11px;">● LocalStorage Sẵn sàng</span>
+            </h4>
+            <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;">
+              Chạy song song: Lưu tức thì vào <code>LocalStorage</code> (0ms) + Đồng bộ ngầm 5 bảng (<code>DatHang</code>, <code>TonKho</code>, <code>LuuKho</code>, <code>NhanSu</code>, <code>NhatKy</code>) lên Google Sheets qua <code>ODOMS_Backend_API.gs</code>.
+            </p>
+          </div>
+          <div id="cloudLastSyncLabel" style="font-size:11.5px;font-weight:700;color:var(--text-muted);">
+            Lần đồng bộ cuối: ${cfg.lastSyncTime || "Chưa đồng bộ"}
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:10px;">
+          <input
+            type="url"
+            id="cloudEndpointUrlInput"
+            class="form-control"
+            placeholder="Dán link Google Apps Script Web App URL (https://script.google.com/macros/s/.../exec)"
+            value="${cfg.endpointUrl || ""}"
+          />
+          <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.handleSaveCloudConfig()">
+            💾 Lưu cấu hình Cloud
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer;">
+            <input type="checkbox" id="cloudAutoSyncCheckbox" ${cfg.autoSync !== false ? "checked" : ""} onchange="AppUI.handleSaveCloudConfig(true)" />
+            <span>Tự động đẩy ngầm lên Google Sheets khi phát sinh đơn hàng / tồn kho / nhân sự mới</span>
+          </label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.handleManualCloudPush()">
+              ☁️ Đồng bộ lên Google Sheets ngay
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.handleManualCloudPull()">
+              📥 Tải dữ liệu từ Google Sheets về
+            </button>
+          </div>
+        </div>
+        <div id="cloudSyncFeedbackMsg" class="hidden" style="margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+      `;
+
+      settingsSection.appendChild(box);
+      this.updateCloudSyncStatusUI();
+    }
+  },
+
+  updateCloudSyncStatusUI() {
+    if (!window.cloudSync) return;
+    const badgeEl = document.getElementById("cloudSyncStatusBadge");
+    const lastSyncEl = document.getElementById("cloudLastSyncLabel");
+
+    if (lastSyncEl) {
+      lastSyncEl.innerText = `Lần đồng bộ cuối: ${window.cloudSync.lastSyncTime || "Chưa đồng bộ"}`;
+    }
+    if (!badgeEl) return;
+
+    const status = window.cloudSync.syncStatus;
+    if (status === "SYNCING") {
+      badgeEl.className = "status-badge";
+      badgeEl.style.background = "#fef3c7";
+      badgeEl.style.color = "#b45309";
+      badgeEl.innerText = "⏳ Đang đồng bộ Cloud...";
+    } else if (status === "CLOUD_CONNECTED") {
+      badgeEl.className = "status-badge st-ALLOCATED";
+      badgeEl.style.background = "";
+      badgeEl.style.color = "";
+      badgeEl.innerText = "☁️ Đã đồng bộ Google Sheets";
+    } else if (status === "CLOUD_ERROR") {
+      badgeEl.className = "status-badge st-INVALID";
+      badgeEl.style.background = "";
+      badgeEl.style.color = "";
+      badgeEl.innerText = "⚠️ Lưu dự phòng LocalStorage";
+    } else {
+      badgeEl.className = "status-badge st-ALLOCATED";
+      badgeEl.style.background = "";
+      badgeEl.style.color = "";
+      badgeEl.innerText = window.cloudSync.endpointUrl
+        ? "☁️ Cloud Sẵn sàng"
+        : "💾 LocalStorage Sẵn sàng";
+    }
+  },
+
+  showCloudFeedback(message, isSuccess = true) {
+    const msgEl = document.getElementById("cloudSyncFeedbackMsg");
+    if (!msgEl) return;
+    msgEl.classList.remove("hidden");
+    msgEl.style.background = isSuccess ? "#dcfce7" : "#fef2f2";
+    msgEl.style.color = isSuccess ? "#15803d" : "#dc2626";
+    msgEl.style.border = isSuccess ? "1px solid #86efac" : "1px solid #fecaca";
+    msgEl.innerText = message;
+  },
+
+  handleSaveCloudConfig(silent = false) {
+    if (!window.cloudSync) return;
+    const urlInput = document.getElementById("cloudEndpointUrlInput");
+    const autoCheck = document.getElementById("cloudAutoSyncCheckbox");
+
+    const endpointUrl = urlInput ? urlInput.value.trim() : "";
+    const autoSync = autoCheck ? autoCheck.checked : true;
+
+    window.cloudSync.saveConfig({ endpointUrl, autoSync });
+    window.cloudSync.syncStatus = endpointUrl ? "CLOUD_READY" : "LOCAL_READY";
+    this.updateCloudSyncStatusUI();
+
+    if (!silent) {
+      this.showCloudFeedback(
+        endpointUrl
+          ? "Đã lưu đường dẫn Google Apps Script Web App URL! Hệ thống đã sẵn sàng đồng bộ 2 chiều với Google Sheets."
+          : "Đã lưu chế độ đồng bộ cục bộ (LocalStorage).",
+        true
+      );
+    }
+  },
+
+  async handleManualCloudPush() {
+    if (!window.cloudSync) return;
+    this.handleSaveCloudConfig(true);
+    const res = await window.cloudSync.pushStateToCloud("MANUAL_UI_PUSH", false);
+    this.showCloudFeedback(res.message, res.success);
+    this.renderLogs();
+  },
+
+  async handleManualCloudPull() {
+    if (!window.cloudSync) return;
+    this.handleSaveCloudConfig(true);
+    const res = await window.cloudSync.pullStateFromCloud(false);
+    this.showCloudFeedback(res.message, res.success);
+    this.renderAll();
   },
 
   openWaybillFromShipping(trackingCode) {

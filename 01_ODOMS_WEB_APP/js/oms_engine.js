@@ -95,7 +95,7 @@ class UserAuthManager {
     const initialLogs = [
       {
         id: "LOG-INIT-1",
-        time: "24/10/2026 08:00:12",
+        time: this.formatNow(),
         username: "dttd",
         fullName: "Đỗ Thị Thuỳ Dung",
         role: "Quản lý Điều phối OMS",
@@ -105,7 +105,7 @@ class UserAuthManager {
       },
       {
         id: "LOG-INIT-2",
-        time: "24/10/2026 08:15:30",
+        time: this.formatNow(),
         username: "lhmt",
         fullName: "Lê Hoàng Minh Trung",
         role: "Chuyên viên Vận hành OMS",
@@ -527,6 +527,54 @@ class OMSEngine {
   }
 
   // Bước 1: Chuẩn hóa dữ liệu từ nhiều định dạng cột Excel của 5 sàn về cấu trúc chuẩn OMS (Canonical Order Schema)
+  parseAndFormatOrderTime(rawVal) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const fmtDateObj = (d) =>
+      `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+    const str = String(rawVal || "").trim();
+    if (str) {
+      // 1. Định dạng DD/MM/YYYY HH:mm:ss hoặc DD-MM-YYYY HH:mm:ss
+      const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+      if (dmyMatch) {
+        const dd = Number(dmyMatch[1]);
+        const mm = Number(dmyMatch[2]);
+        const yyyy = Number(dmyMatch[3]);
+        const hh = Number(dmyMatch[4] || 0);
+        const min = Number(dmyMatch[5] || 0);
+        const ss = Number(dmyMatch[6] || 0);
+        const dt = new Date(yyyy, mm - 1, dd, hh, min, ss);
+        if (!isNaN(dt.getTime())) {
+          return { formatted: fmtDateObj(dt), timestampMs: dt.getTime() };
+        }
+      }
+
+      // 2. Định dạng YYYY-MM-DD HH:mm:ss hoặc YYYY/MM/DD HH:mm:ss
+      const ymdMatch = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+      if (ymdMatch && !str.endsWith("Z")) {
+        const yyyy = Number(ymdMatch[1]);
+        const mm = Number(ymdMatch[2]);
+        const dd = Number(ymdMatch[3]);
+        const hh = Number(ymdMatch[4] || 0);
+        const min = Number(ymdMatch[5] || 0);
+        const ss = Number(ymdMatch[6] || 0);
+        const dt = new Date(yyyy, mm - 1, dd, hh, min, ss);
+        if (!isNaN(dt.getTime())) {
+          return { formatted: fmtDateObj(dt), timestampMs: dt.getTime() };
+        }
+      }
+
+      // 3. Chuỗi JS Date từ Google Sheets ("Thu Oct 22 2026 08:15:10 GMT+0700...") hoặc ISO UTC
+      const parsedDt = new Date(str);
+      if (!isNaN(parsedDt.getTime())) {
+        return { formatted: fmtDateObj(parsedDt), timestampMs: parsedDt.getTime() };
+      }
+    }
+
+    const now = new Date();
+    return { formatted: fmtDateObj(now), timestampMs: now.getTime() };
+  }
+
   normalizeRawOrder(rawRow, sourceHint = "EXCEL_IMPORT") {
     const getField = (keys) => {
       for (const k of keys) {
@@ -560,9 +608,11 @@ class OMSEngine {
     else if (channelRaw.includes("FACE") || channelRaw.includes("FB")) channelRaw = "FACEBOOK";
     else if (channelRaw.includes("POS") || channelRaw.includes("CỬA HÀNG") || channelRaw.includes("CUA HANG")) channelRaw = "POS";
 
-    const orderTime = getField([
+    const rawOrderTime = getField([
       "Thời gian đặt hàng", "Created Time", "createTime", "Thoi_Gian_Dat", "Ngày đặt", "Order Time", "timestamp"
-    ]) || new Date().toISOString().replace("T", " ").substring(0, 19);
+    ]);
+    const parsedTimeObj = this.parseAndFormatOrderTime(rawOrderTime);
+    const orderTime = parsedTimeObj.formatted;
 
     const sku = getField([
       "SKU phân loại", "Seller SKU", "sellerSku", "Ma_SKU", "SKU", "Mã SKU", "sku"
@@ -656,7 +706,7 @@ class OMSEngine {
       platformStatus,
       channel: channelRaw || "UNKNOWN",
       orderTime,
-      timestampMs: Date.parse(orderTime.replace(" ", "T")) || Date.now(),
+      timestampMs: parsedTimeObj.timestampMs,
       sku,
       productName,
       quantity: isNaN(quantity) ? 0 : quantity,
@@ -664,7 +714,7 @@ class OMSEngine {
       customerName: customerName || "Khách hàng Đa kênh",
       customerPhone: customerPhone || "N/A",
       shippingAddress: shippingAddress || "N/A",
-      sourceMethod: sourceHint, // EXCEL_IMPORT hoặc WEBHOOK_API
+      sourceMethod: String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "WEBHOOK_API" : "EXCEL_IMPORT", // EXCEL_IMPORT hoặc WEBHOOK_API
       status: "PENDING", // PENDING | ALLOCATED | BACKORDER | INVALID
       validationErrors: [],
       fifoRank: null,
@@ -674,7 +724,7 @@ class OMSEngine {
         {
           step: "Bước 1: Tiếp nhận & Chuẩn hóa Đơn hàng (Canonical Schema)",
           time: orderTime,
-          detail: `Tiếp nhận qua [${sourceHint === "WEBHOOK_API" ? "Giả lập Kết nối API 2 chiều" : "Nạp bảng dữ liệu Excel"}]. Nhận diện nguồn đơn từ kênh [${channelRaw || "CHƯA XÁC ĐỊNH"}].`
+          detail: `Tiếp nhận qua [${String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "Đồng bộ từ Sàn TMDT" : "Nạp từ File Excel"}]. Nhận diện nguồn đơn từ kênh [${channelRaw || "CHƯA XÁC ĐỊNH"}].`
         }
       ]
     };
@@ -918,8 +968,8 @@ class OMSEngine {
     invItem.batches.push({
       batchCode: `LO-BOSUNG-${sec}`,
       qrCode: `OD-BS-${sec}`,
-      importDate: "2026-10-24",
-      expiryDate: "2027-12-31",
+      importDate: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`,
+      expiryDate: `${new Date().getFullYear() + 1}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`,
       initialQty: additionalQty,
       remainingQty: additionalQty
     });
@@ -1047,7 +1097,14 @@ class CloudSyncAdapter {
       }
       window.omsEngine.allocationMode = parsed.allocationMode || "FIFO_TIME";
       window.omsEngine.inventory = parsed.inventory;
-      window.omsEngine.orders = parsed.orders;
+      window.omsEngine.orders = parsed.orders.map((ord) => {
+        if (ord && ord.orderTime && typeof window.omsEngine.parseAndFormatOrderTime === "function") {
+          const pt = window.omsEngine.parseAndFormatOrderTime(ord.orderTime);
+          ord.orderTime = pt.formatted;
+          ord.timestampMs = pt.timestampMs;
+        }
+        return ord;
+      });
       this.isPulling = false;
       return true;
     } catch (e) {
