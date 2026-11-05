@@ -524,7 +524,7 @@ const AppUI = {
       shipping: "Vận chuyển đơn hàng đa kênh",
       fifo: "Vận chuyển đơn hàng đa kênh",
       backorder: "Hàng thiếu tồn (Chặn bán lố)",
-      qr_api: "QR / Tra cứu & API 2 Chiều",
+      qr_api: "Vận đơn",
       logs: "Lịch sử đăng nhập & Nhật ký",
       staff: "Nhân sự & Phân quyền OMS",
       reports: "Báo cáo & Xuất đối chiếu",
@@ -558,6 +558,13 @@ const AppUI = {
       const statusSelect = document.getElementById("statusFilterSelect");
       if (statusSelect) statusSelect.value = "ALL";
       this.renderOrdersTable();
+    }
+
+    if (tabKey === "ingest") {
+      this.shortagePopupDismissed = false;
+      this.renderStockShortageCornerPopup();
+    } else {
+      this.renderStockShortageCornerPopup();
     }
 
     if (tabKey === "shipping" || tabKey === "fifo") {
@@ -619,14 +626,14 @@ const AppUI = {
       "Hoàng Lan Anh"
     ];
     const sampleAddresses = [
-      "123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM",
-      "456 Lê Lợi, Phường Bến Thành, Quận 1, TP.HCM",
-      "88 Cách Mạng Tháng 8, Phường Võ Thị Sáu, Quận 3, TP.HCM",
-      "215 Điện Biên Phủ, Phường 15, Quận Bình Thạnh, TP.HCM",
-      "52 Nguyễn Văn Linh, Quận Hải Châu, TP. Đà Nẵng",
-      "108 Trần Phú, Quận Hà Đông, TP. Hà Nội",
-      "35 Võ Văn Ngân, Phường Linh Chiểu, TP. Thủ Đức, TP.HCM",
-      "190 Cộng Hòa, Phường 12, Quận Tân Bình, TP.HCM"
+      "123 Nguyễn Huệ, Phường Bến Nghé, TP.HCM",
+      "456 Lê Lợi, Phường Bến Thành, TP.HCM",
+      "88 Cách Mạng Tháng 8, Phường Xuân Hòa, TP.HCM",
+      "215 Điện Biên Phủ, Phường Gia Định, TP.HCM",
+      "52 Nguyễn Văn Linh, Phường Nam Dương, TP. Đà Nẵng",
+      "108 Trần Phú, Phường Mộ Lao, TP. Hà Nội",
+      "35 Võ Văn Ngân, Phường Linh Chiểu, TP.HCM",
+      "190 Cộng Hòa, Phường Bảy Hiền, TP.HCM"
     ];
 
     const randChannel = channels[Math.floor(Math.random() * channels.length)];
@@ -688,7 +695,7 @@ const AppUI = {
       "Người Mua": customer,
       "Số điện thoại": "090" + Math.floor(1000000 + Math.random() * 8999999),
       "Địa chỉ nhận hàng": address,
-      "Trạng thái đơn hàng": "Đã xác nhận",
+      "Trạng thái đơn hàng": "Chờ xác nhận",
       "Phương thức thanh toán": channel === "POS" ? "Tiền mặt tại quầy" : "Ví điện tử / Chuyển khoản"
     };
 
@@ -1200,6 +1207,7 @@ handleResetPassword(username) {
     this.renderChannelStrip();
     this.renderActionableAlerts();
     this.renderOrdersTable();
+    this.renderStockShortageCornerPopup();
     this.renderInventoryTable();
     this.renderWaybillOrderSelector();
     this.generateWaybillAndQR(false);
@@ -2411,7 +2419,7 @@ handleResetPassword(username) {
                 <span class="order-switch-label ${isConfirmed ? "is-on" : "is-off"}">Xác nhận</span>
               </label>
               <div class="order-confirm-subtext ${isConfirmed ? "is-confirmed" : "is-waiting"}">
-                ${isConfirmed ? "Đã gửi xác nhận về sàn" : "Chờ xác nhận"}
+                ${isConfirmed ? "Đã gửi xác nhận về sàn" : "⏳ Chờ xác nhận"}
               </div>
             </div>
           `;
@@ -2421,11 +2429,18 @@ handleResetPassword(username) {
           ? `<span class="fifo-rank" title="Thứ tự ưu tiên theo thời gian đặt của mã ${ord.sku}">FIFO #${ord.fifoRank}</span>`
           : `<span style="color:#94a3b8;font-size:11px;">-</span>`;
 
-        const stockCompare = ord.stockSnapshot
-          ? `<span style="font-weight:600;">${ord.stockSnapshot.before}</span> ➔ <strong style="color:${
-              ord.status === "ALLOCATED" ? "var(--theme-primary)" : "#d97706"
-            }">${ord.stockSnapshot.after}</strong>`
-          : `<span style="color:#ef4444;font-size:11.5px;">Chặn ở Bước 2</span>`;
+        const shortageQty = ord.stockSnapshot ? Math.max(0, (ord.quantity || 0) - (ord.stockSnapshot.before || 0)) : (ord.quantity || 0);
+        const stockCompare =
+          ps === "UNCONFIRMED"
+            ? `<span style="color:#d97706;font-size:11.5px;font-weight:700;">⏳ Chờ xác nhận</span>`
+            : ord.stockSnapshot
+            ? ord.status === "BACKORDER"
+              ? `<div>
+                  <span style="font-weight:700;color:#dc2626;">${ord.stockSnapshot.before} ➔ ${ord.stockSnapshot.after}</span>
+                  <div style="font-size:10.5px;color:#dc2626;font-weight:700;margin-top:2px;">⚠️ Thiếu ${shortageQty} SP (Cần nhập kho)</div>
+                </div>`
+              : `<span style="font-weight:600;">${ord.stockSnapshot.before}</span> ➔ <strong style="color:var(--theme-primary)">${ord.stockSnapshot.after}</strong>`
+            : `<span style="color:#ef4444;font-size:11.5px;">Chặn ở Bước 2</span>`;
 
         const pm = ord.paymentMethod || "COD (Thanh toán khi nhận hàng)";
         const isCodOrder = pm.toUpperCase().includes("COD") || pm.toLowerCase().includes("thu hộ") || pm.toLowerCase().includes("khi nhận hàng");
@@ -2491,11 +2506,81 @@ handleResetPassword(username) {
       .join("");
   },
 
+  shortagePopupDismissed: false,
+
   handleToggleOrderConfirm(orderId, isChecked) {
     if (!window.omsEngine || typeof window.omsEngine.toggleOrderConfirmation !== "function") return;
-    window.omsEngine.toggleOrderConfirmation(orderId, isChecked);
+    const updatedOrd = window.omsEngine.toggleOrderConfirmation(orderId, isChecked);
+    if (isChecked && updatedOrd && updatedOrd.status === "BACKORDER") {
+      this.shortagePopupDismissed = false;
+    }
     this.triggerChannelSyncAnimation();
     this.renderAll();
+  },
+
+  closeStockShortagePopup() {
+    this.shortagePopupDismissed = true;
+    const popupEl = document.getElementById("stockShortageCornerPopup");
+    if (popupEl) {
+      popupEl.classList.add("hidden");
+    }
+  },
+
+  renderStockShortageCornerPopup() {
+    const popupEl = document.getElementById("stockShortageCornerPopup");
+    if (!popupEl || !window.omsEngine) return;
+
+    const shortageOrders = (window.omsEngine.orders || []).filter(
+      (o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER"
+    );
+
+    const isRelevantTab = this.currentMenuTab === "ingest" || this.currentMenuTab === "dashboard";
+    if (!isRelevantTab || shortageOrders.length === 0 || this.shortagePopupDismissed) {
+      popupEl.classList.add("hidden");
+      return;
+    }
+
+    const groupedBySku = {};
+    shortageOrders.forEach((o) => {
+      const skuKey = o.sku || "UNKNOWN";
+      const invItem = (window.omsEngine.inventory || []).find((i) => i.sku === skuKey);
+      const prodName = o.productName || (invItem ? invItem.name : skuKey);
+      if (!groupedBySku[skuKey]) {
+        groupedBySku[skuKey] = {
+          productName: prodName,
+          totalRequestedQty: 0,
+          availableStock: invItem ? invItem.availableStock : 0
+        };
+      }
+      groupedBySku[skuKey].totalRequestedQty += Number(o.quantity || 0);
+    });
+
+    const productItemsHtml = Object.values(groupedBySku)
+      .map((item) => {
+        const neededQty = Math.max(1, item.totalRequestedQty - item.availableStock);
+        return `<div style="margin-bottom:4px;">• <strong>${neededQty} SP</strong> — ${item.productName}</div>`;
+      })
+      .join("");
+
+    popupEl.innerHTML = `
+      <div class="shortage-popup-header">
+        <div class="shortage-popup-title">
+          <span>🚨 Cảnh báo thiếu hàng trong Kho!</span>
+        </div>
+        <button type="button" class="shortage-popup-close-btn" onclick="AppUI.closeStockShortagePopup()" title="Đóng thông báo">✕</button>
+      </div>
+      <div class="shortage-popup-body">
+        Có <strong>${shortageOrders.length} đơn hàng</strong> đã bấm <strong>Xác nhận</strong> nhưng số lượng trong kho không đủ:
+        <div class="shortage-popup-list">${productItemsHtml}</div>
+        Vui lòng vào mục <strong>"Kho"</strong> để nhập thêm hàng bổ sung!
+      </div>
+      <div class="shortage-popup-actions">
+        <button type="button" class="btn btn-danger btn-sm" style="width:100%;justify-content:center;" onclick="AppUI.switchSidebarTab('inventory'); AppUI.closeStockShortagePopup();">
+          📦 Vào Kho nhập thêm hàng
+        </button>
+      </div>
+    `;
+    popupEl.classList.remove("hidden");
   },
 
   renderInventoryTable() {
@@ -2631,19 +2716,27 @@ handleResetPassword(username) {
     if (!selectEl) return;
 
     const currentVal = selectEl.value;
-    const orders = window.omsEngine ? window.omsEngine.orders : [];
+    const allOrders = window.omsEngine ? window.omsEngine.orders : [];
+    const confirmedOrders = allOrders.filter(
+      (o) =>
+        (o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED")) ===
+          "CONFIRMED" &&
+        o.status !== "CANCELLED" &&
+        o.status !== "INVALID"
+    );
 
-    // Nếu chưa nạp đơn nào vào engine, lấy thêm danh sách mẫu từ SAMPLE_EXCEL_DATASETS để người dùng chọn tạo vận đơn ngay
-    const options = [`<option value="">-- Chọn đơn hàng (${orders.length} đơn đang nạp) để điền tự động --</option>`];
+    const options = [
+      `<option value="">-- Chọn đơn hàng đã xác nhận (${confirmedOrders.length} đơn) để điền tự động --</option>`
+    ];
 
-    orders.forEach((o) => {
+    confirmedOrders.forEach((o) => {
       options.push(
         `<option value="${o.orderId}">[${o.channel}] ${o.orderId} — ${o.customerName} (${o.quantity} × ${o.sku})</option>`
       );
     });
 
     selectEl.innerHTML = options.join("");
-    if (currentVal && orders.some((o) => o.orderId === currentVal)) {
+    if (currentVal && confirmedOrders.some((o) => o.orderId === currentVal)) {
       selectEl.value = currentVal;
     }
   },
@@ -2693,7 +2786,7 @@ handleResetPassword(username) {
     setVal("wbBatchCode", batchText);
     setVal("wbTotalAmount", codAmount);
 
-    this.generateWaybillAndQR(true);
+    this.generateWaybillAndQR(false);
   },
 
   openWaybillForOrder(orderId) {
