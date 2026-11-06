@@ -518,7 +518,7 @@ const AppUI = {
     }
 
     const titleMap = {
-      dashboard: "Dashboard",
+      dashboard: "Tổng Quan",
       ingest: "Tiếp nhận & Gom đơn 5 Kênh",
       inventory: "Kho",
       shipping: "Vận chuyển đơn hàng đa kênh",
@@ -533,7 +533,7 @@ const AppUI = {
 
     const pageTitleEl = document.getElementById("topbarPageTitle");
     if (pageTitleEl) {
-      pageTitleEl.innerText = titleMap[tabKey] || "Dashboard";
+      pageTitleEl.innerText = titleMap[tabKey] || "Tổng Quan";
     }
 
     // Ẩn/hiện các view theo tab chức năng của hệ thống ODOMS
@@ -560,12 +560,7 @@ const AppUI = {
       this.renderOrdersTable();
     }
 
-    if (tabKey === "ingest") {
-      this.shortagePopupDismissed = false;
-      this.renderStockShortageCornerPopup();
-    } else {
-      this.renderStockShortageCornerPopup();
-    }
+    this.renderStockShortageCornerPopup();
 
     if (tabKey === "shipping" || tabKey === "fifo") {
       this.renderShippingTab();
@@ -1590,9 +1585,9 @@ handleResetPassword(username) {
       .join("");
 
     container.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:12px;font-weight:700;">
+      <div class="three-month-legend-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px;font-size:12px;font-weight:700;">
         <span style="color:var(--text-secondary);">Đơn vị cột: Số đơn hàng · Nhãn trên đỉnh mỗi cột: <strong>Tổng doanh thu tháng (₫)</strong></span>
-        <div style="display:flex;gap:14px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
           <span style="display:flex;align-items:center;gap:5px;">
             <span style="width:11px;height:11px;background:${colorReceived};border-radius:3px;display:inline-block;"></span> Đơn tiếp nhận
           </span>
@@ -1661,7 +1656,7 @@ handleResetPassword(username) {
             <div class="lb-left-info">
               <span class="rank-medal-badge ${medalClass}">${medalIcon}</span>
               <div>
-                <div style="display:flex;align-items:center;gap:6px;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                   <span class="channel-badge ${item.badge}">${item.short}</span>
                   <span style="font-size:12.5px;font-weight:800;color:var(--text-main);">${item.name}</span>
                   <span class="rev-growth-pill">${item.growth}</span>
@@ -2506,20 +2501,44 @@ handleResetPassword(username) {
       .join("");
   },
 
-  shortagePopupDismissed: false,
+  dismissedShortageOrderIds: [],
+  shortagePopupMobileExpanded: false,
 
   handleToggleOrderConfirm(orderId, isChecked) {
     if (!window.omsEngine || typeof window.omsEngine.toggleOrderConfirmation !== "function") return;
-    const updatedOrd = window.omsEngine.toggleOrderConfirmation(orderId, isChecked);
-    if (isChecked && updatedOrd && updatedOrd.status === "BACKORDER") {
-      this.shortagePopupDismissed = false;
+    const beforeBackorderSet = new Set(
+      (window.omsEngine.orders || [])
+        .filter((o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER")
+        .map((o) => o.orderId)
+    );
+    window.omsEngine.toggleOrderConfirmation(orderId, isChecked);
+    if (isChecked) {
+      const newlyShortedIds = new Set(
+        (window.omsEngine.orders || [])
+          .filter((o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER" && (!beforeBackorderSet.has(o.orderId) || o.orderId === orderId))
+          .map((o) => o.orderId)
+      );
+      this.dismissedShortageOrderIds = (this.dismissedShortageOrderIds || []).filter((id) => !newlyShortedIds.has(id));
+    } else {
+      this.dismissedShortageOrderIds = (this.dismissedShortageOrderIds || []).filter((id) => id !== orderId);
     }
     this.triggerChannelSyncAnimation();
     this.renderAll();
   },
 
+  toggleShortagePopupMobileExpand() {
+    this.shortagePopupMobileExpanded = !this.shortagePopupMobileExpanded;
+    this.renderStockShortageCornerPopup();
+  },
+
   closeStockShortagePopup() {
-    this.shortagePopupDismissed = true;
+    if (window.omsEngine && Array.isArray(window.omsEngine.orders)) {
+      const currentShortageIds = window.omsEngine.orders
+        .filter((o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER")
+        .map((o) => o.orderId);
+      const merged = new Set([...(this.dismissedShortageOrderIds || []), ...currentShortageIds]);
+      this.dismissedShortageOrderIds = Array.from(merged);
+    }
     const popupEl = document.getElementById("stockShortageCornerPopup");
     if (popupEl) {
       popupEl.classList.add("hidden");
@@ -2530,12 +2549,13 @@ handleResetPassword(username) {
     const popupEl = document.getElementById("stockShortageCornerPopup");
     if (!popupEl || !window.omsEngine) return;
 
+    const dismissedSet = new Set(this.dismissedShortageOrderIds || []);
     const shortageOrders = (window.omsEngine.orders || []).filter(
-      (o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER"
+      (o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER" && !dismissedSet.has(o.orderId)
     );
 
     const isRelevantTab = this.currentMenuTab === "ingest" || this.currentMenuTab === "dashboard";
-    if (!isRelevantTab || shortageOrders.length === 0 || this.shortagePopupDismissed) {
+    if (!isRelevantTab || shortageOrders.length === 0) {
       popupEl.classList.add("hidden");
       return;
     }
@@ -2562,22 +2582,34 @@ handleResetPassword(username) {
       })
       .join("");
 
+    const isExpanded = Boolean(this.shortagePopupMobileExpanded);
+    popupEl.classList.toggle("mobile-expanded", isExpanded);
+    popupEl.classList.toggle("mobile-collapsed", !isExpanded);
+
     popupEl.innerHTML = `
       <div class="shortage-popup-header">
         <div class="shortage-popup-title">
-          <span>🚨 Cảnh báo thiếu hàng trong Kho!</span>
+          <span class="shortage-popup-title-desktop">🚨 Cảnh báo thiếu hàng trong Kho!</span>
+          <span class="shortage-popup-title-mobile">🚨 Thiếu hàng trong Kho (${shortageOrders.length} đơn)</span>
         </div>
-        <button type="button" class="shortage-popup-close-btn" onclick="AppUI.closeStockShortagePopup()" title="Đóng thông báo">✕</button>
+        <div class="shortage-popup-header-btns">
+          <button type="button" class="shortage-popup-toggle-btn" onclick="AppUI.toggleShortagePopupMobileExpand()">
+            ${isExpanded ? "Thu gọn ▾" : "Xem ▴"}
+          </button>
+          <button type="button" class="shortage-popup-close-btn" onclick="AppUI.closeStockShortagePopup()" title="Đóng thông báo">✕</button>
+        </div>
       </div>
-      <div class="shortage-popup-body">
-        Có <strong>${shortageOrders.length} đơn hàng</strong> đã bấm <strong>Xác nhận</strong> nhưng số lượng trong kho không đủ:
-        <div class="shortage-popup-list">${productItemsHtml}</div>
-        Vui lòng vào mục <strong>"Kho"</strong> để nhập thêm hàng bổ sung!
-      </div>
-      <div class="shortage-popup-actions">
-        <button type="button" class="btn btn-danger btn-sm" style="width:100%;justify-content:center;" onclick="AppUI.switchSidebarTab('inventory'); AppUI.closeStockShortagePopup();">
-          📦 Vào Kho nhập thêm hàng
-        </button>
+      <div class="shortage-popup-detail-wrap">
+        <div class="shortage-popup-body">
+          Có <strong>${shortageOrders.length} đơn hàng</strong> đã bấm <strong>Xác nhận</strong> nhưng số lượng trong kho không đủ:
+          <div class="shortage-popup-list">${productItemsHtml}</div>
+          Vui lòng vào mục <strong>"Kho"</strong> để nhập thêm hàng bổ sung!
+        </div>
+        <div class="shortage-popup-actions">
+          <button type="button" class="btn btn-danger btn-sm" style="width:100%;justify-content:center;" onclick="AppUI.switchSidebarTab('inventory'); AppUI.closeStockShortagePopup();">
+            📦 Vào Kho nhập thêm hàng
+          </button>
+        </div>
       </div>
     `;
     popupEl.classList.remove("hidden");

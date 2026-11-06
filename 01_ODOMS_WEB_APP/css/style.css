@@ -1112,9 +1112,14 @@ body {
 /* Hàng 2 Biểu đồ Thống kê (Analytics Charts Grid) */
 .charts-grid-2col {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   gap: 16px;
   margin-bottom: 20px;
+}
+
+.charts-grid-2col > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .wms-card {
@@ -1124,6 +1129,8 @@ body {
   padding: 20px;
   box-shadow: var(--shadow-sm);
   margin-bottom: 20px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .wms-card-header {
@@ -1637,11 +1644,13 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 18px 16px 14px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .bar-chart-columns-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
   align-items: end;
   min-height: 220px;
@@ -1655,6 +1664,7 @@ body {
   align-items: center;
   justify-content: flex-end;
   height: 100%;
+  min-width: 0;
 }
 
 .bar-top-revenue-badge {
@@ -1748,6 +1758,8 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  flex: 1;
 }
 
 .rank-medal-badge {
@@ -1786,6 +1798,7 @@ body {
 
 .lb-right-stats {
   text-align: right;
+  flex-shrink: 0;
 }
 
 .lb-order-count {
@@ -2117,7 +2130,7 @@ body {
 
   /* Tự động xếp chồng các bố cục 2 cột sang 1 cột */
   .charts-grid-2col {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
   }
 
@@ -2168,6 +2181,70 @@ body {
   .three-month-filter-bar {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  /* Tự động co vừa khít Biểu đồ Cột Top 3 Kênh, Biểu đồ 3 Tháng & Bảng Xếp hạng trên điện thoại */
+  .three-month-bars-stage,
+  .top3-bar-chart-wrap {
+    padding: 12px 8px 10px;
+  }
+
+  .bar-chart-columns-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    min-height: 185px;
+    padding-top: 14px;
+  }
+
+  .bar-top-revenue-badge {
+    font-size: 10px;
+    padding: 2px 5px;
+    margin-bottom: 5px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bar-pair-wrap {
+    height: 120px;
+    gap: 5px;
+  }
+
+  .bar-pillar {
+    width: 24px;
+    font-size: 9.5px;
+  }
+
+  .bar-pillar.single-wide {
+    width: 44px;
+  }
+
+  .bar-col-title {
+    font-size: 11.5px;
+  }
+
+  .bar-col-sub {
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .leaderboard-row-card {
+    padding: 10px 11px;
+  }
+
+  .lb-row-top {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .lb-order-count {
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+
+  .lb-rev-sub {
+    font-size: 10.5px;
+    white-space: nowrap;
   }
 
   /* Đảm bảo toàn bộ bảng dữ liệu có thể cuộn ngang cảm ứng mượt mà */
@@ -3159,6 +3236,40 @@ body {
   align-items: center;
   gap: 6px;
   line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+}
+.shortage-popup-title-desktop {
+  display: inline;
+}
+.shortage-popup-title-mobile {
+  display: none;
+}
+.shortage-popup-header-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.shortage-popup-toggle-btn {
+  display: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  height: 24px;
+  padding: 0 8px;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+.shortage-popup-toggle-btn:hover {
+  background: #fecaca;
+  border-color: #f87171;
 }
 .shortage-popup-close-btn {
   background: #fee2e2;
@@ -3180,6 +3291,9 @@ body {
   background: #ef4444;
   color: #ffffff;
   border-color: #dc2626;
+}
+.shortage-popup-detail-wrap {
+  display: block;
 }
 .shortage-popup-body {
   font-size: 12px;
@@ -3203,4 +3317,51 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* Giao diện Collapsible Snackbar trên Điện thoại / Tablet (<= 992px) */
+@media (max-width: 992px) {
+  .stock-shortage-corner-popup {
+    bottom: 72px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: calc(100vw - 20px);
+    box-shadow: 0 8px 22px rgba(220, 38, 38, 0.24), 0 3px 10px rgba(15, 23, 42, 0.14);
+  }
+  .shortage-popup-title-desktop {
+    display: none;
+  }
+  .shortage-popup-title-mobile {
+    display: inline;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12.5px;
+  }
+  .shortage-popup-toggle-btn {
+    display: inline-flex;
+  }
+  .stock-shortage-corner-popup.mobile-collapsed {
+    padding: 8px 11px;
+    border-radius: 10px;
+  }
+  .stock-shortage-corner-popup.mobile-collapsed .shortage-popup-header {
+    margin-bottom: 0;
+    align-items: center;
+  }
+  .stock-shortage-corner-popup.mobile-collapsed .shortage-popup-detail-wrap {
+    display: none;
+  }
+  .stock-shortage-corner-popup.mobile-expanded {
+    padding: 12px 13px;
+    border-radius: 12px;
+  }
+  .stock-shortage-corner-popup.mobile-expanded .shortage-popup-header {
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .stock-shortage-corner-popup.mobile-expanded .shortage-popup-detail-wrap {
+    display: block;
+  }
 }
