@@ -230,10 +230,14 @@
         </div>
 
         <div class="topbar-actions">
-          <button class="btn btn-primary" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
+          <span class="topbar-live-pill" data-action-views="dashboard">
+            <span class="banner-dot" style="width:7px;height:7px;"></span>
+            Live Analytics
+          </span>
+          <button class="btn btn-primary hidden" data-action-views="ingest inventory shipping fifo backorder qr_api" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
             📥 Nạp Gom 5 Kênh (11 Đơn)
           </button>
-          <button id="btnRunDemo" class="btn btn-warning" onclick="AppUI.runStepByStepFifoDemo()">
+          <button id="btnRunDemo" class="btn btn-warning hidden" data-action-views="ingest inventory shipping fifo backorder qr_api" onclick="AppUI.runStepByStepFifoDemo()">
             ▶️ Chạy Mô Phỏng FIFO
           </button>
           <button class="btn btn-outline" onclick="window.ExcelHandler.exportAllocatedReport()">
@@ -242,7 +246,7 @@
           <button class="btn btn-outline" onclick="AppUI.resetAll()">
             🔄 Đặt lại
           </button>
-          <button class="btn-qr-quick" onclick="AppUI.switchSidebarTab('qr_api')">
+          <button class="btn-qr-quick hidden" data-action-views="ingest inventory shipping fifo backorder qr_api" onclick="AppUI.switchSidebarTab('qr_api')">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             Quét QR
           </button>
@@ -260,34 +264,10 @@
           <div id="bannerTrackingText">5 Kênh kết nối · 5 SKU (59 SP vật lý) đang theo dõi</div>
         </div>
 
-        <!-- 1.5. BẢNG TỔNG DOANH THU & DOANH THU LẦN LƯỢT 5 KÊNH BÁN HÀNG (1 THÁNG TÍNH ĐẾN THỜI ĐIỂM MỞ DASHBOARD) -->
-        <section class="oms-view-section" data-views="dashboard">
-          <div class="wms-card" style="margin-bottom: 18px; padding: 16px 20px;">
-            <div class="wms-card-header" style="margin-bottom: 12px;">
-              <div>
-                <div class="wms-card-title" style="display:flex;align-items:center;gap:8px;">
-                  <span>💰 Bảng Tổng Doanh Thu & Doanh Thu Lần Lượt 5 Kênh Bán Hàng</span>
-                  <span class="status-badge st-ALLOCATED" style="font-size:11px;">Chu kỳ 1 tháng (30 ngày gần nhất)</span>
-                </div>
-                <div id="oneMonthRollingTimeLabel" class="wms-card-subtitle">
-                  Thời gian: Trong 1 tháng tính đến thời điểm mở Dashboard ra xem
-                </div>
-              </div>
-              <button class="btn btn-outline btn-sm" onclick="AppUI.refreshOneMonthTimestamp()" title="Cập nhật lại mốc thời gian mở Dashboard hiện tại">
-                🔄 Cập nhật mốc thời gian mở xem
-              </button>
-            </div>
-
-            <div id="oneMonthRevenueGrid" class="revenue-6cards-grid">
-              <!-- Sẽ được render tự động bởi AppUI.renderOneMonthRevenueOverview() -->
-            </div>
-          </div>
-        </section>
-
-        <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI (Hiển thị ở Dashboard, FIFO, Backorder) -->
+        <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI CHIẾN LƯỢC (Hiển thị ở Dashboard, FIFO, Backorder, Kho, Gom đơn) -->
         <section class="oms-view-section" data-views="dashboard fifo backorder inventory ingest">
           <div class="kpi-cards-grid">
-            <div class="wms-kpi-card">
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('ingest')" title="Bấm để chuyển đến Tiếp nhận / Gom đơn">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Tổng đơn tiếp nhận<br>(5 kênh TMĐT)</span>
                 <div class="kpi-icon-box green">
@@ -300,7 +280,7 @@
               </div>
             </div>
 
-            <div class="wms-kpi-card">
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('shipping')" title="Bấm để xem Vận chuyển đơn & Xuất giữ hàng">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Cần xuất / Đã giữ hàng<br>(FIFO & FEFO)</span>
                 <div class="kpi-icon-box green">
@@ -313,7 +293,7 @@
               </div>
             </div>
 
-            <div class="wms-kpi-card">
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('inventory')" title="Bấm để vào Kho xử lý nhập bù">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Chặn bán lố<br>(Thiếu tồn kho)</span>
                 <div class="kpi-icon-box red">
@@ -326,7 +306,7 @@
               </div>
             </div>
 
-            <div class="wms-kpi-card">
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('ingest')" title="Bấm để kiểm tra đơn lỗi tại Tiếp nhận / Gom đơn">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Cảnh báo đơn lỗi<br>(Sai mã SKU / Cú pháp)</span>
                 <div class="kpi-icon-box orange">
@@ -341,210 +321,46 @@
           </div>
         </section>
 
-        <!-- 3. KHỐI BIỂU ĐỒ THỐNG KÊ & XẾP HẠNG KÊNH BÁN HÀNG (Tham chiếu m3db, m4db, m5db) -->
+        <!-- 3. KHỐI BIỂU ĐỒ THỐNG KÊ, DOANH THU & XẾP HẠNG KÊNH BÁN HÀNG -->
         <section class="oms-view-section" data-views="dashboard">
-          <div class="charts-grid-2col" style="align-items: start;">
-            <!-- CỘT TRÁI:
-                 1) Tiếp nhận đơn / Xuất giữ hàng theo tháng (2 màu đối kháng)
-                 2) Biểu đồ cột + doanh thu Top 3 kênh bán hàng (Ngay bên dưới)
-                 3) Tiếp nhận đơn / Xuất giữ hàng theo 3 tháng (Giới hạn ngày tháng + Tuỳ chọn 3 tháng + Biểu đồ cột có số tổng doanh thu trên mỗi cột)
-            -->
-            <div style="display:flex;flex-direction:column;gap:16px;">
-              <!-- Biểu đồ 1A: Tiếp nhận đơn / Xuất giữ hàng theo tháng (Màu đối kháng) -->
-              <div class="wms-card" style="margin-bottom:0;">
-                <div class="wms-card-header">
-                  <div>
-                    <div class="wms-card-title">Tiếp nhận đơn / Xuất giữ hàng theo tháng</div>
-                    <div class="wms-card-subtitle">Thống kê 5 kênh TMĐT (Th5/26 – Th10/26) · 2 đường biểu diễn luôn mang cặp màu đối kháng</div>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <div style="display:flex;gap:12px;font-size:12px;font-weight:700;">
-                      <span style="display:flex;align-items:center;gap:6px;">
-                        <span id="legendBoxImport" style="width:12px;height:12px;background:#F97316;border-radius:3px;display:inline-block;"></span>
-                        <span>Đơn tiếp nhận</span>
-                      </span>
-                      <span style="display:flex;align-items:center;gap:6px;">
-                        <span id="legendBoxExport" style="width:12px;height:12px;background:#2563EB;border-radius:3px;display:inline-block;"></span>
-                        <span>Xuất giữ hàng</span>
-                      </span>
-                    </div>
-                    <button type="button" class="btn btn-outline btn-xs" id="btnToggleAllMonthlyDots" onclick="AppUI.toggleAllMonthlyTrendsNumbers()" title="Bấm để hiện hoặc ẩn toàn bộ con số trên các điểm chấm" style="font-size:11px;padding:2px 8px;border-radius:5px;">
-                      👁️ Xem tất cả số
-                    </button>
-                  </div>
-                </div>
-                <div style="padding-top:6px;">
-                  <svg viewBox="0 0 540 205" style="width:100%;height:195px;overflow:visible;">
-                    <g stroke="#cbd5e1" stroke-width="0.8" opacity="0.6">
-                      <line x1="36" y1="20" x2="515" y2="20" />
-                      <line x1="36" y1="45" x2="515" y2="45" />
-                      <line x1="36" y1="70" x2="515" y2="70" />
-                      <line x1="36" y1="95" x2="515" y2="95" />
-                      <line x1="36" y1="120" x2="515" y2="120" />
-                      <line x1="36" y1="145" x2="515" y2="145" />
-                      <line x1="36" y1="170" x2="515" y2="170" />
-                    </g>
-                    <g fill="currentColor" opacity="0.65" font-size="11" text-anchor="end">
-                      <text x="28" y="24">24</text>
-                      <text x="28" y="49">20</text>
-                      <text x="28" y="74">16</text>
-                      <text x="28" y="99">12</text>
-                      <text x="28" y="124">8</text>
-                      <text x="28" y="149">4</text>
-                      <text x="28" y="174">0</text>
-                    </g>
-                    <path id="chartAreaExport" d="M 55 148 L 142 136 L 229 122 L 316 105 L 403 82 Q 450 52, 495 28 L 495 170 L 55 170 Z" fill="rgba(37, 99, 235, 0.14)" />
-                    <path id="chartLineExport" d="M 55 148 L 142 136 L 229 122 L 316 105 L 403 82 Q 450 52, 495 28" fill="none" stroke="#2563EB" stroke-width="2.8" />
-                    <path id="chartLineImport" d="M 55 138 L 142 124 L 229 108 L 316 88 L 403 65 Q 450 38, 495 16" fill="none" stroke="#F97316" stroke-width="2.8" stroke-dasharray="5 3" />
-                    <g id="chartDotsImport" fill="#F97316">
-                      <circle cx="55" cy="138" r="5" class="chart-interactive-dot" data-type="import" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="5" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th5/26 (5 đơn)" />
-                      <circle cx="142" cy="124" r="5" class="chart-interactive-dot" data-type="import" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="7" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th6/26 (7 đơn)" />
-                      <circle cx="229" cy="108" r="5" class="chart-interactive-dot" data-type="import" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="10" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th7/26 (10 đơn)" />
-                      <circle cx="316" cy="88" r="5" class="chart-interactive-dot" data-type="import" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="13" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th8/26 (13 đơn)" />
-                      <circle cx="403" cy="65" r="5" class="chart-interactive-dot" data-type="import" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="17" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th9/26 (17 đơn)" />
-                      <circle cx="495" cy="16" r="5.5" class="chart-interactive-dot" data-type="import" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="25" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th10/26 (25 đơn)" />
-                    </g>
-                    <g id="chartDotsExportGroup" fill="#2563EB">
-                      <circle cx="55" cy="148" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="4" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th5/26 (4 đơn)" />
-                      <circle cx="142" cy="136" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="5" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th6/26 (5 đơn)" />
-                      <circle cx="229" cy="122" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="8" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th7/26 (8 đơn)" />
-                      <circle cx="316" cy="105" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="10" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th8/26 (10 đơn)" />
-                      <circle cx="403" cy="82" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="14" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th9/26 (14 đơn)" />
-                      <circle id="chartDotExport" cx="495" cy="28" r="5.5" class="chart-interactive-dot" data-type="export" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="23" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th10/26 (23 đơn)" />
-                    </g>
-                    <!-- Nhóm hiển thị nhãn số trực tiếp khi người dùng click vào các điểm chấm -->
-                    <g id="chartDotsLabelsGroup" style="pointer-events:none;"></g>
-                    <g fill="currentColor" opacity="0.65" font-size="11.5" text-anchor="middle">
-                      <text x="55" y="192">Th5/26</text>
-                      <text x="142" y="192">Th6/26</text>
-                      <text x="229" y="192">Th7/26</text>
-                      <text x="316" y="192">Th8/26</text>
-                      <text x="403" y="192">Th9/26</text>
-                      <text x="495" y="192">Th10/26</text>
-                    </g>
-                  </svg>
-                </div>
-              </div>
-
-              <!-- Biểu đồ 1B (Ở dưới Tiếp nhận đơn / Xuất giữ hàng theo tháng): Biểu đồ Cột + Doanh thu Top 3 Kênh Bán Hàng -->
-              <div class="wms-card" style="margin-bottom:0;">
-                <div class="wms-card-header" style="margin-bottom:10px;">
-                  <div>
-                    <div class="wms-card-title">📊 Biểu đồ Cột + Doanh thu: Top 3 Kênh Bán Hàng Dẫn Đầu</div>
-                    <div class="wms-card-subtitle">Tổng hợp 3 kênh có doanh thu & sản lượng đơn cao nhất (Hiển thị trực tiếp tổng doanh thu trên đỉnh mỗi cột)</div>
-                  </div>
-                  <span class="status-badge st-ALLOCATED">Top 3 Best Channels</span>
-                </div>
-                <div id="top3ChannelsBarChartContainer" class="top3-bar-chart-wrap">
-                  <!-- Sẽ được render tự động bởi AppUI.renderTop3ChannelsBarChart() -->
-                </div>
-              </div>
-
-              <!-- Biểu đồ 1C: Tiếp nhận đơn / Xuất giữ hàng theo 3 tháng (Tuỳ chọn 3 tháng + Giới hạn ngày tháng tìm kiếm + Biểu đồ cột có số tổng doanh thu trên mỗi cột) -->
-              <div class="wms-card" style="margin-bottom:0;">
-                <div class="wms-card-header" style="margin-bottom:12px;">
-                  <div>
-                    <div class="wms-card-title">📈 Tiếp nhận đơn / Xuất giữ hàng theo 3 tháng (Biểu đồ Cột & Tổng Doanh Thu)</div>
-                    <div class="wms-card-subtitle">Giới hạn ngày tháng tìm kiếm & tuỳ chọn 3 tháng bất kỳ — Hiển thị con số tổng doanh thu ở trên mỗi cột</div>
-                  </div>
-                </div>
-
-                <!-- Bộ lọc giới hạn ngày tháng tìm kiếm & tuỳ chọn 3 tháng -->
-                <div class="three-month-filter-bar">
-                  <div class="filter-group-item">
-                    <label>Giới hạn Từ ngày:</label>
-                    <input type="date" id="filter3MStartDate" class="form-control form-control-sm" value="2026-08-01" onchange="AppUI.renderThreeMonthBarChart()" />
-                  </div>
-                  <div class="filter-group-item">
-                    <label>Đến ngày:</label>
-                    <input type="date" id="filter3MEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderThreeMonthBarChart()" />
-                  </div>
-                  <div class="filter-group-item">
-                    <label>Tuỳ chọn Tháng 1:</label>
-                    <select id="select3M_1" class="form-control form-control-sm" onchange="AppUI.onThreeMonthSelectChange()">
-                      <option value="2026-05">Tháng 05/2026</option>
-                      <option value="2026-06">Tháng 06/2026</option>
-                      <option value="2026-07">Tháng 07/2026</option>
-                      <option value="2026-08" selected>Tháng 08/2026</option>
-                      <option value="2026-09">Tháng 09/2026</option>
-                      <option value="2026-10">Tháng 10/2026</option>
-                    </select>
-                  </div>
-                  <div class="filter-group-item">
-                    <label>Tuỳ chọn Tháng 2:</label>
-                    <select id="select3M_2" class="form-control form-control-sm" onchange="AppUI.onThreeMonthSelectChange()">
-                      <option value="2026-05">Tháng 05/2026</option>
-                      <option value="2026-06">Tháng 06/2026</option>
-                      <option value="2026-07">Tháng 07/2026</option>
-                      <option value="2026-08">Tháng 08/2026</option>
-                      <option value="2026-09" selected>Tháng 09/2026</option>
-                      <option value="2026-10">Tháng 10/2026</option>
-                    </select>
-                  </div>
-                  <div class="filter-group-item">
-                    <label>Tuỳ chọn Tháng 3:</label>
-                    <select id="select3M_3" class="form-control form-control-sm" onchange="AppUI.onThreeMonthSelectChange()">
-                      <option value="2026-05">Tháng 05/2026</option>
-                      <option value="2026-06">Tháng 06/2026</option>
-                      <option value="2026-07">Tháng 07/2026</option>
-                      <option value="2026-08">Tháng 08/2026</option>
-                      <option value="2026-09">Tháng 09/2026</option>
-                      <option value="2026-10" selected>Tháng 10/2026</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div id="threeMonthFilterNotice" style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;"></div>
-
-                <!-- Khu vực hiển thị Biểu đồ Cột 3 Tháng có Tổng Doanh Thu trên mỗi cột -->
-                <div id="threeMonthBarChartContainer" class="three-month-bars-stage">
-                  <!-- Sẽ được render tự động bởi AppUI.renderThreeMonthBarChart() -->
-                </div>
-              </div>
-            </div>
-
-            <!-- CỘT PHẢI: Bảng Xếp hạng các kênh bán hàng được nhiều đơn nhất theo tháng -->
-            <div class="wms-card" style="margin-bottom:0;">
-              <div class="wms-card-header" style="margin-bottom:14px;">
-                <div>
-                  <div class="wms-card-title">🏆 Xếp hạng các kênh bán hàng được nhiều đơn nhất theo tháng</div>
-                  <div id="channelRankingSubtitle" class="wms-card-subtitle">
-                    Bảng xếp hạng sản lượng đơn & tỷ trọng doanh thu 5 kênh TMĐT
-                  </div>
-                </div>
-                <select id="rankingMonthSelect" class="form-control" style="width:auto;font-weight:700;padding:6px 10px;font-size:12.5px;" onchange="AppUI.renderMonthlyChannelRanking()">
-                  <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
-                  <option value="2026-09">Tháng 09/2026</option>
-                  <option value="2026-08">Tháng 08/2026</option>
-                  <option value="2026-07">Tháng 07/2026</option>
-                  <option value="2026-06">Tháng 06/2026</option>
-                  <option value="2026-05">Tháng 05/2026</option>
-                </select>
-              </div>
-
-              <!-- Danh sách xếp hạng 5 kênh bán hàng (Huy chương Vàng 1, Bạc 2, Đồng 3, Hạng 4, Hạng 5 + Progress Bar) -->
-              <div id="channelMonthlyRankingList" class="channel-leaderboard-list">
-                <!-- Sẽ được render tự động bởi AppUI.renderMonthlyChannelRanking() -->
-              </div>
-
-              <!-- Tóm tắt tổng hợp cuối bảng xếp hạng -->
-              <div id="channelRankingFooterSummary" class="ranking-footer-box">
-                <!-- Sẽ được render tự động bởi AppUI.renderMonthlyChannelRanking() -->
-              </div>
-            </div>
-          </div>
-
-          <!-- BIỂU ĐỒ TRÒN TƯƠNG TÁC: CƠ CẤU ĐƠN HÀNG ĐÃ BÁN THEO 5 KÊNH (Đặt ngay dưới Biểu đồ Cột 3 Tháng & Cân đối chiều dài với Thanh Đồng bộ 5 Kênh) -->
-          <div class="wms-card sold-pie-card-full" style="margin-top:16px;margin-bottom:0;">
-            <div class="wms-card-header" style="margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+          <!-- KHỐI HỢP NHẤT 1: TỔNG DOANH THU 5 KÊNH · BIỂU ĐỒ DONUT SILK TÁCH RỜI & SẢN PHẨM BÁN CHẠY (TOP 10 / TOP 50) -->
+          <div class="wms-card sold-pie-card-full" style="margin-bottom: 18px; padding: 18px 20px;">
+            <div class="wms-card-header" style="margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
               <div>
-                <div class="wms-card-title">🥧 Cơ cấu đơn hàng đã bán theo 5 kênh (Biểu đồ Tròn Tương tác)</div>
-                <div id="soldPieChartSubtitle" class="wms-card-subtitle">
-                  Bấm chọn trực tiếp vào các mục chú giải màu bên cạnh (Xanh Facebook, Cam Shopee, TikTok, Lazada, POS) để biểu đồ nhảy tách cơ cấu kênh đó
+                <div class="wms-card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span>💰🥧 Tổng Doanh Thu 5 Kênh · Cơ Cấu Đơn Bán (Donut Silk) & Sản Phẩm Bán Chạy (Top 10 / Top 50)</span>
+                  <span class="status-badge st-ALLOCATED" style="font-size:11px;">Silk Donut · Tách miếng tương tác</span>
+                </div>
+                <div id="oneMonthRollingTimeLabel" class="wms-card-subtitle">
+                  Tùy chọn xem lại theo Quý / Tháng / Tuần / Ngày · Bấm vào miếng bánh Donut hoặc chú giải để tách rời hiệu ứng lụa Silk
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <select id="soldPieMonthSelect" class="form-control" style="width:auto;font-weight:700;padding:6px 10px;font-size:12.5px;" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                <button type="button" id="btnResetSoldPie" class="btn btn-outline btn-sm" onclick="AppUI.selectPieChannel(null)" style="font-weight:700;">
+                  🔄 Xem tổng 5 kênh
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.refreshOneMonthTimestamp()" title="Cập nhật lại mốc thời gian mở xem">
+                  ⏱️ Cập nhật mốc giờ
+                </button>
+              </div>
+            </div>
+
+            <!-- Thanh bộ lọc thời gian tùy chọn: Theo Quý / Theo Tháng / Theo Tuần / Theo Ngày -->
+            <div class="unified-ranking-filter-bar" style="margin-bottom: 14px;">
+              <div class="filter-group-item">
+                <label>Chế độ xem lại tùy chọn:</label>
+                <select id="revDonutFilterMode" class="form-control form-control-sm" onchange="AppUI.onRevDonutFilterModeChange()">
+                  <option value="MONTH" selected>📅 Theo Tháng tùy chọn</option>
+                  <option value="QUARTER">📊 Theo Quý tùy chọn</option>
+                  <option value="WEEK">🗓️ Theo Tuần tùy chọn</option>
+                  <option value="DAY">📆 Theo Ngày tùy chọn</option>
+                </select>
+              </div>
+
+              <!-- 1. Theo Tháng tùy chọn -->
+              <div id="revDonutMonthGroup" class="filter-group-item">
+                <label>Chọn Tháng xem lại:</label>
+                <select id="soldPieMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
                   <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
                   <option value="2026-09">Tháng 09/2026</option>
                   <option value="2026-08">Tháng 08/2026</option>
@@ -553,49 +369,290 @@
                   <option value="2026-05">Tháng 05/2026</option>
                   <option value="ALL_6M">Tổng hợp 6 Tháng (Th5 – Th10/2026)</option>
                 </select>
-                <button type="button" id="btnResetSoldPie" class="btn btn-outline btn-sm" onclick="AppUI.selectPieChannel(null)" style="font-weight:700;">
-                  🔄 Xem tổng 5 kênh
-                </button>
+              </div>
+
+              <!-- 2. Theo Quý tùy chọn -->
+              <div id="revDonutQuarterGroup" class="filter-group-item hidden">
+                <label>Chọn Quý xem lại:</label>
+                <select id="revDonutQuarterSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10/2026)</option>
+                  <option value="2026-Q3">Quý 3/2026 (Tháng 07 – Tháng 09/2026)</option>
+                  <option value="2026-Q2">Quý 2/2026 (Tháng 05 – Tháng 06/2026)</option>
+                </select>
+              </div>
+
+              <!-- 3. Theo Tuần tùy chọn -->
+              <div id="revDonutWeekMonthGroup" class="filter-group-item hidden">
+                <label>Tháng của Tuần:</label>
+                <select id="revDonutWeekMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                  <option value="2026-10" selected>Tháng 10/2026</option>
+                  <option value="2026-09">Tháng 09/2026</option>
+                  <option value="2026-08">Tháng 08/2026</option>
+                  <option value="2026-07">Tháng 07/2026</option>
+                  <option value="2026-06">Tháng 06/2026</option>
+                  <option value="2026-05">Tháng 05/2026</option>
+                </select>
+              </div>
+              <div id="revDonutWeekGroup" class="filter-group-item hidden">
+                <label>Chọn Tuần tùy chọn:</label>
+                <select id="revDonutWeekSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                  <option value="W1">Tuần 1 (Ngày 01 – 07)</option>
+                  <option value="W2">Tuần 2 (Ngày 08 – 14)</option>
+                  <option value="W3">Tuần 3 (Ngày 15 – 21)</option>
+                  <option value="W4" selected>Tuần 4 (Ngày 22 – Cuối tháng)</option>
+                </select>
+              </div>
+
+              <!-- 4. Theo Ngày tùy chọn -->
+              <div id="revDonutDayStartGroup" class="filter-group-item hidden">
+                <label>Từ ngày tùy chọn:</label>
+                <input type="date" id="revDonutStartDate" class="form-control form-control-sm" value="2026-10-01" onchange="AppUI.renderFiveChannelSoldPieChart()" />
+              </div>
+              <div id="revDonutDayEndGroup" class="filter-group-item hidden">
+                <label>Đến ngày tùy chọn:</label>
+                <input type="date" id="revDonutEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderFiveChannelSoldPieChart()" />
               </div>
             </div>
 
-            <div class="sold-pie-interactive-grid">
-              <!-- Cột Trái: Biểu đồ Tròn SVG có hiệu ứng nhảy miếng cắt khi chọn -->
-              <div class="sold-pie-visual-col">
-                <div class="sold-pie-svg-stage">
-                  <svg id="soldChannelPieSvg" viewBox="0 0 300 300" class="sold-pie-svg">
-                    <!-- Các phân đoạn hình quạt 5 kênh sẽ được vẽ động tại đây -->
-                  </svg>
-                  <div id="soldPieCenterHub" class="sold-pie-center-hub" onclick="AppUI.selectPieChannel(null)" title="Nhấn để xem tổng 5 kênh">
-                    <div id="soldPieCenterLabel" class="sold-pie-center-label">TỔNG ĐÃ BÁN</div>
-                    <div id="soldPieCenterValue" class="sold-pie-center-value">0 đơn</div>
-                    <div id="soldPieCenterSub" class="sold-pie-center-sub">100% · 5 Kênh</div>
+            <!-- PHẦN A: 6 Thẻ Tổng Doanh Thu & Doanh Thu Lần Lượt 5 Kênh Bán Hàng -->
+            <div id="oneMonthRevenueGrid" class="revenue-6cards-grid" style="margin-bottom: 16px;">
+              <!-- Sẽ được render tự động bởi AppUI.renderOneMonthRevenueOverview() -->
+            </div>
+
+            <!-- PHẦN B: Lưới 2 Cột — Cột Trái: Biểu đồ Donut Silk Tách Rời 5 Kênh | Cột Phải: Sản Phẩm Bán Chạy Top 10 / Top 50 -->
+            <div class="unified-rev-donut-top-grid">
+              <!-- Cột Trái: Biểu đồ Donut Silk Tách Rời + Chú giải 5 Kênh -->
+              <div class="unified-donut-left-panel">
+                <div class="sold-pie-interactive-grid">
+                  <div class="sold-pie-visual-col">
+                    <div class="sold-pie-svg-stage">
+                      <svg id="soldChannelPieSvg" viewBox="0 0 300 300" class="sold-pie-svg">
+                        <!-- Các miếng cắt Donut màu Silk lụa óng ánh được vẽ động tại đây -->
+                      </svg>
+                      <div id="soldPieCenterHub" class="sold-pie-center-hub" onclick="AppUI.selectPieChannel(null)" title="Nhấn để xem tổng 5 kênh">
+                        <div id="soldPieCenterLabel" class="sold-pie-center-label">TỔNG ĐÃ BÁN</div>
+                        <div id="soldPieCenterValue" class="sold-pie-center-value">0 đơn</div>
+                        <div id="soldPieCenterSub" class="sold-pie-center-sub">100% · 5 Kênh</div>
+                      </div>
+                    </div>
+                    <div id="soldPieActiveStatusPill" class="sold-pie-active-pill">
+                      ✨ Bấm vào miếng bánh hoặc ô màu Silk bên cạnh để tách rời kênh!
+                    </div>
                   </div>
-                </div>
-                <div id="soldPieActiveStatusPill" class="sold-pie-active-pill">
-                  💡 Mẹo: Hãy bấm vào các ô màu chú giải bên phải để xem miếng biểu đồ nhảy ra!
+
+                  <div class="sold-pie-legend-col">
+                    <div class="sold-pie-legend-header">
+                      <span>🎨 CHÚ GIẢI MÀU SILK & TỶ TRỌNG 5 KÊNH (CLICK ĐỂ TÁCH MIẾNG)</span>
+                      <span style="font-size:11px;font-weight:600;color:var(--text-muted);">Silk Gradient</span>
+                    </div>
+                    <div id="soldChannelLegendList" class="sold-pie-legend-list">
+                      <!-- 5 mục chú giải màu Silk tương tác -->
+                    </div>
+                    <div id="soldPieSummaryFooter" class="sold-pie-summary-footer">
+                      <!-- Tóm tắt chi tiết kênh đang chọn -->
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <!-- Cột Phải (Kế bên): Danh sách các mục chú giải màu (Cam Shopee, Xanh Facebook, v.v.) bấm vào nhảy biểu đồ -->
-              <div class="sold-pie-legend-col">
-                <div class="sold-pie-legend-header">
-                  <span>🎨 CHÚ GIẢI MÀU SẮC & TỶ TRỌNG 5 KÊNH (BẤM VÀO MÀU ĐỂ CHỌN)</span>
-                  <span style="font-size:11px;font-weight:600;color:var(--text-muted);">Click chọn / Bỏ chọn</span>
+              <!-- Cột Phải: Bảng Xếp Hạng Sản Phẩm Bán Chạy Top 10 & Top 50 -->
+              <div class="top-products-panel">
+                <div class="top-products-header">
+                  <div>
+                    <div class="top-products-title">🔥 Bảng Xếp Hạng Sản Phẩm Bán Chạy Nhất</div>
+                    <div id="topProductsSubtitle" class="top-products-subtitle">
+                      Thống kê sản lượng & doanh thu theo kỳ đã chọn
+                    </div>
+                  </div>
+                  <div class="top-products-toggle-group">
+                    <button type="button" id="btnTop10Products" class="btn btn-primary btn-sm" onclick="AppUI.setTopProductsLimit(10)">
+                      🔥 Top 10
+                    </button>
+                    <button type="button" id="btnTop50Products" class="btn btn-outline btn-sm" onclick="AppUI.setTopProductsLimit(50)">
+                      🏆 Top 50
+                    </button>
+                  </div>
                 </div>
-                <div id="soldChannelLegendList" class="sold-pie-legend-list">
-                  <!-- Danh sách 5 nút chú giải màu tương tác được render bởi AppUI.renderFiveChannelSoldPieChart() -->
-                </div>
-                <div id="soldPieSummaryFooter" class="sold-pie-summary-footer">
-                  <!-- Tóm tắt chi tiết kênh đang chọn -->
+
+                <div id="topProductsListContainer" class="top-products-scroll-box">
+                  <!-- Danh sách Top 10 / Top 50 sản phẩm bán chạy được render tự động -->
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- KHỐI HỢP NHẤT 2: XẾP HẠNG TOP 3 KÊNH BÁN HÀNG DẪN ĐẦU (BIỂU ĐỒ CỘT ĐỨNG 3 CỘT: TIẾP NHẬN · XUẤT HÀNG · HỦY ĐƠN + DOANH THU) -->
+          <div class="wms-card" style="margin-bottom: 16px;">
+            <div class="wms-card-header" style="margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <div class="wms-card-title">🏆📊 Xếp hạng Top 3 Kênh Bán Hàng Dẫn Đầu — Biểu đồ Cột Đứng & Tổng Doanh Thu</div>
+                <div id="unifiedRankingSubtitle" class="wms-card-subtitle">
+                  Xếp hạng từ cao xuống thấp theo số đơn tiếp nhận · Biểu diễn 3 kênh dẫn đầu về doanh thu & sản lượng đơn (Tiếp nhận · Xuất hàng · Hủy đơn)
+                </div>
+              </div>
+              <span class="status-badge st-ALLOCATED">Top 3 Channels · 3 Cột Trạng Thái</span>
+            </div>
+
+            <!-- Thanh bộ lọc thời gian tùy chọn: Theo Quý / Theo Tháng / Theo Tuần / Theo Ngày -->
+            <div class="unified-ranking-filter-bar">
+              <div class="filter-group-item">
+                <label>Chế độ thời gian tùy chọn:</label>
+                <select id="unifiedFilterMode" class="form-control form-control-sm" onchange="AppUI.onUnifiedRankingFilterModeChange()">
+                  <option value="MONTH" selected>📅 Theo Tháng tùy chọn</option>
+                  <option value="QUARTER">📊 Theo Quý tùy chọn</option>
+                  <option value="WEEK">🗓️ Theo Tuần tùy chọn</option>
+                  <option value="DAY">📆 Theo Ngày tùy chọn</option>
+                </select>
+              </div>
+
+              <!-- 1. Tùy chọn Theo Tháng -->
+              <div id="unifiedFilterMonthGroup" class="filter-group-item">
+                <label>Chọn Tháng thống kê:</label>
+                <select id="unifiedSelectMonth" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                  <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
+                  <option value="2026-09">Tháng 09/2026</option>
+                  <option value="2026-08">Tháng 08/2026</option>
+                  <option value="2026-07">Tháng 07/2026</option>
+                  <option value="2026-06">Tháng 06/2026</option>
+                  <option value="2026-05">Tháng 05/2026</option>
+                </select>
+              </div>
+
+              <!-- 2. Tùy chọn Theo Quý -->
+              <div id="unifiedFilterQuarterGroup" class="filter-group-item hidden">
+                <label>Chọn Quý thống kê:</label>
+                <select id="unifiedSelectQuarter" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10/2026)</option>
+                  <option value="2026-Q3">Quý 3/2026 (Tháng 07 – Tháng 09/2026)</option>
+                  <option value="2026-Q2">Quý 2/2026 (Tháng 05 – Tháng 06/2026)</option>
+                </select>
+              </div>
+
+              <!-- 3. Tùy chọn Theo Tuần -->
+              <div id="unifiedFilterWeekMonthGroup" class="filter-group-item hidden">
+                <label>Tháng của Tuần:</label>
+                <select id="unifiedSelectWeekMonth" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                  <option value="2026-10" selected>Tháng 10/2026</option>
+                  <option value="2026-09">Tháng 09/2026</option>
+                  <option value="2026-08">Tháng 08/2026</option>
+                  <option value="2026-07">Tháng 07/2026</option>
+                  <option value="2026-06">Tháng 06/2026</option>
+                  <option value="2026-05">Tháng 05/2026</option>
+                </select>
+              </div>
+              <div id="unifiedFilterWeekGroup" class="filter-group-item hidden">
+                <label>Chọn Tuần trong tháng:</label>
+                <select id="unifiedSelectWeek" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                  <option value="W1">Tuần 1 (Ngày 01 – 07)</option>
+                  <option value="W2">Tuần 2 (Ngày 08 – 14)</option>
+                  <option value="W3">Tuần 3 (Ngày 15 – 21)</option>
+                  <option value="W4" selected>Tuần 4 (Ngày 22 – Cuối tháng)</option>
+                </select>
+              </div>
+
+              <!-- 4. Tùy chọn Theo Ngày -->
+              <div id="unifiedFilterDayStartGroup" class="filter-group-item hidden">
+                <label>Từ ngày tùy chọn:</label>
+                <input type="date" id="unifiedFilterStartDate" class="form-control form-control-sm" value="2026-10-01" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
+              </div>
+              <div id="unifiedFilterDayEndGroup" class="filter-group-item hidden">
+                <label>Đến ngày tùy chọn:</label>
+                <input type="date" id="unifiedFilterEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
+              </div>
+            </div>
+
+            <div id="unifiedRankingFilterNotice" style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;"></div>
+
+            <!-- Khu vực hiển thị Biểu đồ Cột Đứng Top 3 Kênh (3 Cột: Tiếp nhận · Xuất hàng · Hủy đơn + Tổng Doanh Thu) -->
+            <div id="unifiedTop3RankingBarContainer" class="three-month-bars-stage">
+              <!-- Sẽ được render tự động bởi AppUI.renderUnifiedTop3ChannelRankingChart() -->
+            </div>
+
+            <!-- Tóm tắt xếp hạng dưới chân biểu đồ -->
+            <div id="unifiedRankingFooterSummary" class="ranking-footer-box">
+              <!-- Sẽ được render tự động bởi AppUI.renderUnifiedTop3ChannelRankingChart() -->
+            </div>
+          </div>
+
+          <!-- BIỂU ĐỒ XU HƯỚNG 6 THÁNG: Tiếp nhận đơn / Xuất giữ hàng theo tháng (Màu đối kháng) -->
+          <div class="wms-card" style="margin-bottom:0;">
+            <div class="wms-card-header">
+              <div>
+                <div class="wms-card-title">Tiếp nhận đơn / Xuất giữ hàng theo tháng</div>
+                <div class="wms-card-subtitle">Thống kê 5 kênh TMĐT (Th5/26 – Th10/26) · 2 đường biểu diễn luôn mang cặp màu đối kháng</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div style="display:flex;gap:12px;font-size:12px;font-weight:700;">
+                  <span style="display:flex;align-items:center;gap:6px;">
+                    <span id="legendBoxImport" style="width:12px;height:12px;background:#F97316;border-radius:3px;display:inline-block;"></span>
+                    <span>Đơn tiếp nhận</span>
+                  </span>
+                  <span style="display:flex;align-items:center;gap:6px;">
+                    <span id="legendBoxExport" style="width:12px;height:12px;background:#2563EB;border-radius:3px;display:inline-block;"></span>
+                    <span>Xuất giữ hàng</span>
+                  </span>
+                </div>
+                <button type="button" class="btn btn-outline btn-xs" id="btnToggleAllMonthlyDots" onclick="AppUI.toggleAllMonthlyTrendsNumbers()" title="Bấm để hiện hoặc ẩn toàn bộ con số trên các điểm chấm" style="font-size:11px;padding:2px 8px;border-radius:5px;">
+                  👁️ Xem tất cả số
+                </button>
+              </div>
+            </div>
+            <div style="padding-top:6px;">
+              <svg viewBox="0 0 540 205" style="width:100%;height:200px;overflow:visible;">
+                <g stroke="#cbd5e1" stroke-width="0.8" opacity="0.6">
+                  <line x1="36" y1="20" x2="515" y2="20" />
+                  <line x1="36" y1="45" x2="515" y2="45" />
+                  <line x1="36" y1="70" x2="515" y2="70" />
+                  <line x1="36" y1="95" x2="515" y2="95" />
+                  <line x1="36" y1="120" x2="515" y2="120" />
+                  <line x1="36" y1="145" x2="515" y2="145" />
+                  <line x1="36" y1="170" x2="515" y2="170" />
+                </g>
+                <g fill="currentColor" opacity="0.65" font-size="11" text-anchor="end">
+                  <text x="28" y="24">24</text>
+                  <text x="28" y="49">20</text>
+                  <text x="28" y="74">16</text>
+                  <text x="28" y="99">12</text>
+                  <text x="28" y="124">8</text>
+                  <text x="28" y="149">4</text>
+                  <text x="28" y="174">0</text>
+                </g>
+                <path id="chartAreaExport" d="M 55 148 L 142 136 L 229 122 L 316 105 L 403 82 Q 450 52, 495 28 L 495 170 L 55 170 Z" fill="rgba(37, 99, 235, 0.14)" />
+                <path id="chartLineExport" d="M 55 148 L 142 136 L 229 122 L 316 105 L 403 82 Q 450 52, 495 28" fill="none" stroke="#2563EB" stroke-width="2.8" />
+                <path id="chartLineImport" d="M 55 138 L 142 124 L 229 108 L 316 88 L 403 65 Q 450 38, 495 16" fill="none" stroke="#F97316" stroke-width="2.8" stroke-dasharray="5 3" />
+                <g id="chartDotsImport" fill="#F97316">
+                  <circle cx="55" cy="138" r="5" class="chart-interactive-dot" data-type="import" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="5" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th5/26 (5 đơn)" />
+                  <circle cx="142" cy="124" r="5" class="chart-interactive-dot" data-type="import" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="7" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th6/26 (7 đơn)" />
+                  <circle cx="229" cy="108" r="5" class="chart-interactive-dot" data-type="import" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="10" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th7/26 (10 đơn)" />
+                  <circle cx="316" cy="88" r="5" class="chart-interactive-dot" data-type="import" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="13" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th8/26 (13 đơn)" />
+                  <circle cx="403" cy="65" r="5" class="chart-interactive-dot" data-type="import" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="17" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th9/26 (17 đơn)" />
+                  <circle cx="495" cy="16" r="5.5" class="chart-interactive-dot" data-type="import" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="25" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th10/26 (25 đơn)" />
+                </g>
+                <g id="chartDotsExportGroup" fill="#2563EB">
+                  <circle cx="55" cy="148" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="4" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th5/26 (4 đơn)" />
+                  <circle cx="142" cy="136" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="5" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th6/26 (5 đơn)" />
+                  <circle cx="229" cy="122" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="8" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th7/26 (8 đơn)" />
+                  <circle cx="316" cy="105" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="10" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th8/26 (10 đơn)" />
+                  <circle cx="403" cy="82" r="4.5" class="chart-interactive-dot" data-type="export" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="14" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th9/26 (14 đơn)" />
+                  <circle id="chartDotExport" cx="495" cy="28" r="5.5" class="chart-interactive-dot" data-type="export" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="23" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th10/26 (23 đơn)" />
+                </g>
+                <!-- Nhóm hiển thị nhãn số trực tiếp khi người dùng click vào các điểm chấm -->
+                <g id="chartDotsLabelsGroup" style="pointer-events:none;"></g>
+                <g fill="currentColor" opacity="0.65" font-size="11.5" text-anchor="middle">
+                  <text x="55" y="192">Th5/26</text>
+                  <text x="142" y="192">Th6/26</text>
+                  <text x="229" y="192">Th7/26</text>
+                  <text x="316" y="192">Th8/26</text>
+                  <text x="403" y="192">Th9/26</text>
+                  <text x="495" y="192">Th10/26</text>
+                </g>
+              </svg>
             </div>
           </div>
         </section>
 
         <!-- 4. THANH ĐỒNG BỘ 5 KÊNH BÁN HÀNG -->
-        <section class="oms-view-section" data-views="dashboard ingest fifo">
+        <section class="oms-view-section" data-views="dashboard ingest fifo" style="margin-top:16px;">
           <div class="wms-card">
             <div class="wms-card-header">
               <div>
@@ -608,7 +665,7 @@
         </section>
 
         <!-- 5. PHÂN HỆ TIẾP NHẬN EXCEL & GIẢ LẬP API 2 CHIỀU -->
-        <section class="oms-view-section" data-views="dashboard ingest">
+        <section class="oms-view-section hidden" data-views="ingest">
           <div class="charts-grid-2col">
             <!-- Phương thức 1: Tiếp nhận đơn hàng từ các sàn theo thời gian thực -->
             <div class="wms-card" style="margin-bottom:0;display:flex;flex-direction:column;">
@@ -692,7 +749,7 @@
         </section>
 
         <!-- 6. KHỐI CẢNH BÁO CẦN XỬ LÝ (Actionable Alerts) -->
-        <section class="oms-view-section" data-views="dashboard fifo backorder inventory" style="margin-top:20px;">
+        <section class="oms-view-section hidden" data-views="fifo backorder inventory" style="margin-top:20px;">
           <div class="wms-card">
             <div class="wms-card-header">
               <div>
@@ -705,7 +762,7 @@
         </section>
 
         <!-- 7. BẢNG ĐƠN HÀNG ĐA KÊNH & PHÂN BỔ GIỮ HÀNG FIFO -->
-        <section class="oms-view-section" data-views="dashboard ingest backorder">
+        <section class="oms-view-section hidden" data-views="ingest backorder">
           <div class="wms-card">
             <div class="wms-card-header">
               <div>
@@ -881,7 +938,7 @@
         </section>
 
         <!-- 8. BẢNG TỒN KHO NỘI BỘ & ĐỐI CHIẾU LÔ HÀNG ATP -->
-        <section class="oms-view-section" data-views="dashboard inventory backorder">
+        <section class="oms-view-section hidden" data-views="inventory backorder">
           <div class="wms-card">
             <div class="wms-card-header">
               <div>

@@ -1041,6 +1041,30 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.wms-kpi-card.kpi-card-interactive {
+  cursor: pointer;
+}
+
+.wms-kpi-card.kpi-card-interactive:hover {
+  transform: translateY(-3px);
+  border-color: var(--theme-primary);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.09);
+}
+
+.topbar-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--theme-banner-bg);
+  color: var(--theme-banner-text);
+  border: 1px solid var(--theme-banner-border);
 }
 
 .kpi-card-top {
@@ -1611,16 +1635,24 @@ body {
   color: #15803d;
 }
 
-/* 2. Thanh bộ lọc giới hạn ngày tháng & tuỳ chọn 3 tháng */
-.three-month-filter-bar {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+/* 2. Thanh bộ lọc thời gian tùy chọn (Quý / Tháng / Tuần / Ngày) */
+.three-month-filter-bar,
+.unified-ranking-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   margin-bottom: 10px;
+}
+
+.unified-ranking-filter-bar .filter-group-item {
+  min-width: 190px;
+  flex: 1 1 200px;
+  max-width: 320px;
 }
 
 .filter-group-item label {
@@ -1637,7 +1669,7 @@ body {
   font-weight: 600;
 }
 
-/* 3. Biểu đồ Cột 3 Tháng & Top 3 Kênh Bán Hàng (Có số tổng doanh thu trên đỉnh mỗi cột) */
+/* 3. Biểu đồ Cột Đứng Top 3 Kênh Bán Hàng (3 cột: Tiếp nhận · Xuất hàng · Hủy đơn + Doanh thu) */
 .three-month-bars-stage,
 .top3-bar-chart-wrap {
   background: var(--bg-subtle);
@@ -1653,8 +1685,8 @@ body {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
   align-items: end;
-  min-height: 220px;
-  padding-top: 24px;
+  min-height: 240px;
+  padding-top: 20px;
   border-bottom: 1.5px solid var(--border-color);
 }
 
@@ -1673,20 +1705,22 @@ body {
   color: var(--text-main);
   background: var(--theme-card-bg);
   border: 1.5px solid var(--theme-primary);
-  padding: 3px 9px;
-  border-radius: 999px;
-  margin-bottom: 7px;
+  padding: 5px 12px;
+  border-radius: 10px;
+  margin-bottom: 9px;
   white-space: nowrap;
+  text-align: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
-.bar-pair-wrap {
+.bar-pair-wrap,
+.bar-triple-wrap {
   display: flex;
   align-items: flex-end;
   justify-content: center;
   gap: 10px;
   width: 100%;
-  height: 145px;
+  height: 155px;
 }
 
 .bar-pillar {
@@ -1701,6 +1735,11 @@ body {
   color: #ffffff;
   font-size: 10.5px;
   font-weight: 800;
+}
+
+.bar-pillar.triple-col {
+  width: 36px;
+  border-radius: 7px 7px 0 0;
 }
 
 .bar-pillar.single-wide {
@@ -2687,12 +2726,12 @@ body {
 
 .sold-pie-interactive-grid {
   display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 24px;
+  grid-template-columns: 235px 1fr;
+  gap: 16px;
   align-items: center;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1360px) {
   .sold-pie-interactive-grid {
     grid-template-columns: 1fr;
   }
@@ -2706,13 +2745,13 @@ body {
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  padding: 16px 12px;
+  padding: 14px 10px;
 }
 
 .sold-pie-svg-stage {
   position: relative;
-  width: 270px;
-  height: 270px;
+  width: 215px;
+  height: 215px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2741,19 +2780,172 @@ body {
 
 .pie-slice-group.slice-active {
   opacity: 1;
-  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.28));
+  filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.24)) drop-shadow(0 0 10px rgba(255, 255, 255, 0.45));
   z-index: 10;
 }
 
 .pie-slice-path {
-  stroke: #ffffff;
+  stroke: rgba(255, 255, 255, 0.92);
   stroke-width: 2.5px;
   stroke-linejoin: round;
   transition: stroke-width 0.25s ease, filter 0.25s ease;
 }
 
+.pie-slice-silk-sheen {
+  mix-blend-mode: soft-light;
+  transition: opacity 0.3s ease;
+}
+
 .pie-slice-group.slice-active .pie-slice-path {
+  stroke: #fffaf0;
   stroke-width: 3.5px;
+}
+
+.rev-channel-card.silk-card-selected {
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+  transform: translateY(-2px);
+  border-color: var(--theme-primary);
+}
+
+/* Lưới 2 cột cho Khối Hợp Nhất: Donut Silk (Trái) & Top 10 / Top 50 Sản phẩm bán chạy (Phải) */
+.unified-rev-donut-top-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+@media (max-width: 1200px) {
+  .unified-rev-donut-top-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.top-products-panel {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.top-products-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.top-products-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.top-products-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.top-products-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.top-products-scroll-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 365px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.top-product-row {
+  background: var(--theme-card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 9px 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.top-product-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+}
+
+.top-product-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.top-product-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+
+.top-product-name {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-product-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.top-product-right {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.top-product-sold {
+  font-size: 12.5px;
+  font-weight: 900;
+  color: var(--text-main);
+}
+
+.top-product-rev {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--theme-primary);
+}
+
+.silk-progress-bar {
+  width: 100%;
+  height: 5px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.silk-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.35s ease;
 }
 
 .pie-slice-pct-text {

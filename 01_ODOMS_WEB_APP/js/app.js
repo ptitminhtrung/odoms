@@ -98,7 +98,7 @@ const AppUI = {
     this.renderLoginQuickAccounts();
     // Luôn khởi đầu tại Màn hình Đăng nhập (căn giữa, màu mặc định Navy)
     this.showLoginScreen();
-    this.renderAll();
+    this.switchSidebarTab("dashboard");
   },
 
   initTheme() {
@@ -186,12 +186,9 @@ const AppUI = {
     const legendBoxImport = document.getElementById("legendBoxImport");
     if (legendBoxImport) legendBoxImport.style.background = themeObj.chartSecondary;
 
-    // Cập nhật lại các biểu đồ cột 3 tháng & Top 3 kênh theo cặp màu đối kháng của chủ đề mới
-    if (typeof this.renderThreeMonthBarChart === "function") {
-      this.renderThreeMonthBarChart();
-    }
-    if (typeof this.renderTop3ChannelsBarChart === "function") {
-      this.renderTop3ChannelsBarChart();
+    // Cập nhật lại biểu đồ cột đứng hợp nhất Top 3 kênh theo cặp màu đối kháng của chủ đề mới
+    if (typeof this.renderUnifiedTop3ChannelRankingChart === "function") {
+      this.renderUnifiedTop3ChannelRankingChart();
     }
     if (typeof this.renderMonthlyTrendsChartLabels === "function") {
       this.renderMonthlyTrendsChartLabels();
@@ -337,6 +334,7 @@ const AppUI = {
     if (appEl) appEl.classList.remove("hidden");
     this.updateSidebarUserProfile();
     this.applyRoleBasedAccessControl();
+    this.switchSidebarTab("dashboard");
     this.renderAll();
   },
 
@@ -464,6 +462,13 @@ const AppUI = {
     const adminOnlyTabs = ["logs", "staff"];
 
     document.querySelectorAll('[data-admin-only="true"]').forEach((el) => {
+      if (el.classList.contains("oms-view-section")) {
+        const views = (el.getAttribute("data-views") || "").split(" ");
+        const shouldShow = isAdmin && views.includes(this.currentMenuTab);
+        el.classList.toggle("hidden", !shouldShow);
+        el.style.display = shouldShow ? "" : "none";
+        return;
+      }
       el.classList.toggle("hidden", !isAdmin);
       el.style.display = isAdmin ? "" : "none";
       if (el.parentElement && el.parentElement.tagName === "LI") {
@@ -538,6 +543,17 @@ const AppUI = {
         sec.style.display = "";
       } else {
         sec.classList.add("hidden");
+        sec.style.display = "none";
+      }
+    });
+
+    // Ẩn/hiện thông minh các nút công cụ trên Topbar theo ngữ cảnh tab đang mở
+    document.querySelectorAll(".topbar-actions [data-action-views]").forEach((el) => {
+      const allowedViews = (el.getAttribute("data-action-views") || "").split(" ");
+      if (allowedViews.includes(tabKey)) {
+        el.classList.remove("hidden");
+      } else {
+        el.classList.add("hidden");
       }
     });
 
@@ -1189,9 +1205,7 @@ handleResetPassword(username) {
     this.renderOneMonthRevenueOverview();
     this.renderKPIsAndBadges();
     this.renderCharts();
-    this.renderTop3ChannelsBarChart();
-    this.renderThreeMonthBarChart();
-    this.renderMonthlyChannelRanking();
+    this.renderUnifiedTop3ChannelRankingChart();
     this.renderFiveChannelSoldPieChart();
     this.renderChannelStrip();
     this.renderActionableAlerts();
@@ -1214,11 +1228,13 @@ handleResetPassword(username) {
     const liveOrders = window.omsEngine ? window.omsEngine.orders : [];
     const getLiveStats = (ch) => {
       const list = ch ? liveOrders.filter((o) => o.channel === ch) : liveOrders;
-      const alloc = list.filter((o) => o.status === "ALLOCATED");
+      const alloc = list.filter((o) => o.status === "ALLOCATED" && o.platformStatus !== "CANCELLED");
+      const canc = list.filter((o) => o.status === "INVALID" || o.status === "CANCELLED" || o.platformStatus === "CANCELLED");
       const rev = alloc.reduce((s, o) => s + o.quantity * o.unitPrice, 0);
       return {
         received: list.length,
         exported: alloc.length,
+        cancelled: canc.length,
         revenue: rev
       };
     };
@@ -1233,13 +1249,14 @@ handleResetPassword(username) {
         endDate: "2026-05-31",
         received: 310,
         exported: 292,
+        cancelled: 18,
         revenue: 98500000,
         channels: {
-          SHOPEE: { orders: 128, revenue: 41200000, growth: "+11.2%" },
-          TIKTOK: { orders: 86, revenue: 26800000, growth: "+14.5%" },
-          LAZADA: { orders: 48, revenue: 15400000, growth: "+6.8%" },
-          POS: { orders: 28, revenue: 9500000, growth: "+4.2%" },
-          FACEBOOK: { orders: 20, revenue: 5600000, growth: "+3.1%" }
+          SHOPEE: { orders: 128, exported: 121, cancelled: 7, revenue: 41200000, growth: "+11.2%" },
+          TIKTOK: { orders: 86, exported: 81, cancelled: 5, revenue: 26800000, growth: "+14.5%" },
+          LAZADA: { orders: 48, exported: 45, cancelled: 3, revenue: 15400000, growth: "+6.8%" },
+          POS: { orders: 28, exported: 27, cancelled: 1, revenue: 9500000, growth: "+4.2%" },
+          FACEBOOK: { orders: 20, exported: 18, cancelled: 2, revenue: 5600000, growth: "+3.1%" }
         }
       },
       "2026-06": {
@@ -1249,13 +1266,14 @@ handleResetPassword(username) {
         endDate: "2026-06-30",
         received: 345,
         exported: 328,
+        cancelled: 17,
         revenue: 112400000,
         channels: {
-          SHOPEE: { orders: 142, revenue: 46800000, growth: "+13.5%" },
-          TIKTOK: { orders: 98, revenue: 31200000, growth: "+16.4%" },
-          LAZADA: { orders: 52, revenue: 17100000, growth: "+8.0%" },
-          POS: { orders: 31, revenue: 10900000, growth: "+5.5%" },
-          FACEBOOK: { orders: 22, revenue: 6400000, growth: "+4.0%" }
+          SHOPEE: { orders: 142, exported: 135, cancelled: 7, revenue: 46800000, growth: "+13.5%" },
+          TIKTOK: { orders: 98, exported: 93, cancelled: 5, revenue: 31200000, growth: "+16.4%" },
+          LAZADA: { orders: 52, exported: 49, cancelled: 3, revenue: 17100000, growth: "+8.0%" },
+          POS: { orders: 31, exported: 30, cancelled: 1, revenue: 10900000, growth: "+5.5%" },
+          FACEBOOK: { orders: 22, exported: 21, cancelled: 1, revenue: 6400000, growth: "+4.0%" }
         }
       },
       "2026-07": {
@@ -1265,13 +1283,14 @@ handleResetPassword(username) {
         endDate: "2026-07-31",
         received: 382,
         exported: 360,
+        cancelled: 22,
         revenue: 126800000,
         channels: {
-          SHOPEE: { orders: 158, revenue: 52500000, growth: "+12.1%" },
-          TIKTOK: { orders: 112, revenue: 36400000, growth: "+18.2%" },
-          LAZADA: { orders: 56, revenue: 18900000, growth: "+7.4%" },
-          POS: { orders: 33, revenue: 11800000, growth: "+6.1%" },
-          FACEBOOK: { orders: 23, revenue: 7200000, growth: "+4.9%" }
+          SHOPEE: { orders: 158, exported: 149, cancelled: 9, revenue: 52500000, growth: "+12.1%" },
+          TIKTOK: { orders: 112, exported: 106, cancelled: 6, revenue: 36400000, growth: "+18.2%" },
+          LAZADA: { orders: 56, exported: 52, cancelled: 4, revenue: 18900000, growth: "+7.4%" },
+          POS: { orders: 33, exported: 32, cancelled: 1, revenue: 11800000, growth: "+6.1%" },
+          FACEBOOK: { orders: 23, exported: 21, cancelled: 2, revenue: 7200000, growth: "+4.9%" }
         }
       },
       "2026-08": {
@@ -1281,13 +1300,14 @@ handleResetPassword(username) {
         endDate: "2026-08-31",
         received: 418,
         exported: 395,
+        cancelled: 23,
         revenue: 139500000,
         channels: {
-          SHOPEE: { orders: 175, revenue: 58200000, growth: "+14.8%" },
-          TIKTOK: { orders: 124, revenue: 40500000, growth: "+19.5%" },
-          LAZADA: { orders: 60, revenue: 20400000, growth: "+7.9%" },
-          POS: { orders: 35, revenue: 12600000, growth: "+6.8%" },
-          FACEBOOK: { orders: 24, revenue: 7800000, growth: "+5.2%" }
+          SHOPEE: { orders: 175, exported: 166, cancelled: 9, revenue: 58200000, growth: "+14.8%" },
+          TIKTOK: { orders: 124, exported: 117, cancelled: 7, revenue: 40500000, growth: "+19.5%" },
+          LAZADA: { orders: 60, exported: 56, cancelled: 4, revenue: 20400000, growth: "+7.9%" },
+          POS: { orders: 35, exported: 34, cancelled: 1, revenue: 12600000, growth: "+6.8%" },
+          FACEBOOK: { orders: 24, exported: 22, cancelled: 2, revenue: 7800000, growth: "+5.2%" }
         }
       },
       "2026-09": {
@@ -1297,13 +1317,14 @@ handleResetPassword(username) {
         endDate: "2026-09-30",
         received: 456,
         exported: 432,
+        cancelled: 24,
         revenue: 151200000,
         channels: {
-          SHOPEE: { orders: 192, revenue: 64100000, growth: "+15.4%" },
-          TIKTOK: { orders: 136, revenue: 44800000, growth: "+21.0%" },
-          LAZADA: { orders: 64, revenue: 21500000, growth: "+8.2%" },
-          POS: { orders: 38, revenue: 12900000, growth: "+7.1%" },
-          FACEBOOK: { orders: 26, revenue: 7900000, growth: "+5.6%" }
+          SHOPEE: { orders: 192, exported: 182, cancelled: 10, revenue: 64100000, growth: "+15.4%" },
+          TIKTOK: { orders: 136, exported: 129, cancelled: 7, revenue: 44800000, growth: "+21.0%" },
+          LAZADA: { orders: 64, exported: 60, cancelled: 4, revenue: 21500000, growth: "+8.2%" },
+          POS: { orders: 38, exported: 37, cancelled: 1, revenue: 12900000, growth: "+7.1%" },
+          FACEBOOK: { orders: 26, exported: 24, cancelled: 2, revenue: 7900000, growth: "+5.6%" }
         }
       },
       "2026-10": {
@@ -1313,30 +1334,41 @@ handleResetPassword(username) {
         endDate: "2026-10-31",
         received: 485 + liveAll.received,
         exported: 462 + liveAll.exported,
+        cancelled: 23 + liveAll.cancelled,
         revenue: 158500000 + liveAll.revenue,
         channels: {
           SHOPEE: {
             orders: 205 + getLiveStats("SHOPEE").received,
+            exported: 195 + getLiveStats("SHOPEE").exported,
+            cancelled: 10 + getLiveStats("SHOPEE").cancelled,
             revenue: 68400000 + getLiveStats("SHOPEE").revenue,
             growth: "+18.4%"
           },
           TIKTOK: {
             orders: 148 + getLiveStats("TIKTOK").received,
+            exported: 141 + getLiveStats("TIKTOK").exported,
+            cancelled: 7 + getLiveStats("TIKTOK").cancelled,
             revenue: 47200000 + getLiveStats("TIKTOK").revenue,
             growth: "+22.6%"
           },
           LAZADA: {
             orders: 68 + getLiveStats("LAZADA").received,
+            exported: 65 + getLiveStats("LAZADA").exported,
+            cancelled: 3 + getLiveStats("LAZADA").cancelled,
             revenue: 22100000 + getLiveStats("LAZADA").revenue,
             growth: "+9.5%"
           },
           POS: {
             orders: 38 + getLiveStats("POS").received,
+            exported: 37 + getLiveStats("POS").exported,
+            cancelled: 1 + getLiveStats("POS").cancelled,
             revenue: 12500000 + getLiveStats("POS").revenue,
             growth: "+7.8%"
           },
           FACEBOOK: {
             orders: 26 + getLiveStats("FACEBOOK").received,
+            exported: 24 + getLiveStats("FACEBOOK").exported,
+            cancelled: 2 + getLiveStats("FACEBOOK").cancelled,
             revenue: 8300000 + getLiveStats("FACEBOOK").revenue,
             growth: "+6.4%"
           }
@@ -1345,13 +1377,13 @@ handleResetPassword(username) {
     };
   },
 
-  // 1. BẢNG TỔNG DOANH THU & DOANH THU LẦN LƯỢT 5 KÊNH BÁN HÀNG (TRONG 1 THÁNG TÍNH ĐẾN THỜI ĐIỂM MỞ DASHBOARD)
+  // 1. BẢNG TỔNG DOANH THU & DOANH THU LẦN LƯỢT 5 KÊNH BÁN HÀNG (ĐỒNG BỘ THEO BỘ LỌC QUÝ / THÁNG / TUẦN / NGÀY)
   refreshOneMonthTimestamp() {
     this.dashboardOpenedAt = new Date();
-    this.renderOneMonthRevenueOverview();
+    this.renderFiveChannelSoldPieChart();
   },
 
-  renderOneMonthRevenueOverview() {
+  renderOneMonthRevenueOverview(precomputedData) {
     const grid = document.getElementById("oneMonthRevenueGrid");
     const timeLabel = document.getElementById("oneMonthRollingTimeLabel");
     if (!grid) return;
@@ -1361,29 +1393,28 @@ handleResetPassword(username) {
     }
 
     const now = this.dashboardOpenedAt;
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const pad = (n) => String(n).padStart(2, "0");
-    const fmtDate = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
     const fmtTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
+    const data = precomputedData || this.getFiveChannelSoldDataset();
+
     if (timeLabel) {
-      timeLabel.innerHTML = `⏱️ Chu kỳ 1 tháng tính đến thời điểm mở Dashboard: <strong>Từ ${fmtDate(oneMonthAgo)} đến ${fmtDate(now)} (Lúc ${fmtTime(now)})</strong>`;
+      timeLabel.innerHTML = `⏱️ Đang xem chu kỳ: <strong>${data.periodLabel}</strong> (Cập nhật lúc ${fmtTime(now)}) · Bấm chọn miếng bánh Donut để tách rời màu Silk & lọc sản phẩm bán chạy`;
     }
 
-    const dataset = this.getMonthlyHistoricalDataset()["2026-10"];
     const chOrder = [
-      { key: "SHOPEE", name: "Shopee", badgeClass: "badge-SHOPEE", color: "#ee4d2d" },
-      { key: "TIKTOK", name: "TikTok Shop", badgeClass: "badge-TIKTOK", color: "#0f172a" },
-      { key: "LAZADA", name: "Lazada", badgeClass: "badge-LAZADA", color: "#1d4ed8" },
-      { key: "FACEBOOK", name: "Facebook", badgeClass: "badge-FACEBOOK", color: "#0284c7" },
-      { key: "POS", name: "Cửa hàng POS", badgeClass: "badge-POS", color: "#15803d" }
+      { key: "SHOPEE", name: "Shopee", badgeClass: "badge-SHOPEE", silkBorder: "linear-gradient(90deg, #FFD1B3, #FB923C, #EA580C)" },
+      { key: "TIKTOK", name: "TikTok Shop", badgeClass: "badge-TIKTOK", silkBorder: "linear-gradient(90deg, #CBD5E1, #64748B, #1E293B)" },
+      { key: "LAZADA", name: "Lazada", badgeClass: "badge-LAZADA", silkBorder: "linear-gradient(90deg, #E0E7FF, #818CF8, #4F46E5)" },
+      { key: "FACEBOOK", name: "Facebook", badgeClass: "badge-FACEBOOK", silkBorder: "linear-gradient(90deg, #BAE6FD, #38BDF8, #0284C7)" },
+      { key: "POS", name: "Cửa hàng POS", badgeClass: "badge-POS", silkBorder: "linear-gradient(90deg, #A7F3D0, #34D399, #059669)" }
     ];
 
-    const totalRevenue = Object.values(dataset.channels).reduce((s, c) => s + c.revenue, 0);
-    const totalOrders = Object.values(dataset.channels).reduce((s, c) => s + c.orders, 0);
+    const totalRevenue = data.totalRevenue;
+    const totalOrders = data.totalOrders;
 
     const totalCardHtml = `
-      <div class="rev-channel-card total-hero">
+      <div class="rev-channel-card total-hero" onclick="AppUI.selectPieChannel(null)" style="cursor:pointer;" title="Bấm để xem tổng hợp cả 5 kênh">
         <div class="rev-card-head">
           <span class="rev-card-title">💎 TỔNG DOANH THU (5 KÊNH)</span>
           <span class="rev-growth-pill">▲ +16.8%</span>
@@ -1398,10 +1429,15 @@ handleResetPassword(username) {
 
     const channelsHtml = chOrder
       .map((ch) => {
-        const stat = dataset.channels[ch.key];
+        const stat = data.items.find((i) => i.key === ch.key) || { orders: 0, revenue: 0, growth: "+0.0%" };
         const sharePct = totalRevenue > 0 ? ((stat.revenue / totalRevenue) * 100).toFixed(1) : "0.0";
+        const isSelected = this.activePieChannel === ch.key;
         return `
-        <div class="rev-channel-card" style="border-top: 3px solid ${ch.color};">
+        <div class="rev-channel-card ${isSelected ? "silk-card-selected" : ""}"
+             onclick="AppUI.selectPieChannel('${ch.key}')"
+             style="cursor:pointer;position:relative;overflow:hidden;"
+             title="Bấm để tách miếng bánh Donut ${ch.name} & lọc sản phẩm bán chạy">
+          <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${ch.silkBorder};"></div>
           <div class="rev-card-head">
             <span class="channel-badge ${ch.badgeClass}">${ch.name}</span>
             <span class="rev-growth-pill">${stat.growth}</span>
@@ -1419,192 +1455,39 @@ handleResetPassword(username) {
     grid.innerHTML = totalCardHtml + channelsHtml;
   },
 
-  // 2. BIỂU ĐỒ CỘT + DOANH THU: TOP 3 KÊNH BÁN HÀNG (Ở DƯỚI TIẾP NHẬN ĐƠN / XUẤT GIỮ HÀNG THEO THÁNG)
-  renderTop3ChannelsBarChart() {
-    const container = document.getElementById("top3ChannelsBarChartContainer");
-    if (!container) return;
-
-    const dataset = this.getMonthlyHistoricalDataset()["2026-10"];
-    const metaMap = {
-      SHOPEE: { name: "Shopee Mall", short: "Shopee", color: "#ee4d2d", badge: "badge-SHOPEE" },
-      TIKTOK: { name: "TikTok Shop", short: "TikTok Shop", color: "#0f172a", badge: "badge-TIKTOK" },
-      LAZADA: { name: "Lazada Mall", short: "Lazada", color: "#1d4ed8", badge: "badge-LAZADA" },
-      POS: { name: "Cửa hàng POS", short: "Cửa hàng POS", color: "#15803d", badge: "badge-POS" },
-      FACEBOOK: { name: "Facebook Live", short: "Facebook", color: "#0284c7", badge: "badge-FACEBOOK" }
+  // 2. KHỐI HỢP NHẤT DUY NHẤT: XẾP HẠNG TOP 3 KÊNH BÁN HÀNG DẪN ĐẦU (BIỂU ĐỒ CỘT ĐỨNG 3 CỘT: TIẾP NHẬN · XUẤT HÀNG · HỦY ĐƠN + DOANH THU)
+  onUnifiedRankingFilterModeChange() {
+    const mode = document.getElementById("unifiedFilterMode")?.value || "MONTH";
+    const toggle = (id, show) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("hidden", !show);
     };
 
-    const sortedTop3 = Object.entries(dataset.channels)
-      .map(([key, val]) => ({
-        key,
-        ...val,
-        ...metaMap[key]
-      }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 3);
+    toggle("unifiedFilterMonthGroup", mode === "MONTH");
+    toggle("unifiedFilterQuarterGroup", mode === "QUARTER");
+    toggle("unifiedFilterWeekMonthGroup", mode === "WEEK");
+    toggle("unifiedFilterWeekGroup", mode === "WEEK");
+    toggle("unifiedFilterDayStartGroup", mode === "DAY");
+    toggle("unifiedFilterDayEndGroup", mode === "DAY");
 
-    const maxRev = Math.max(...sortedTop3.map((i) => i.revenue), 1);
-    const medals = ["🥇 TOP 1", "🥈 TOP 2", "🥉 TOP 3"];
-
-    const colsHtml = sortedTop3
-      .map((item, idx) => {
-        const heightPx = Math.max(42, Math.round((item.revenue / maxRev) * 135));
-        return `
-        <div class="bar-col-item">
-          <div class="bar-top-revenue-badge" title="Tổng doanh thu kênh ${item.name}">
-            ${item.revenue.toLocaleString("vi-VN")} ₫
-          </div>
-          <div class="bar-pair-wrap">
-            <div class="bar-pillar single-wide" style="height:${heightPx}px;background:${item.color};">
-              <span>${item.orders} đơn</span>
-            </div>
-          </div>
-          <div class="bar-col-footer">
-            <div class="bar-col-title">
-              <span style="margin-right:4px;">${medals[idx]}</span>
-              <span class="channel-badge ${item.badge}">${item.short}</span>
-            </div>
-            <div class="bar-col-sub">Sản lượng: <strong>${item.orders} đơn</strong> · Doanh thu dẫn đầu</div>
-          </div>
-        </div>
-      `;
-      })
-      .join("");
-
-    container.innerHTML = `<div class="bar-chart-columns-grid">${colsHtml}</div>`;
+    this.renderUnifiedTop3ChannelRankingChart();
   },
 
-  // 3. TIẾP NHẬN ĐƠN / XUẤT GIỮ HÀNG THEO 3 THÁNG (GIỚI HẠN NGÀY THÁNG + TUỲ CHỌN 3 THÁNG + BIỂU ĐỒ CỘT CÓ TỔNG DOANH THU TRÊN MỖI CỘT)
-  onThreeMonthSelectChange() {
-    const m1 = document.getElementById("select3M_1")?.value || "2026-08";
-    const m2 = document.getElementById("select3M_2")?.value || "2026-09";
-    const m3 = document.getElementById("select3M_3")?.value || "2026-10";
-    const selected = [m1, m2, m3].sort();
-
-    const data = this.getMonthlyHistoricalDataset();
-    const startInput = document.getElementById("filter3MStartDate");
-    const endInput = document.getElementById("filter3MEndDate");
-    if (startInput && data[selected[0]]) {
-      startInput.value = data[selected[0]].startDate;
-    }
-    if (endInput && data[selected[selected.length - 1]]) {
-      endInput.value = data[selected[selected.length - 1]].endDate;
-    }
-    this.renderThreeMonthBarChart();
-  },
-
-  renderThreeMonthBarChart() {
-    const container = document.getElementById("threeMonthBarChartContainer");
-    const noticeEl = document.getElementById("threeMonthFilterNotice");
+  renderUnifiedTop3ChannelRankingChart() {
+    const container = document.getElementById("unifiedTop3RankingBarContainer");
+    const subtitleEl = document.getElementById("unifiedRankingSubtitle");
+    const noticeEl = document.getElementById("unifiedRankingFilterNotice");
+    const footerEl = document.getElementById("unifiedRankingFooterSummary");
     if (!container) return;
 
     const themeObj = THEMES_LIST.find((t) => t.key === this.currentTheme) || THEMES_LIST[0];
-    const colorReceived = themeObj.chartSecondary; // Màu đối kháng 1 (Đơn tiếp nhận)
-    const colorExported = themeObj.chartPrimary;   // Màu đối kháng 2 (Xuất giữ hàng)
+    const colorReceived = themeObj.chartSecondary || "#F97316"; // Cột 1: Tiếp nhận
+    const colorExported = themeObj.chartPrimary || "#2563EB";   // Cột 2: Xuất hàng
+    const colorCancelled = "#EF4444";                           // Cột 3: Hủy đơn
 
-    const m1 = document.getElementById("select3M_1")?.value || "2026-08";
-    const m2 = document.getElementById("select3M_2")?.value || "2026-09";
-    const m3 = document.getElementById("select3M_3")?.value || "2026-10";
-
-    const startVal = document.getElementById("filter3MStartDate")?.value || "2026-08-01";
-    const endVal = document.getElementById("filter3MEndDate")?.value || "2026-10-31";
-
+    const mode = document.getElementById("unifiedFilterMode")?.value || "MONTH";
     const allData = this.getMonthlyHistoricalDataset();
-    const chosenKeys = [m1, m2, m3];
-
-    // Tính hệ số lọc theo khoảng ngày giới hạn (nếu người dùng thu hẹp ngày trong tháng)
-    const startDt = new Date(startVal + "T00:00:00");
-    const endDt = new Date(endVal + "T23:59:59");
-
-    const items = chosenKeys.map((k) => {
-      const raw = allData[k] || allData["2026-10"];
-      const mStart = new Date(raw.startDate + "T00:00:00");
-      const mEnd = new Date(raw.endDate + "T23:59:59");
-
-      // Tính số ngày giao nhau giữa khoảng [startDt, endDt] và tháng đó
-      const overlapStart = new Date(Math.max(startDt.getTime(), mStart.getTime()));
-      const overlapEnd = new Date(Math.min(endDt.getTime(), mEnd.getTime()));
-      const totalDaysInMonth = Math.max(1, Math.round((mEnd - mStart) / (1000 * 3600 * 24)));
-
-      let ratio = 1;
-      if (overlapEnd < overlapStart) {
-        ratio = 0;
-      } else {
-        const overlapDays = Math.max(1, Math.round((overlapEnd - overlapStart) / (1000 * 3600 * 24)));
-        ratio = Math.min(1, overlapDays / totalDaysInMonth);
-      }
-
-      return {
-        key: k,
-        label: raw.label,
-        received: Math.round(raw.received * ratio),
-        exported: Math.round(raw.exported * ratio),
-        revenue: Math.round(raw.revenue * ratio),
-        ratio
-      };
-    });
-
-    if (noticeEl) {
-      noticeEl.innerHTML = `🔍 Đang lọc dữ liệu giới hạn từ ngày <strong>${startVal.split("-").reverse().join("/")}</strong> đến ngày <strong>${endVal.split("-").reverse().join("/")}</strong> · So sánh 3 tháng tuỳ chọn: <strong>${items.map((i) => i.label).join(" — ")}</strong>`;
-    }
-
-    const maxOrderVol = Math.max(...items.map((i) => Math.max(i.received, i.exported)), 1);
-
-    const colsHtml = items
-      .map((item) => {
-        const hRec = item.received > 0 ? Math.max(28, Math.round((item.received / maxOrderVol) * 135)) : 6;
-        const hExp = item.exported > 0 ? Math.max(28, Math.round((item.exported / maxOrderVol) * 135)) : 6;
-
-        return `
-        <div class="bar-col-item">
-          <div class="bar-top-revenue-badge" title="Tổng doanh thu của ${item.label}">
-            💰 ${item.revenue.toLocaleString("vi-VN")} ₫
-          </div>
-          <div class="bar-pair-wrap">
-            <div class="bar-pillar" style="height:${hRec}px;background:${colorReceived};" title="Đơn tiếp nhận: ${item.received} đơn">
-              <span>${item.received}</span>
-            </div>
-            <div class="bar-pillar" style="height:${hExp}px;background:${colorExported};" title="Xuất giữ hàng: ${item.exported} đơn">
-              <span>${item.exported}</span>
-            </div>
-          </div>
-          <div class="bar-col-footer">
-            <div class="bar-col-title">${item.label}</div>
-            <div class="bar-col-sub">
-              Nhận: <strong style="color:${colorReceived};">${item.received}</strong> · Xuất giữ: <strong style="color:${colorExported};">${item.exported}</strong> đơn
-            </div>
-          </div>
-        </div>
-      `;
-      })
-      .join("");
-
-    container.innerHTML = `
-      <div class="three-month-legend-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px;font-size:12px;font-weight:700;">
-        <span style="color:var(--text-secondary);">Đơn vị cột: Số đơn hàng · Nhãn trên đỉnh mỗi cột: <strong>Tổng doanh thu tháng (₫)</strong></span>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <span style="display:flex;align-items:center;gap:5px;">
-            <span style="width:11px;height:11px;background:${colorReceived};border-radius:3px;display:inline-block;"></span> Đơn tiếp nhận
-          </span>
-          <span style="display:flex;align-items:center;gap:5px;">
-            <span style="width:11px;height:11px;background:${colorExported};border-radius:3px;display:inline-block;"></span> Xuất giữ hàng
-          </span>
-        </div>
-      </div>
-      <div class="bar-chart-columns-grid">${colsHtml}</div>
-    `;
-  },
-
-  // 4. BẢNG XẾP HẠNG CÁC KÊNH BÁN HÀNG ĐƯỢC NHIỀU ĐƠN NHẤT THEO THÁNG
-  renderMonthlyChannelRanking() {
-    const listEl = document.getElementById("channelMonthlyRankingList");
-    const subtitleEl = document.getElementById("channelRankingSubtitle");
-    const footerEl = document.getElementById("channelRankingFooterSummary");
-    if (!listEl) return;
-
-    const monthKey = document.getElementById("rankingMonthSelect")?.value || "2026-10";
-    const allData = this.getMonthlyHistoricalDataset();
-    const monthData = allData[monthKey] || allData["2026-10"];
-
+    const channelKeys = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
     const metaMap = {
       SHOPEE: { name: "Shopee Mall", short: "Shopee", color: "#ee4d2d", badge: "badge-SHOPEE" },
       TIKTOK: { name: "TikTok Shop", short: "TikTok Shop", color: "#0f172a", badge: "badge-TIKTOK" },
@@ -1613,93 +1496,225 @@ handleResetPassword(username) {
       FACEBOOK: { name: "Facebook Shop / Live", short: "Facebook", color: "#0284c7", badge: "badge-FACEBOOK" }
     };
 
-    const ranked = Object.entries(monthData.channels)
-      .map(([key, stat]) => ({
-        key,
-        ...stat,
-        ...metaMap[key]
-      }))
-      .sort((a, b) => b.orders - a.orders);
+    const agg = {};
+    channelKeys.forEach((k) => {
+      agg[k] = { orders: 0, exported: 0, cancelled: 0, revenue: 0, growth: "+0.0%" };
+    });
 
-    const totalOrders = ranked.reduce((s, r) => s + r.orders, 0);
-    const totalRevenue = ranked.reduce((s, r) => s + r.revenue, 0);
-    const maxOrders = Math.max(...ranked.map((r) => r.orders), 1);
+    let periodLabel = "Tháng 10/2026";
+    let filterDetailText = "";
 
-    if (subtitleEl) {
-      subtitleEl.innerText = `Xếp hạng từ cao xuống thấp theo số đơn tiếp nhận trong ${monthData.label} (${totalOrders} đơn)`;
+    const addMonthWithRatio = (mKey, ratio, weightFactor = 1) => {
+      const mObj = allData[mKey];
+      if (!mObj || ratio <= 0) return;
+      channelKeys.forEach((k) => {
+        const ch = mObj.channels[k];
+        if (!ch) return;
+        const rOrders = Math.round(ch.orders * ratio * weightFactor);
+        const rExported = Math.round(ch.exported * ratio * weightFactor);
+        const rCancelled = Math.max(0, rOrders - rExported);
+        const rRevenue = Math.round(ch.revenue * ratio * weightFactor);
+        agg[k].orders += rOrders;
+        agg[k].exported += rExported;
+        agg[k].cancelled += rCancelled;
+        agg[k].revenue += rRevenue;
+        agg[k].growth = ch.growth;
+      });
+    };
+
+    if (mode === "QUARTER") {
+      const qVal = document.getElementById("unifiedSelectQuarter")?.value || "2026-Q4";
+      const qMap = {
+        "2026-Q2": { label: "Quý 2/2026 (Tháng 05 – 06/2026)", months: ["2026-05", "2026-06"] },
+        "2026-Q3": { label: "Quý 3/2026 (Tháng 07 – 09/2026)", months: ["2026-07", "2026-08", "2026-09"] },
+        "2026-Q4": { label: "Quý 4/2026 (Tháng 10/2026)", months: ["2026-10"] }
+      };
+      const qInfo = qMap[qVal] || qMap["2026-Q4"];
+      periodLabel = qInfo.label;
+      qInfo.months.forEach((mk) => addMonthWithRatio(mk, 1, 1));
+      filterDetailText = `📊 Đang xếp hạng theo <strong>Quý tùy chọn</strong>: <strong>${periodLabel}</strong>`;
+    } else if (mode === "WEEK") {
+      const mKey = document.getElementById("unifiedSelectWeekMonth")?.value || "2026-10";
+      const wKey = document.getElementById("unifiedSelectWeek")?.value || "W4";
+      const mObj = allData[mKey] || allData["2026-10"];
+      const weekMeta = {
+        W1: { label: "Tuần 1 (Ngày 01 – 07)", ratio: 0.23 },
+        W2: { label: "Tuần 2 (Ngày 08 – 14)", ratio: 0.25 },
+        W3: { label: "Tuần 3 (Ngày 15 – 21)", ratio: 0.24 },
+        W4: { label: "Tuần 4 (Ngày 22 – Cuối tháng)", ratio: 0.28 }
+      };
+      const wInfo = weekMeta[wKey] || weekMeta.W4;
+      periodLabel = `${wInfo.label} · ${mObj.label}`;
+      addMonthWithRatio(mKey, wInfo.ratio, 1);
+      filterDetailText = `🗓️ Đang xếp hạng theo <strong>Tuần tùy chọn</strong>: <strong>${periodLabel}</strong>`;
+    } else if (mode === "DAY") {
+      const startVal = document.getElementById("unifiedFilterStartDate")?.value || "2026-10-01";
+      const endVal = document.getElementById("unifiedFilterEndDate")?.value || "2026-10-31";
+      const startDt = new Date(startVal + "T00:00:00");
+      const endDt = new Date(endVal + "T23:59:59");
+
+      Object.keys(allData).forEach((mKey) => {
+        const raw = allData[mKey];
+        const mStart = new Date(raw.startDate + "T00:00:00");
+        const mEnd = new Date(raw.endDate + "T23:59:59");
+        const overlapStart = new Date(Math.max(startDt.getTime(), mStart.getTime()));
+        const overlapEnd = new Date(Math.min(endDt.getTime(), mEnd.getTime()));
+        const totalDaysInMonth = Math.max(1, Math.round((mEnd - mStart) / (1000 * 3600 * 24)) + 1);
+        if (overlapEnd >= overlapStart) {
+          const overlapDays = Math.max(1, Math.round((overlapEnd - overlapStart) / (1000 * 3600 * 24)) + 1);
+          const ratio = Math.min(1, overlapDays / totalDaysInMonth);
+          addMonthWithRatio(mKey, ratio, 1);
+        }
+      });
+
+      const fmtStart = startVal.split("-").reverse().join("/");
+      const fmtEnd = endVal.split("-").reverse().join("/");
+      periodLabel = fmtStart === fmtEnd ? `Ngày ${fmtStart}` : `Từ ${fmtStart} đến ${fmtEnd}`;
+      filterDetailText = `📆 Đang xếp hạng theo <strong>Ngày tùy chọn</strong>: <strong>${periodLabel}</strong>`;
+    } else {
+      const mKey = document.getElementById("unifiedSelectMonth")?.value || "2026-10";
+      const mObj = allData[mKey] || allData["2026-10"];
+      periodLabel = mObj.label;
+      addMonthWithRatio(mKey, 1, 1);
+      filterDetailText = `📅 Đang xếp hạng theo <strong>Tháng tùy chọn</strong>: <strong>${periodLabel}</strong>`;
     }
 
-    listEl.innerHTML = ranked
+    // Xếp hạng từ cao xuống thấp theo số đơn tiếp nhận (orders)
+    const rankedAll = channelKeys
+      .map((key) => ({
+        key,
+        ...agg[key],
+        ...metaMap[key]
+      }))
+      .sort((a, b) => b.orders - a.orders || b.revenue - a.revenue);
+
+    const totalSystemOrders = rankedAll.reduce((s, r) => s + r.orders, 0);
+    const totalSystemRevenue = rankedAll.reduce((s, r) => s + r.revenue, 0);
+
+    // Lấy Top 3 kênh dẫn đầu để biểu diễn biểu đồ cột đứng
+    const top3Channels = rankedAll.slice(0, 3);
+    const maxBarVal = Math.max(...top3Channels.map((c) => Math.max(c.orders, c.exported, c.cancelled)), 1);
+    const medals = ["🥇 HẠNG 1", "🥈 HẠNG 2", "🥉 HẠNG 3"];
+
+    if (subtitleEl) {
+      subtitleEl.innerText = `Xếp hạng từ cao xuống thấp theo số đơn tiếp nhận trong ${periodLabel} · Top 3 kênh dẫn đầu về doanh thu & sản lượng đơn`;
+    }
+    if (noticeEl) {
+      noticeEl.innerHTML = `${filterDetailText} · Tổng toàn hệ thống (5 kênh): <strong>${totalSystemOrders} đơn tiếp nhận</strong> — <strong>${totalSystemRevenue.toLocaleString("vi-VN")} ₫</strong>`;
+    }
+
+    const colsHtml = top3Channels
       .map((item, idx) => {
-        const rankNum = idx + 1;
-        const medalClass =
-          rankNum === 1
-            ? "rank-medal-1"
-            : rankNum === 2
-            ? "rank-medal-2"
-            : rankNum === 3
-            ? "rank-medal-3"
-            : "rank-medal-other";
-        const medalIcon = rankNum === 1 ? "🥇" : rankNum === 2 ? "🥈" : rankNum === 3 ? "🥉" : `#${rankNum}`;
-        const sharePct = totalOrders > 0 ? ((item.orders / totalOrders) * 100).toFixed(1) : "0.0";
-        const barWidth = Math.max(8, Math.round((item.orders / maxOrders) * 100));
+        const hRec = item.orders > 0 ? Math.max(30, Math.round((item.orders / maxBarVal) * 145)) : 8;
+        const hExp = item.exported > 0 ? Math.max(26, Math.round((item.exported / maxBarVal) * 145)) : 8;
+        const hCan = item.cancelled > 0 ? Math.max(22, Math.round((item.cancelled / maxBarVal) * 145)) : 6;
+        const sharePct = totalSystemOrders > 0 ? ((item.orders / totalSystemOrders) * 100).toFixed(1) : "0.0";
 
         return `
-        <div class="leaderboard-row-card ${rankNum === 1 ? "top-rank-1" : ""}">
-          <div class="lb-row-top">
-            <div class="lb-left-info">
-              <span class="rank-medal-badge ${medalClass}">${medalIcon}</span>
-              <div>
-                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                  <span class="channel-badge ${item.badge}">${item.short}</span>
-                  <span style="font-size:12.5px;font-weight:800;color:var(--text-main);">${item.name}</span>
-                  <span class="rev-growth-pill">${item.growth}</span>
-                </div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
-                  Tỷ trọng đơn: <strong>${sharePct}%</strong> toàn hệ thống
-                </div>
-              </div>
-            </div>
-            <div class="lb-right-stats">
-              <div class="lb-order-count">${item.orders} đơn</div>
-              <div class="lb-rev-sub">${item.revenue.toLocaleString("vi-VN")} ₫</div>
+        <div class="bar-col-item">
+          <div class="bar-top-revenue-badge" title="Tổng doanh thu & sản lượng đơn kênh ${item.name}">
+            <div>💰 ${item.revenue.toLocaleString("vi-VN")} ₫</div>
+            <div style="font-size:11px;font-weight:700;color:var(--theme-primary);margin-top:1px;">
+              📦 Sản lượng: ${item.orders} đơn (${sharePct}%)
             </div>
           </div>
-          <div class="lb-progress-track">
-            <div class="lb-progress-fill" style="width:${barWidth}%;background:${item.color};"></div>
+
+          <div class="bar-triple-wrap">
+            <div class="bar-pillar triple-col" style="height:${hRec}px;background:${colorReceived};" title="${item.name} — Tiếp nhận: ${item.orders} đơn">
+              <span>${item.orders}</span>
+            </div>
+            <div class="bar-pillar triple-col" style="height:${hExp}px;background:${colorExported};" title="${item.name} — Xuất hàng: ${item.exported} đơn">
+              <span>${item.exported}</span>
+            </div>
+            <div class="bar-pillar triple-col" style="height:${hCan}px;background:${colorCancelled};" title="${item.name} — Hủy đơn: ${item.cancelled} đơn">
+              <span>${item.cancelled}</span>
+            </div>
+          </div>
+
+          <div class="bar-col-footer">
+            <div class="bar-col-title" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+              <span>${medals[idx]}</span>
+              <span class="channel-badge ${item.badge}">${item.short}</span>
+              <span class="rev-growth-pill">${item.growth}</span>
+            </div>
+            <div class="bar-col-sub" style="margin-top:4px;">
+              Tiếp nhận: <strong style="color:${colorReceived};">${item.orders}</strong> ·
+              Xuất hàng: <strong style="color:${colorExported};">${item.exported}</strong> ·
+              Hủy đơn: <strong style="color:${colorCancelled};">${item.cancelled}</strong>
+            </div>
           </div>
         </div>
       `;
       })
       .join("");
 
+    container.innerHTML = `
+      <div class="three-month-legend-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:12px;font-weight:700;">
+        <span style="color:var(--text-secondary);">Thứ tự xếp hạng: <strong>Cao ➔ Thấp theo số đơn tiếp nhận</strong> · Nhãn trên đỉnh mỗi kênh: <strong>Tổng doanh thu (₫) & Sản lượng đơn</strong></span>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:11px;height:11px;background:${colorReceived};border-radius:3px;display:inline-block;"></span> Tiếp nhận
+          </span>
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:11px;height:11px;background:${colorExported};border-radius:3px;display:inline-block;"></span> Xuất hàng
+          </span>
+          <span style="display:flex;align-items:center;gap:5px;">
+            <span style="width:11px;height:11px;background:${colorCancelled};border-radius:3px;display:inline-block;"></span> Hủy đơn
+          </span>
+        </div>
+      </div>
+      <div class="bar-chart-columns-grid">${colsHtml}</div>
+    `;
+
     if (footerEl) {
-      const top1 = ranked[0];
+      const top1 = top3Channels[0];
+      const restChannels = rankedAll.slice(3).map((r, i) => `#${i + 4} ${r.short}: <strong>${r.orders} đơn</strong> (${r.revenue.toLocaleString("vi-VN")} ₫)`).join(" · ");
       footerEl.innerHTML = `
         <div>
-          🏆 Kênh dẫn đầu ${monthData.label}: <strong>${top1.name} (${top1.orders} đơn)</strong>
+          🏆 Dẫn đầu (${periodLabel}): <strong>${top1 ? top1.name : "-"} (${top1 ? top1.orders : 0} đơn tiếp nhận · Xuất ${top1 ? top1.exported : 0} · Hủy ${top1 ? top1.cancelled : 0})</strong>
         </div>
         <div>
-          Tổng cộng 5 kênh: <strong>${totalOrders} đơn</strong> · <strong>${totalRevenue.toLocaleString("vi-VN")} ₫</strong>
+          Các kênh tiếp theo: ${restChannels || "Không có"}
         </div>
       `;
     }
   },
 
-  // 5. BIỂU ĐỒ TRÒN TƯƠNG TÁC: CƠ CẤU ĐƠN HÀNG ĐÃ BÁN THEO 5 KÊNH (Bấm màu chú giải để nhảy biểu đồ)
+  // 5. KHỐI HỢP NHẤT: DOANH THU 5 KÊNH · BIỂU ĐỒ DONUT SILK TÁCH RỜI & SẢN PHẨM BÁN CHẠY (TOP 10 / TOP 50)
   activePieChannel: null,
+  topProductsLimit: 10,
+
+  onRevDonutFilterModeChange() {
+    const mode = document.getElementById("revDonutFilterMode")?.value || "MONTH";
+    const toggle = (id, show) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("hidden", !show);
+    };
+
+    toggle("revDonutMonthGroup", mode === "MONTH");
+    toggle("revDonutQuarterGroup", mode === "QUARTER");
+    toggle("revDonutWeekMonthGroup", mode === "WEEK");
+    toggle("revDonutWeekGroup", mode === "WEEK");
+    toggle("revDonutDayStartGroup", mode === "DAY");
+    toggle("revDonutDayEndGroup", mode === "DAY");
+
+    this.renderFiveChannelSoldPieChart();
+  },
 
   getFiveChannelSoldDataset() {
-    const monthKey = document.getElementById("soldPieMonthSelect")?.value || "2026-10";
+    const mode = document.getElementById("revDonutFilterMode")?.value || "MONTH";
     const allData = this.getMonthlyHistoricalDataset();
 
+    // Bảng màu Silk (Lụa óng ánh đa tầng — tuyệt đối không dùng màu Solid phẳng)
     const channelMeta = {
       SHOPEE: {
         key: "SHOPEE",
         name: "Shopee",
         fullName: "Shopee Mall",
-        color: "#F97316",
-        colorName: "Cam Shopee",
+        color: "#EA580C",
+        silkStops: ["#FFD6BA", "#FB923C", "#F97316", "#C2410C"],
+        silkCss: "linear-gradient(135deg, #FFD6BA 0%, #FB923C 42%, #F97316 74%, #C2410C 100%)",
+        colorName: "Lụa Cam San Hô (Silk)",
         badge: "badge-SHOPEE"
       },
       FACEBOOK: {
@@ -1707,15 +1722,19 @@ handleResetPassword(username) {
         name: "Facebook",
         fullName: "Facebook Shop / Live",
         color: "#0284C7",
-        colorName: "Xanh Facebook",
+        silkStops: ["#BAE6FD", "#38BDF8", "#0284C7", "#0369A1"],
+        silkCss: "linear-gradient(135deg, #BAE6FD 0%, #38BDF8 42%, #0284C7 74%, #0369A1 100%)",
+        colorName: "Lụa Xanh Thiên Thanh (Silk)",
         badge: "badge-FACEBOOK"
       },
       TIKTOK: {
         key: "TIKTOK",
         name: "TikTok Shop",
         fullName: "TikTok Shop",
-        color: "#0F172A",
-        colorName: "Đen TikTok",
+        color: "#334155",
+        silkStops: ["#E2E8F0", "#94A3B8", "#475569", "#1E293B"],
+        silkCss: "linear-gradient(135deg, #E2E8F0 0%, #94A3B8 38%, #475569 72%, #1E293B 100%)",
+        colorName: "Lụa Đen Ánh Bạc (Silk)",
         badge: "badge-TIKTOK"
       },
       LAZADA: {
@@ -1723,48 +1742,107 @@ handleResetPassword(username) {
         name: "Lazada",
         fullName: "Lazada Mall",
         color: "#4F46E5",
-        colorName: "Tím Lazada",
+        silkStops: ["#E0E7FF", "#818CF8", "#6366F1", "#3730A3"],
+        silkCss: "linear-gradient(135deg, #E0E7FF 0%, #818CF8 42%, #6366F1 74%, #3730A3 100%)",
+        colorName: "Lụa Tím Oải Hương (Silk)",
         badge: "badge-LAZADA"
       },
       POS: {
         key: "POS",
         name: "Cửa hàng POS",
         fullName: "Cửa hàng Vật lý (POS)",
-        color: "#16A34A",
-        colorName: "Xanh lá POS",
+        color: "#059669",
+        silkStops: ["#A7F3D0", "#34D399", "#10B981", "#047857"],
+        silkCss: "linear-gradient(135deg, #A7F3D0 0%, #34D399 42%, #10B981 74%, #047857 100%)",
+        colorName: "Lụa Xanh Ngọc Lục Bảo (Silk)",
         badge: "badge-POS"
       }
     };
 
     const orderKeys = ["SHOPEE", "FACEBOOK", "TIKTOK", "LAZADA", "POS"];
     let periodLabel = "Tháng 10/2026";
+    let scaleFactor = 1;
     const aggregated = {};
 
     orderKeys.forEach((k) => {
       aggregated[k] = { orders: 0, revenue: 0, growth: "+0.0%" };
     });
 
-    if (monthKey === "ALL_6M") {
-      periodLabel = "Tổng hợp 6 Tháng (Th5/2026 – Th10/2026)";
-      Object.values(allData).forEach((mObj) => {
-        orderKeys.forEach((k) => {
-          if (mObj.channels && mObj.channels[k]) {
-            aggregated[k].orders += mObj.channels[k].orders;
-            aggregated[k].revenue += mObj.channels[k].revenue;
-            aggregated[k].growth = mObj.channels[k].growth;
-          }
-        });
-      });
-    } else {
-      const mObj = allData[monthKey] || allData["2026-10"];
-      periodLabel = mObj.label;
+    const addMonthRatio = (mKey, ratio) => {
+      const mObj = allData[mKey];
+      if (!mObj || ratio <= 0) return;
       orderKeys.forEach((k) => {
         if (mObj.channels && mObj.channels[k]) {
-          aggregated[k].orders = mObj.channels[k].orders;
-          aggregated[k].revenue = mObj.channels[k].revenue;
+          aggregated[k].orders += Math.round(mObj.channels[k].orders * ratio);
+          aggregated[k].revenue += Math.round(mObj.channels[k].revenue * ratio);
           aggregated[k].growth = mObj.channels[k].growth;
         }
       });
+    };
+
+    if (mode === "QUARTER") {
+      const qVal = document.getElementById("revDonutQuarterSelect")?.value || "2026-Q4";
+      const qMap = {
+        "2026-Q2": { label: "Quý 2/2026 (Tháng 05 – 06/2026)", months: ["2026-05", "2026-06"], factor: 1.95 },
+        "2026-Q3": { label: "Quý 3/2026 (Tháng 07 – 09/2026)", months: ["2026-07", "2026-08", "2026-09"], factor: 2.85 },
+        "2026-Q4": { label: "Quý 4/2026 (Tháng 10/2026)", months: ["2026-10"], factor: 1.0 }
+      };
+      const qInfo = qMap[qVal] || qMap["2026-Q4"];
+      periodLabel = qInfo.label;
+      scaleFactor = qInfo.factor;
+      qInfo.months.forEach((mk) => addMonthRatio(mk, 1));
+    } else if (mode === "WEEK") {
+      const mKey = document.getElementById("revDonutWeekMonthSelect")?.value || "2026-10";
+      const wKey = document.getElementById("revDonutWeekSelect")?.value || "W4";
+      const mObj = allData[mKey] || allData["2026-10"];
+      const weekMeta = {
+        W1: { label: "Tuần 1 (Ngày 01 – 07)", ratio: 0.23 },
+        W2: { label: "Tuần 2 (Ngày 08 – 14)", ratio: 0.25 },
+        W3: { label: "Tuần 3 (Ngày 15 – 21)", ratio: 0.24 },
+        W4: { label: "Tuần 4 (Ngày 22 – Cuối tháng)", ratio: 0.28 }
+      };
+      const wInfo = weekMeta[wKey] || weekMeta.W4;
+      periodLabel = `${wInfo.label} · ${mObj.label}`;
+      scaleFactor = wInfo.ratio;
+      addMonthRatio(mKey, wInfo.ratio);
+    } else if (mode === "DAY") {
+      const startVal = document.getElementById("revDonutStartDate")?.value || "2026-10-01";
+      const endVal = document.getElementById("revDonutEndDate")?.value || "2026-10-31";
+      const startDt = new Date(startVal + "T00:00:00");
+      const endDt = new Date(endVal + "T23:59:59");
+      let totalRatio = 0;
+
+      Object.keys(allData).forEach((mKey) => {
+        const raw = allData[mKey];
+        const mStart = new Date(raw.startDate + "T00:00:00");
+        const mEnd = new Date(raw.endDate + "T23:59:59");
+        const overlapStart = new Date(Math.max(startDt.getTime(), mStart.getTime()));
+        const overlapEnd = new Date(Math.min(endDt.getTime(), mEnd.getTime()));
+        const totalDaysInMonth = Math.max(1, Math.round((mEnd - mStart) / (1000 * 3600 * 24)) + 1);
+        if (overlapEnd >= overlapStart) {
+          const overlapDays = Math.max(1, Math.round((overlapEnd - overlapStart) / (1000 * 3600 * 24)) + 1);
+          const ratio = Math.min(1, overlapDays / totalDaysInMonth);
+          totalRatio += ratio;
+          addMonthRatio(mKey, ratio);
+        }
+      });
+
+      scaleFactor = Math.max(0.05, totalRatio);
+      const fmtStart = startVal.split("-").reverse().join("/");
+      const fmtEnd = endVal.split("-").reverse().join("/");
+      periodLabel = fmtStart === fmtEnd ? `Ngày ${fmtStart}` : `Từ ${fmtStart} đến ${fmtEnd}`;
+    } else {
+      const monthKey = document.getElementById("soldPieMonthSelect")?.value || "2026-10";
+      if (monthKey === "ALL_6M") {
+        periodLabel = "Tổng hợp 6 Tháng (Th5/2026 – Th10/2026)";
+        scaleFactor = 5.2;
+        Object.keys(allData).forEach((mk) => addMonthRatio(mk, 1));
+      } else {
+        const mObj = allData[monthKey] || allData["2026-10"];
+        periodLabel = mObj.label;
+        scaleFactor = 1.0;
+        addMonthRatio(monthKey, 1);
+      }
     }
 
     const totalOrders = orderKeys.reduce((sum, k) => sum + aggregated[k].orders, 0);
@@ -1784,7 +1862,7 @@ handleResetPassword(username) {
       };
     });
 
-    return { periodLabel, totalOrders, totalRevenue, items };
+    return { periodLabel, scaleFactor, totalOrders, totalRevenue, items };
   },
 
   createDonutSectorPath(cx, cy, rInner, rOuter, startDeg, endDeg) {
@@ -1824,11 +1902,46 @@ handleResetPassword(username) {
     const data = this.getFiveChannelSoldDataset();
     this._lastSoldPieData = data;
 
+    // Đồng bộ 6 thẻ Tổng Doanh thu & Doanh thu 5 kênh ngay trong khối hợp nhất
+    this.renderOneMonthRevenueOverview(data);
+
     const cx = 150;
     const cy = 150;
     const rOuter = 116;
     const rInner = 60;
     const rLabel = (rOuter + rInner) / 2;
+
+    // Định nghĩa bộ Gradient Lụa Silk đa tầng (tuyệt đối không dùng màu Solid)
+    const defsHtml = `
+      <defs>
+        ${data.items
+          .map(
+            (it) => `
+          <linearGradient id="silkGrad_${it.key}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="${it.silkStops[0]}" />
+            <stop offset="36%" stop-color="${it.silkStops[1]}" />
+            <stop offset="72%" stop-color="${it.silkStops[2]}" />
+            <stop offset="100%" stop-color="${it.silkStops[3]}" />
+          </linearGradient>
+        `
+          )
+          .join("")}
+        <!-- Lớp phủ ánh lụa Satin (Silk Sheen) mềm mại -->
+        <radialGradient id="silkSheenOverlay" cx="32%" cy="28%" r="72%">
+          <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.46" />
+          <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.14" />
+          <stop offset="85%" stop-color="#0F172A" stop-opacity="0.06" />
+          <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.22" />
+        </radialGradient>
+        <!-- Lớp phủ lụa ngọc trai nổi bật khi miếng bánh tách rời (Exploded Silk Highlight) -->
+        <linearGradient id="silkExplodedHighlight" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.58" />
+          <stop offset="30%" stop-color="#FFF7ED" stop-opacity="0.22" />
+          <stop offset="65%" stop-color="#FFFFFF" stop-opacity="0.05" />
+          <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.38" />
+        </linearGradient>
+      </defs>
+    `;
 
     let currentDeg = 0;
     const slicesHtml = data.items
@@ -1842,8 +1955,8 @@ handleResetPassword(username) {
         const pathD = this.createDonutSectorPath(cx, cy, rInner, rOuter, startDeg, endDeg);
         const midRad = ((midDeg - 90) * Math.PI) / 180;
 
-        // Tọa độ nhảy tách miếng bánh (Explode offset) khi người dùng bấm chọn màu
-        const jumpDist = 16;
+        // Tọa độ nhảy tách miếng bánh (Explode offset) khi người dùng bấm chọn
+        const jumpDist = 18;
         const dx = (Math.cos(midRad) * jumpDist).toFixed(2);
         const dy = (Math.sin(midRad) * jumpDist).toFixed(2);
 
@@ -1859,18 +1972,19 @@ handleResetPassword(username) {
              data-dx="${dx}"
              data-dy="${dy}"
              onclick="AppUI.selectPieChannel('${item.key}')">
-            <path class="pie-slice-path" d="${pathD}" fill="${item.color}">
-              <title>${item.fullName}: ${item.orders} đơn đã bán (${item.pctText}%) — ${item.revenue.toLocaleString("vi-VN")} ₫</title>
+            <path class="pie-slice-path" d="${pathD}" fill="url(#silkGrad_${item.key})">
+              <title>${item.fullName} (${item.colorName}): ${item.orders} đơn đã bán (${item.pctText}%) — ${item.revenue.toLocaleString("vi-VN")} ₫</title>
             </path>
+            <path class="pie-slice-silk-sheen" d="${pathD}" fill="url(#silkSheenOverlay)" pointer-events="none" />
             ${showLabel ? `<text class="pie-slice-pct-text" x="${lx}" y="${ly}">${item.pctText}%</text>` : ""}
           </g>
         `;
       })
       .join("");
 
-    svgEl.innerHTML = slicesHtml;
+    svgEl.innerHTML = defsHtml + slicesHtml;
 
-    // Render 5 mục chú giải màu kế bên biểu đồ tròn
+    // Render 5 mục chú giải màu Silk kế bên biểu đồ Donut
     legendEl.innerHTML = data.items
       .map((item) => {
         return `
@@ -1880,11 +1994,11 @@ handleResetPassword(username) {
                onclick="AppUI.selectPieChannel('${item.key}')">
             <div class="sold-pie-legend-top">
               <div class="sold-pie-legend-left">
-                <span class="sold-pie-color-swatch" style="background:${item.color};" id="pieSwatch_${item.key}">●</span>
+                <span class="sold-pie-color-swatch" style="background:${item.silkCss};" id="pieSwatch_${item.key}">●</span>
                 <div>
                   <div class="sold-pie-channel-title">
                     <span>${item.name}</span>
-                    <span style="font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:${item.color}18;color:${item.color};border:1px solid ${item.color}40;">
+                    <span style="font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:${item.silkCss};color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,0.35);">
                       ${item.colorName}
                     </span>
                   </div>
@@ -1894,13 +2008,13 @@ handleResetPassword(username) {
               <div class="sold-pie-legend-right">
                 <div>
                   <span class="sold-pie-order-num">${item.orders} đơn</span>
-                  <span class="sold-pie-share-badge" style="background:${item.color};">${item.pctText}%</span>
+                  <span class="sold-pie-share-badge" style="background:${item.silkCss};">${item.pctText}%</span>
                 </div>
                 <div class="sold-pie-rev-text">${item.revenue.toLocaleString("vi-VN")} ₫</div>
               </div>
             </div>
             <div class="sold-pie-mini-bar-bg">
-              <div class="sold-pie-mini-bar-fill" style="width:${Math.max(5, item.pct)}%;background:${item.color};"></div>
+              <div class="sold-pie-mini-bar-fill" style="width:${Math.max(5, item.pct)}%;background:${item.silkCss};"></div>
             </div>
           </div>
         `;
@@ -1924,28 +2038,32 @@ handleResetPassword(username) {
     const activeKey = this.activePieChannel;
     const activeItem = activeKey ? data.items.find((i) => i.key === activeKey) : null;
 
-    // 1. Cập nhật hiệu ứng nhảy tách miếng cắt trên SVG
+    // 1. Cập nhật hiệu ứng nhảy tách miếng cắt Silk trên SVG
     const sliceGroups = document.querySelectorAll("#soldChannelPieSvg .pie-slice-group");
     sliceGroups.forEach((g) => {
       const ch = g.getAttribute("data-channel");
       const dx = g.getAttribute("data-dx") || "0";
       const dy = g.getAttribute("data-dy") || "0";
+      const sheenPath = g.querySelector(".pie-slice-silk-sheen");
 
       if (!activeKey) {
         g.classList.remove("slice-active", "slice-dimmed");
         g.style.transform = "translate(0px, 0px) scale(1)";
+        if (sheenPath) sheenPath.setAttribute("fill", "url(#silkSheenOverlay)");
       } else if (ch === activeKey) {
         g.classList.add("slice-active");
         g.classList.remove("slice-dimmed");
-        g.style.transform = `translate(${dx}px, ${dy}px) scale(1.055)`;
+        g.style.transform = `translate(${dx}px, ${dy}px) scale(1.06)`;
+        if (sheenPath) sheenPath.setAttribute("fill", "url(#silkExplodedHighlight)");
       } else {
         g.classList.remove("slice-active");
         g.classList.add("slice-dimmed");
-        g.style.transform = "translate(0px, 0px) scale(0.97)";
+        g.style.transform = "translate(0px, 0px) scale(0.96)";
+        if (sheenPath) sheenPath.setAttribute("fill", "url(#silkSheenOverlay)");
       }
     });
 
-    // 2. Cập nhật trạng thái nổi bật của các mục chú giải màu kế bên
+    // 2. Cập nhật trạng thái nổi bật của các mục chú giải màu Silk kế bên
     const legendItems = document.querySelectorAll("#soldChannelLegendList .sold-pie-legend-item");
     legendItems.forEach((el) => {
       const ch = el.getAttribute("data-channel");
@@ -1969,7 +2087,7 @@ handleResetPassword(username) {
       }
     });
 
-    // 3. Cập nhật tâm biểu đồ tròn (nhảy số động)
+    // 3. Cập nhật tâm biểu đồ Donut
     const hubEl = document.getElementById("soldPieCenterHub");
     const lblEl = document.getElementById("soldPieCenterLabel");
     const valEl = document.getElementById("soldPieCenterValue");
@@ -1979,7 +2097,7 @@ handleResetPassword(username) {
 
     if (hubEl && animateHub) {
       hubEl.classList.remove("hub-jumping");
-      void hubEl.offsetWidth; // trigger reflow
+      void hubEl.offsetWidth;
       hubEl.classList.add("hub-jumping");
     }
 
@@ -1997,16 +2115,17 @@ handleResetPassword(username) {
         subEl.innerText = `Chiếm ${activeItem.pctText}% tổng đơn`;
       }
       if (pillEl) {
-        pillEl.style.background = `${activeItem.color}15`;
-        pillEl.style.borderColor = activeItem.color;
-        pillEl.style.color = activeItem.color;
-        pillEl.innerHTML = `🎯 Đang chọn: <strong>${activeItem.fullName} (${activeItem.colorName})</strong> — <strong>${activeItem.orders} đơn (${activeItem.pctText}%)</strong> · Bấm lần nữa để về tổng 5 kênh`;
+        pillEl.style.background = activeItem.silkCss;
+        pillEl.style.borderColor = "rgba(255,255,255,0.8)";
+        pillEl.style.color = "#ffffff";
+        pillEl.style.textShadow = "0 1px 2px rgba(0,0,0,0.35)";
+        pillEl.innerHTML = `✨ Đang tách miếng Silk: <strong>${activeItem.fullName}</strong> — <strong>${activeItem.orders} đơn (${activeItem.pctText}%)</strong> · Bấm lần nữa để gộp lại`;
       }
       if (footerEl) {
         footerEl.innerHTML = `
           <div>
-            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${activeItem.color};margin-right:6px;"></span>
-            Đang tách cơ cấu kênh: <strong style="color:${activeItem.color};">${activeItem.fullName}</strong> (${data.periodLabel})
+            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${activeItem.silkCss};margin-right:6px;vertical-align:middle;"></span>
+            Đang tách miếng bánh Silk: <strong style="color:${activeItem.color};">${activeItem.fullName}</strong> (${data.periodLabel})
           </div>
           <div>
             Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn (${activeItem.pctText}%)</strong> · Doanh thu kênh: <strong style="color:${activeItem.color};">${activeItem.revenue.toLocaleString("vi-VN")} ₫</strong>
@@ -2030,7 +2149,8 @@ handleResetPassword(username) {
         pillEl.style.background = "var(--bg-surface, #ffffff)";
         pillEl.style.borderColor = "var(--border-color)";
         pillEl.style.color = "var(--text-secondary)";
-        pillEl.innerHTML = "💡 Bấm vào mục màu chú giải bên phải (Xanh Facebook, Cam Shopee...) để biểu đồ nhảy tách kênh!";
+        pillEl.style.textShadow = "none";
+        pillEl.innerHTML = "✨ Bấm vào miếng bánh Donut hoặc ô màu Silk bên phải để tách rời kênh & lọc sản phẩm bán chạy!";
       }
       if (footerEl) {
         footerEl.innerHTML = `
@@ -2043,6 +2163,168 @@ handleResetPassword(username) {
         `;
       }
     }
+
+    // Đồng bộ trạng thái chọn trên 6 thẻ Doanh thu và Bảng Top 10 / Top 50 sản phẩm bán chạy
+    this.renderOneMonthRevenueOverview(data);
+    this.renderTopSellingProductsList(data);
+  },
+
+  setTopProductsLimit(limit) {
+    this.topProductsLimit = limit === 50 ? 50 : 10;
+    const btn10 = document.getElementById("btnTop10Products");
+    const btn50 = document.getElementById("btnTop50Products");
+    if (btn10) {
+      btn10.className = this.topProductsLimit === 10 ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
+    }
+    if (btn50) {
+      btn50.className = this.topProductsLimit === 50 ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
+    }
+    this.renderTopSellingProductsList(this._lastSoldPieData || this.getFiveChannelSoldDataset());
+  },
+
+  getTopSellingProductsCatalog() {
+    const baseItems = [
+      { sku: "SP-AO-POLO-01", name: "Áo Polo Nam Coolmax Thể Thao Cao Cấp", price: 250000, baseSold: 148, topChannel: "SHOPEE" },
+      { sku: "SP-TAI-NGHE-02", name: "Tai Nghe Bluetooth TWS Chống Ồn ANC Pro", price: 450000, baseSold: 132, topChannel: "TIKTOK" },
+      { sku: "SP-BALO-LAP-03", name: "Balo Laptop Chống Nước 15.6 inch Đa Năng", price: 380000, baseSold: 118, topChannel: "SHOPEE" },
+      { sku: "SP-BINH-NHIET-04", name: "Bình Giữ Nhiệt Inox 304 Hiển Thị Nhiệt Độ 800ml", price: 190000, baseSold: 112, topChannel: "LAZADA" },
+      { sku: "SP-BAN-PHIM-05", name: "Bàn Phím Cơ Không Dây RGB Hotswap 3 Mode", price: 680000, baseSold: 96, topChannel: "TIKTOK" },
+      { sku: "SP-CHUOT-GAME-06", name: "Chuột Gaming Không Dây Siêu Nhẹ 26000 DPI", price: 520000, baseSold: 89, topChannel: "SHOPEE" },
+      { sku: "SP-AO-KHOAC-07", name: "Áo Khoác Gió Unisex 2 Lớp Chống Tia UV", price: 320000, baseSold: 84, topChannel: "FACEBOOK" },
+      { sku: "SP-SAC-DU-PHONG-08", name: "Pin Sạc Dự Phòng 20000mAh Sạc Nhanh PD 65W", price: 490000, baseSold: 79, topChannel: "SHOPEE" },
+      { sku: "SP-GIAY-RUN-09", name: "Giày Chạy Bộ Thể Thao Đế Boost Êm Chân", price: 590000, baseSold: 75, topChannel: "POS" },
+      { sku: "SP-LOA-MINI-10", name: "Loa Bluetooth Mini Bass Căng Chống Nước IPX7", price: 360000, baseSold: 71, topChannel: "TIKTOK" },
+      { sku: "SP-QUAN-JOGGER-11", name: "Quần Jogger Kaki Co Giãn 4 Chiều Hàn Quốc", price: 270000, baseSold: 68, topChannel: "SHOPEE" },
+      { sku: "SP-GIA-DO-LAP-12", name: "Giá Đỡ Laptop Hợp Kim Nhôm Xoay 360 Độ", price: 240000, baseSold: 65, topChannel: "LAZADA" },
+      { sku: "SP-TUI-DEO-CHEO-13", name: "Túi Đeo Chéo Canvas Chống Thấm Thời Trang", price: 210000, baseSold: 62, topChannel: "FACEBOOK" },
+      { sku: "SP-DONG-HO-SMART-14", name: "Đồng Hồ Thông Minh Theo Dõi Sức Khỏe AMOLED", price: 890000, baseSold: 59, topChannel: "TIKTOK" },
+      { sku: "SP-CAP-TYPEC-15", name: "Cáp Sạc Nhanh Type-C Bọc Dù Siêu Bền 100W", price: 120000, baseSold: 57, topChannel: "SHOPEE" },
+      { sku: "SP-AO-THUN-OVS-16", name: "Áo Thun Oversize Cotton 100% Định Lượng 250gsm", price: 220000, baseSold: 55, topChannel: "POS" },
+      { sku: "SP-DEN-BAN-LED-17", name: "Đèn Bàn Học LED Chống Cận Cảm Ứng 3 Chế Độ", price: 280000, baseSold: 53, topChannel: "LAZADA" },
+      { sku: "SP-CU-SAC-GAN-18", name: "Củ Sạc Nhanh Công Nghệ GaN 65W 3 Cổng", price: 420000, baseSold: 51, topChannel: "SHOPEE" },
+      { sku: "SP-KINH-MAT-UV-19", name: "Kính Mát Phân Cực Polarized Chống Chói UV400", price: 310000, baseSold: 49, topChannel: "FACEBOOK" },
+      { sku: "SP-LOT-CHUOT-RGB-20", name: "Lót Chuột Gaming Cỡ Lớn Viền LED RGB 80x30cm", price: 185000, baseSold: 47, topChannel: "TIKTOK" }
+    ];
+
+    const extraCategories = [
+      { prefix: "SP-SO-MI-LUA", title: "Áo Sơ Mi Lụa Chống Nhăn Công Sở", price: 295000, ch: "POS" },
+      { prefix: "SP-WEBCAM-FHD", title: "Webcam FullHD 1080p Tích Hợp Mic Khử Ồn", price: 460000, ch: "LAZADA" },
+      { prefix: "SP-HUB-TYPEC", title: "Bộ Chuyển Đổi Hub Type-C 8-in-1 HDMI 4K", price: 540000, ch: "SHOPEE" },
+      { prefix: "SP-MU-LUOI-TRAI", title: "Mũ Lưỡi Trai Thêu Nổi Phong Cách Streetwear", price: 165000, ch: "FACEBOOK" },
+      { prefix: "SP-MICRO-LIVE", title: "Micro Thu Âm Không Dây Cài Áo Livestream", price: 480000, ch: "TIKTOK" },
+      { prefix: "SP-VI-DA-NAM", title: "Ví Da Bò Thật Dáng Ngang Khắc Tên Cao Cấp", price: 340000, ch: "POS" }
+    ];
+
+    for (let i = 21; i <= 50; i++) {
+      const cat = extraCategories[(i - 21) % extraCategories.length];
+      baseItems.push({
+        sku: `${cat.prefix}-${String(i).padStart(2, "0")}`,
+        name: `${cat.title} (Phiên bản V${(i % 5) + 1})`,
+        price: cat.price + ((i % 4) * 15000),
+        baseSold: Math.max(12, 46 - (i - 20)),
+        topChannel: cat.ch
+      });
+    }
+
+    return baseItems;
+  },
+
+  renderTopSellingProductsList(precomputedData) {
+    const listContainer = document.getElementById("topProductsListContainer");
+    const subtitleEl = document.getElementById("topProductsSubtitle");
+    if (!listContainer) return;
+
+    const data = precomputedData || this._lastSoldPieData || this.getFiveChannelSoldDataset();
+    const limit = this.topProductsLimit === 50 ? 50 : 10;
+    const activeCh = this.activePieChannel;
+    const scale = data.scaleFactor || 1;
+
+    // Cộng thêm số lượng từ các đơn hàng thực tế vừa nạp vào omsEngine
+    const liveOrders = window.omsEngine ? window.omsEngine.orders : [];
+    const liveSkuMap = {};
+    liveOrders.forEach((o) => {
+      if (o.status === "ALLOCATED" && (!activeCh || o.channel === activeCh)) {
+        liveSkuMap[o.sku] = (liveSkuMap[o.sku] || 0) + Number(o.quantity || 0);
+      }
+    });
+
+    const channelSilkMap = {
+      SHOPEE: "linear-gradient(90deg, #FFD6BA, #FB923C, #EA580C)",
+      FACEBOOK: "linear-gradient(90deg, #BAE6FD, #38BDF8, #0284C7)",
+      TIKTOK: "linear-gradient(90deg, #CBD5E1, #64748B, #1E293B)",
+      LAZADA: "linear-gradient(90deg, #E0E7FF, #818CF8, #4F46E5)",
+      POS: "linear-gradient(90deg, #A7F3D0, #34D399, #059669)"
+    };
+
+    const catalog = this.getTopSellingProductsCatalog();
+    const computed = catalog.map((item, idx) => {
+      // Nếu đang chọn tách 1 kênh trên Donut, tính sản lượng riêng của kênh đó
+      const channelFactor = activeCh
+        ? item.topChannel === activeCh
+          ? 0.62
+          : 0.14
+        : 1.0;
+      const soldQty = Math.max(1, Math.round(item.baseSold * scale * channelFactor) + (liveSkuMap[item.sku] || 0));
+      const revenue = soldQty * item.price;
+      const displayChannel = activeCh || item.topChannel;
+      return {
+        ...item,
+        soldQty,
+        revenue,
+        displayChannel,
+        silkBar: channelSilkMap[displayChannel] || channelSilkMap.SHOPEE
+      };
+    });
+
+    computed.sort((a, b) => b.soldQty - a.soldQty || b.revenue - a.revenue);
+    const sliced = computed.slice(0, limit);
+    const maxSold = Math.max(...sliced.map((p) => p.soldQty), 1);
+
+    if (subtitleEl) {
+      const chText = activeCh ? `Kênh đang tách: ${activeCh}` : "Tổng hợp 5 kênh";
+      subtitleEl.innerHTML = `Hiển thị <strong>Top ${limit}</strong> sản phẩm bán chạy nhất · <strong>${data.periodLabel}</strong> (${chText})`;
+    }
+
+    listContainer.innerHTML = sliced
+      .map((prod, idx) => {
+        const rank = idx + 1;
+        const pctWidth = Math.max(8, Math.round((prod.soldQty / maxSold) * 100));
+        const rankBadgeClass =
+          rank === 1
+            ? "rank-medal-1"
+            : rank === 2
+            ? "rank-medal-2"
+            : rank === 3
+            ? "rank-medal-3"
+            : "rank-medal-other";
+        const rankLabel = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+
+        return `
+          <div class="top-product-row">
+            <div class="top-product-row-main">
+              <div class="top-product-left">
+                <span class="rank-medal-badge ${rankBadgeClass}" style="width:26px;height:26px;font-size:11.5px;">${rankLabel}</span>
+                <div style="min-width:0;flex:1;">
+                  <div class="top-product-name" title="${prod.name}">${prod.name}</div>
+                  <div class="top-product-meta">
+                    <code>${prod.sku}</code>
+                    <span class="channel-badge badge-${prod.displayChannel}" style="font-size:9.5px;padding:1px 6px;">${prod.displayChannel}</span>
+                    <span>Đơn giá: ${prod.price.toLocaleString("vi-VN")} ₫</span>
+                  </div>
+                </div>
+              </div>
+              <div class="top-product-right">
+                <div class="top-product-sold">${prod.soldQty} SP đã bán</div>
+                <div class="top-product-rev">${prod.revenue.toLocaleString("vi-VN")} ₫</div>
+              </div>
+            </div>
+            <div class="silk-progress-bar">
+              <div class="silk-progress-fill" style="width:${pctWidth}%;background:${prod.silkBar};"></div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
   },
 
   renderKPIsAndBadges() {
