@@ -453,19 +453,10 @@ const AppUI = {
   },
 
   isCurrentUserAdmin() {
-    const user =
-      (window.userAuth && window.userAuth.currentUser) ||
-      (window.userAuth && window.userAuth.users && window.userAuth.users[0]);
+    const user = window.userAuth && window.userAuth.currentUser;
     if (!user) return false;
     const uname = String(user.username || "").toLowerCase();
-    const roleLower = String(user.role || "").toLowerCase();
-    return Boolean(
-      user.isRoot === true ||
-      uname === "dttd" ||
-      uname === "lhmt" ||
-      roleLower.includes("admin") ||
-      roleLower.includes("quản trị")
-    );
+    return uname === "dttd" || uname === "lhmt";
   },
 
   applyRoleBasedAccessControl() {
@@ -525,7 +516,7 @@ const AppUI = {
       fifo: "Vận chuyển đơn hàng đa kênh",
       backorder: "Hàng thiếu tồn (Chặn bán lố)",
       qr_api: "Vận đơn",
-      logs: "Lịch sử đăng nhập & Nhật ký",
+      logs: "Nhật ký",
       staff: "Nhân sự & Phân quyền OMS",
       reports: "Báo cáo & Xuất đối chiếu",
       settings: "Cài đặt hệ thống"
@@ -537,11 +528,14 @@ const AppUI = {
     }
 
     // Ẩn/hiện các view theo tab chức năng của hệ thống ODOMS
+    const isAdmin = this.isCurrentUserAdmin();
     const allSections = document.querySelectorAll(".oms-view-section");
     allSections.forEach((sec) => {
+      const isSecAdminOnly = sec.getAttribute("data-admin-only") === "true";
       const views = (sec.getAttribute("data-views") || "").split(" ");
-      if (views.includes(tabKey)) {
+      if (views.includes(tabKey) && (!isSecAdminOnly || isAdmin)) {
         sec.classList.remove("hidden");
+        sec.style.display = "";
       } else {
         sec.classList.add("hidden");
       }
