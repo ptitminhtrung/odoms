@@ -161,9 +161,16 @@ const AppUI = {
       btn.classList.toggle("active", key === themeObj.key);
     });
 
-    // 4. Đồng bộ màu đối kháng cho đồ thị SVG (Tiếp nhận đơn vs Xuất giữ hàng) trên Màn hình 2
-    const chartAreaExport = document.getElementById("chartAreaExport");
-    if (chartAreaExport) chartAreaExport.setAttribute("fill", themeObj.chartPrimaryArea);
+    // 4. Đồng bộ màu đối kháng cho đồ thị SVG Spline (Tiếp nhận đơn vs Xuất giữ hàng) trên Màn hình 2
+    const gradStopImportTop = document.getElementById("gradStopImportTop");
+    if (gradStopImportTop) gradStopImportTop.setAttribute("stop-color", themeObj.chartSecondary);
+    const gradStopImportMid = document.getElementById("gradStopImportMid");
+    if (gradStopImportMid) gradStopImportMid.setAttribute("stop-color", themeObj.chartSecondary);
+
+    const gradStopExportTop = document.getElementById("gradStopExportTop");
+    if (gradStopExportTop) gradStopExportTop.setAttribute("stop-color", themeObj.chartPrimary);
+    const gradStopExportMid = document.getElementById("gradStopExportMid");
+    if (gradStopExportMid) gradStopExportMid.setAttribute("stop-color", themeObj.chartPrimary);
 
     const chartLineExport = document.getElementById("chartLineExport");
     if (chartLineExport) chartLineExport.setAttribute("stroke", themeObj.chartPrimary);
@@ -1399,7 +1406,7 @@ handleResetPassword(username) {
     const data = precomputedData || this.getFiveChannelSoldDataset();
 
     if (timeLabel) {
-      timeLabel.innerHTML = `⏱️ Đang xem chu kỳ: <strong>${data.periodLabel}</strong> (Cập nhật lúc ${fmtTime(now)}) · Bấm chọn miếng bánh Donut để tách rời màu Silk & lọc sản phẩm bán chạy`;
+      timeLabel.innerHTML = `⏱️ Đang xem chu kỳ: <strong>${data.periodLabel}</strong> (Cập nhật lúc ${fmtTime(now)})`;
     }
 
     const chOrder = [
@@ -1417,35 +1424,30 @@ handleResetPassword(username) {
       <div class="rev-channel-card total-hero" onclick="AppUI.selectPieChannel(null)" style="cursor:pointer;" title="Bấm để xem tổng hợp cả 5 kênh">
         <div class="rev-card-head">
           <span class="rev-card-title">💎 TỔNG DOANH THU (5 KÊNH)</span>
-          <span class="rev-growth-pill">▲ +16.8%</span>
         </div>
         <div class="rev-card-value">${totalRevenue.toLocaleString("vi-VN")} ₫</div>
         <div class="rev-card-meta">
           <span>Tổng: <strong>${totalOrders} đơn</strong></span>
-          <span>100% tỷ trọng</span>
         </div>
       </div>
     `;
 
     const channelsHtml = chOrder
       .map((ch) => {
-        const stat = data.items.find((i) => i.key === ch.key) || { orders: 0, revenue: 0, growth: "+0.0%" };
-        const sharePct = totalRevenue > 0 ? ((stat.revenue / totalRevenue) * 100).toFixed(1) : "0.0";
+        const stat = data.items.find((i) => i.key === ch.key) || { orders: 0, revenue: 0 };
         const isSelected = this.activePieChannel === ch.key;
         return `
         <div class="rev-channel-card ${isSelected ? "silk-card-selected" : ""}"
              onclick="AppUI.selectPieChannel('${ch.key}')"
              style="cursor:pointer;position:relative;overflow:hidden;"
-             title="Bấm để tách miếng bánh Donut ${ch.name} & lọc sản phẩm bán chạy">
+             title="Kênh ${ch.name}">
           <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${ch.silkBorder};"></div>
           <div class="rev-card-head">
             <span class="channel-badge ${ch.badgeClass}">${ch.name}</span>
-            <span class="rev-growth-pill">${stat.growth}</span>
           </div>
           <div class="rev-card-value">${stat.revenue.toLocaleString("vi-VN")} ₫</div>
           <div class="rev-card-meta">
             <span><strong>${stat.orders}</strong> đơn</span>
-            <span>Chiếm <strong>${sharePct}%</strong></span>
           </div>
         </div>
       `;
@@ -1897,7 +1899,7 @@ handleResetPassword(username) {
   renderFiveChannelSoldPieChart() {
     const svgEl = document.getElementById("soldChannelPieSvg");
     const legendEl = document.getElementById("soldChannelLegendList");
-    if (!svgEl || !legendEl) return;
+    if (!svgEl) return;
 
     const data = this.getFiveChannelSoldDataset();
     this._lastSoldPieData = data;
@@ -1984,8 +1986,8 @@ handleResetPassword(username) {
 
     svgEl.innerHTML = defsHtml + slicesHtml;
 
-    // Render 5 mục chú giải màu Silk kế bên biểu đồ Donut
-    legendEl.innerHTML = data.items
+    // Nếu có vùng chú giải (tùy chọn) thì mới render
+    if (legendEl) legendEl.innerHTML = data.items
       .map((item) => {
         return `
           <div class="sold-pie-legend-item"
@@ -2112,23 +2114,16 @@ handleResetPassword(username) {
         valEl.style.color = activeItem.color;
       }
       if (subEl) {
-        subEl.innerText = `Chiếm ${activeItem.pctText}% tổng đơn`;
-      }
-      if (pillEl) {
-        pillEl.style.background = activeItem.silkCss;
-        pillEl.style.borderColor = "rgba(255,255,255,0.8)";
-        pillEl.style.color = "#ffffff";
-        pillEl.style.textShadow = "0 1px 2px rgba(0,0,0,0.35)";
-        pillEl.innerHTML = `✨ Đang tách miếng Silk: <strong>${activeItem.fullName}</strong> — <strong>${activeItem.orders} đơn (${activeItem.pctText}%)</strong> · Bấm lần nữa để gộp lại`;
+        subEl.innerText = `${activeItem.revenue.toLocaleString("vi-VN")} ₫`;
       }
       if (footerEl) {
         footerEl.innerHTML = `
           <div>
             <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${activeItem.silkCss};margin-right:6px;vertical-align:middle;"></span>
-            Đang tách miếng bánh Silk: <strong style="color:${activeItem.color};">${activeItem.fullName}</strong> (${data.periodLabel})
+            Kênh đang tách: <strong style="color:${activeItem.color};">${activeItem.fullName}</strong> (${data.periodLabel})
           </div>
           <div>
-            Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn (${activeItem.pctText}%)</strong> · Doanh thu kênh: <strong style="color:${activeItem.color};">${activeItem.revenue.toLocaleString("vi-VN")} ₫</strong>
+            Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn</strong> · Doanh thu kênh: <strong style="color:${activeItem.color};">${activeItem.revenue.toLocaleString("vi-VN")} ₫</strong>
           </div>
         `;
       }
@@ -2143,22 +2138,15 @@ handleResetPassword(username) {
         valEl.style.color = "var(--text-main)";
       }
       if (subEl) {
-        subEl.innerText = "100% · 5 Kênh bán";
-      }
-      if (pillEl) {
-        pillEl.style.background = "var(--bg-surface, #ffffff)";
-        pillEl.style.borderColor = "var(--border-color)";
-        pillEl.style.color = "var(--text-secondary)";
-        pillEl.style.textShadow = "none";
-        pillEl.innerHTML = "✨ Bấm vào miếng bánh Donut hoặc ô màu Silk bên phải để tách rời kênh & lọc sản phẩm bán chạy!";
+        subEl.innerText = "5 Kênh bán";
       }
       if (footerEl) {
         footerEl.innerHTML = `
           <div>
-            📊 Cơ cấu tổng hợp <strong>5 kênh bán hàng</strong> trong <strong>${data.periodLabel}</strong>
+            📊 Tổng hợp <strong>5 kênh bán hàng</strong> · <strong>${data.periodLabel}</strong>
           </div>
           <div>
-            Tổng đơn đã bán: <strong>${data.totalOrders} đơn (100%)</strong> · Tổng doanh thu: <strong style="color:var(--theme-primary, #2563eb);">${data.totalRevenue.toLocaleString("vi-VN")} ₫</strong>
+            Tổng đơn đã bán: <strong>${data.totalOrders} đơn</strong> · Tổng doanh thu: <strong style="color:var(--theme-primary, #2563eb);">${data.totalRevenue.toLocaleString("vi-VN")} ₫</strong>
           </div>
         `;
       }
@@ -2281,8 +2269,7 @@ handleResetPassword(username) {
     const maxSold = Math.max(...sliced.map((p) => p.soldQty), 1);
 
     if (subtitleEl) {
-      const chText = activeCh ? `Kênh đang tách: ${activeCh}` : "Tổng hợp 5 kênh";
-      subtitleEl.innerHTML = `Hiển thị <strong>Top ${limit}</strong> sản phẩm bán chạy nhất · <strong>${data.periodLabel}</strong> (${chText})`;
+      subtitleEl.innerHTML = `Top <strong>${limit}</strong> sản phẩm bán chạy nhất · <strong>${data.periodLabel}</strong> Theo 4 kênh tùy chọn hoặc của 5 kênh`;
     }
 
     listContainer.innerHTML = sliced
@@ -2423,9 +2410,35 @@ handleResetPassword(username) {
   },
 
   // ============================================================================
-  // TƯƠNG TÁC ĐIỂM CHẤM BIỂU ĐỒ TIẾP NHẬN ĐƠN / XUẤT GIỮ HÀNG THEO THÁNG
+  // TƯƠNG TÁC ĐƯỜNG CONG SPLINE & ĐIỂM CHẤM BIỂU ĐỒ TIẾP NHẬN / XUẤT GIỮ HÀNG THEO THÁNG
   // ============================================================================
   activeMonthlyChartDots: new Set(),
+  activeMonthlySeries: null,
+
+  handleMonthlyTrendLineClick(seriesType) {
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+
+    const targetDots = Array.from(document.querySelectorAll(`.chart-interactive-dot[data-type="${seriesType}"]`));
+    const targetKeys = targetDots.map((c) => `${seriesType}_${c.getAttribute("data-month")}`);
+    const isSeriesFullyActive =
+      this.activeMonthlySeries === seriesType &&
+      targetKeys.every((k) => this.activeMonthlyChartDots.has(k));
+
+    if (isSeriesFullyActive) {
+      // Bấm lần nữa vào chính đường đang chọn -> bỏ chọn đường đó
+      targetKeys.forEach((k) => this.activeMonthlyChartDots.delete(k));
+      this.activeMonthlySeries = null;
+    } else {
+      // Chọn đường mới: bật toàn bộ nhãn số của đường được bấm, giữ đường còn lại hiển thị rõ để thấy phần còn lại
+      this.activeMonthlyChartDots.clear();
+      targetKeys.forEach((k) => this.activeMonthlyChartDots.add(k));
+      this.activeMonthlySeries = seriesType;
+    }
+
+    this.renderMonthlyTrendsChartLabels();
+  },
 
   handleMonthlyChartDotClick(circleEl) {
     if (!circleEl) return;
@@ -2446,17 +2459,10 @@ handleResetPassword(username) {
     } else {
       this.activeMonthlyChartDots.add(key);
       circleEl.classList.add("active");
+      this.activeMonthlySeries = type;
     }
 
     this.renderMonthlyTrendsChartLabels();
-
-    // Cập nhật trạng thái nút xem tất cả
-    const allDotsCount = document.querySelectorAll(".chart-interactive-dot").length;
-    const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
-    if (btnToggle) {
-      const isAllActive = allDotsCount > 0 && this.activeMonthlyChartDots.size >= allDotsCount;
-      btnToggle.innerText = isAllActive ? "✕ Ẩn tất cả số" : "👁️ Xem tất cả số";
-    }
 
     if (window.omsEngine) {
       const isNowActive = this.activeMonthlyChartDots.has(key);
@@ -2478,6 +2484,55 @@ handleResetPassword(username) {
       this.activeMonthlyChartDots = new Set();
     }
 
+    const activeTheme = THEMES_LIST.find((t) => t.key === (this.currentTheme || "navy")) || THEMES_LIST[0];
+    const colorImport = activeTheme.chartSecondary || "#F97316";
+    const colorExport = activeTheme.chartPrimary || "#2563EB";
+
+    // Đồng bộ hiệu ứng nổi bật đường cong khi chọn 1 đường mà vẫn giữ đường còn lại rõ nét
+    const lineImp = document.getElementById("chartLineImport");
+    const lineExp = document.getElementById("chartLineExport");
+    const areaImp = document.getElementById("chartAreaImport");
+    const areaExp = document.getElementById("chartAreaExport");
+    const pillImp = document.getElementById("legendPillImport");
+    const pillExp = document.getElementById("legendPillExport");
+    const bannerEl = document.getElementById("monthlyTrendInteractiveBanner");
+
+    const hasImpActive = Array.from(this.activeMonthlyChartDots).some((k) => k.startsWith("import_"));
+    const hasExpActive = Array.from(this.activeMonthlyChartDots).some((k) => k.startsWith("export_"));
+
+    if (lineImp) {
+      lineImp.classList.toggle("line-selected", hasImpActive && !hasExpActive);
+      lineImp.classList.toggle("line-secondary-visible", !hasImpActive && hasExpActive);
+    }
+    if (lineExp) {
+      lineExp.classList.toggle("line-selected", hasExpActive && !hasImpActive);
+      lineExp.classList.toggle("line-secondary-visible", !hasExpActive && hasImpActive);
+    }
+    if (areaImp) {
+      areaImp.classList.toggle("area-selected", hasImpActive);
+    }
+    if (areaExp) {
+      areaExp.classList.toggle("area-selected", hasExpActive);
+    }
+    if (pillImp) pillImp.classList.toggle("active", hasImpActive);
+    if (pillExp) pillExp.classList.toggle("active", hasExpActive);
+
+    if (bannerEl) {
+      if (hasImpActive && !hasExpActive) {
+        bannerEl.innerHTML = `✨ Đang chọn <strong>Đường trên — Đơn tiếp nhận (Tổng 6 tháng: 122 đơn)</strong> · Phần còn lại ở tầng dưới (<strong>Xuất giữ hàng: 51 đơn</strong> · Chênh lệch đang xử lý/lưu kho: <strong>71 đơn</strong>) vẫn hiển thị trọn vẹn bên dưới.`;
+        bannerEl.style.borderColor = colorImport;
+      } else if (hasExpActive && !hasImpActive) {
+        bannerEl.innerHTML = `✨ Đang chọn <strong>Đường dưới — Xuất giữ hàng (Tổng 6 tháng: 51 đơn)</strong> · Phần còn lại ở tầng trên (<strong>Đơn tiếp nhận: 122 đơn</strong> · Khoảng cách chênh lệch: <strong>71 đơn</strong>) vẫn hiển thị rõ phía trên.`;
+        bannerEl.style.borderColor = colorExport;
+      } else if (hasImpActive && hasExpActive) {
+        bannerEl.innerHTML = `📊 Đang hiển thị số liệu đối chiếu trên <strong>cả 2 đường cong (Đơn tiếp nhận: 122 đơn vs Xuất giữ hàng: 51 đơn)</strong> · Khoảng cách 2 đường tách biệt hoàn toàn.`;
+        bannerEl.style.borderColor = "var(--theme-primary)";
+      } else {
+        bannerEl.innerHTML = `💡 <strong>Mẹo tương tác:</strong> Bấm trực tiếp vào <strong>đường cong phía trên (Đơn tiếp nhận)</strong> hoặc <strong>đường cong phía dưới (Xuất giữ hàng)</strong> để bật số liệu toàn tuyến và đối chiếu phần chênh lệch còn lại.`;
+        bannerEl.style.borderColor = "var(--border-color)";
+      }
+    }
+
     const allDots = document.querySelectorAll(".chart-interactive-dot");
     let markup = "";
 
@@ -2494,31 +2549,33 @@ handleResetPassword(username) {
 
       const cx = parseFloat(circle.getAttribute("cx")) || 0;
       const cy = parseFloat(circle.getAttribute("cy")) || 0;
+      const color = type === "import" ? colorImport : colorExport;
 
-      // Lấy màu tương ứng theo chủ đề giao diện hiện tại
-      let color = type === "import" ? "#F97316" : "#2563EB";
-      const activeTheme = THEMES_LIST.find((t) => t.key === (this.currentTheme || "navy"));
-      if (activeTheme) {
-        color = type === "import" ? activeTheme.chartSecondary : activeTheme.chartPrimary;
-      }
-
-      // Tính vị trí hiển thị: Đơn tiếp nhận (import) hiển thị phía trên, Xuất giữ hàng (export) hiển thị phía dưới
-      const boxWidth = val.length >= 3 ? 42 : 36;
-      const boxHeight = 18;
+      // Đường trên (import) hiển thị nhãn phía trên (cy - 26), đường dưới (export) hiển thị nhãn phía dưới (cy + 9)
+      // để khoảng không gian phần còn lại ở giữa 2 đường luôn thông thoáng 100%
+      const boxWidth = 42;
+      const boxHeight = 19;
       const boxX = cx - boxWidth / 2;
-      let boxY = type === "import" ? cy - 24 : cy + 8;
-      if (boxY < 4) boxY = cy + 8;
-      if (boxY > 175) boxY = cy - 24;
+      let boxY = type === "import" ? cy - 26 : cy + 9;
+      if (boxY < 2) boxY = 2;
+      if (boxY > 168) boxY = cy - 26;
 
       markup += `
         <g class="chart-dot-number-badge">
-          <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="5" fill="${color}" stroke="#ffffff" stroke-width="1.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.35))" />
-          <text x="${cx}" y="${boxY + 12.5}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800" font-family="system-ui, -apple-system, sans-serif">${val}</text>
+          <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="6" fill="${color}" stroke="#ffffff" stroke-width="1.5" filter="drop-shadow(0 2px 5px rgba(0,0,0,0.28))" />
+          <text x="${cx}" y="${boxY + 13}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800" font-family="system-ui, -apple-system, sans-serif">${val}</text>
         </g>
       `;
     });
 
     group.innerHTML = markup;
+
+    const allDotsCount = allDots.length;
+    const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
+    if (btnToggle) {
+      const isAllActive = allDotsCount > 0 && this.activeMonthlyChartDots.size >= allDotsCount;
+      btnToggle.innerText = isAllActive ? "✕ Ẩn tất cả số" : "👁️ Xem tất cả số";
+    }
   },
 
   toggleAllMonthlyTrendsNumbers() {
@@ -2532,13 +2589,10 @@ handleResetPassword(username) {
 
     if (isAllActive) {
       this.activeMonthlyChartDots.clear();
+      this.activeMonthlySeries = null;
     } else {
       allKeys.forEach((k) => this.activeMonthlyChartDots.add(k));
-    }
-
-    const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
-    if (btnToggle) {
-      btnToggle.innerText = isAllActive ? "👁️ Xem tất cả số" : "✕ Ẩn tất cả số";
+      this.activeMonthlySeries = "both";
     }
 
     this.renderMonthlyTrendsChartLabels();

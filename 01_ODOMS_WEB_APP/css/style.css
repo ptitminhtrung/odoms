@@ -2730,6 +2730,10 @@ body {
   gap: 16px;
   align-items: center;
 }
+.sold-pie-interactive-grid.single-donut-col {
+  grid-template-columns: 1fr;
+  height: 100%;
+}
 
 @media (max-width: 1360px) {
   .sold-pie-interactive-grid {
@@ -2810,7 +2814,7 @@ body {
 /* Lưới 2 cột cho Khối Hợp Nhất: Donut Silk (Trái) & Top 10 / Top 50 Sản phẩm bán chạy (Phải) */
 .unified-rev-donut-top-grid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
+  grid-template-columns: 0.9fr 1.1fr;
   gap: 18px;
   align-items: stretch;
 }
@@ -3269,10 +3273,72 @@ body {
 
 
 /* ==========================================================================
-   TƯƠNG TÁC ĐIỂM CHẤM BIỂU ĐỒ (DASHBOARD MONTHLY TRENDS CHART)
+   TƯƠNG TÁC ĐƯỜNG CONG SPLINE & ĐIỂM CHẤM BIỂU ĐỒ (DASHBOARD MONTHLY TRENDS CHART)
    ========================================================================== */
+.trend-legend-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-subtle);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.trend-legend-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
+}
+.trend-legend-pill.active {
+  background: var(--theme-card-bg);
+  border-color: var(--theme-primary);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+.trend-legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.monthly-trend-status-banner {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border-color);
+  border-radius: 9px;
+  padding: 7px 12px;
+  margin-bottom: 8px;
+  transition: border-color 0.25s ease;
+}
+.trend-spline-line {
+  cursor: pointer;
+  transition: stroke-width 0.25s ease, filter 0.25s ease, opacity 0.25s ease;
+}
+.trend-spline-line:hover,
+.trend-spline-line.line-selected {
+  stroke-width: 4.4px !important;
+  filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.28));
+}
+.trend-spline-line.line-secondary-visible {
+  opacity: 0.92;
+  stroke-width: 3px;
+}
+.trend-spline-area {
+  cursor: pointer;
+  transition: opacity 0.25s ease;
+}
+.trend-spline-area:hover,
+.trend-spline-area.area-selected {
+  opacity: 1;
+}
 .chart-interactive-dot {
   cursor: pointer;
+  stroke: #ffffff;
+  stroke-width: 1.8px;
   transition: r 0.2s cubic-bezier(0.4, 0, 0.2, 1), stroke-width 0.2s ease, filter 0.2s ease;
 }
 .chart-interactive-dot:hover {
