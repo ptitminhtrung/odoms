@@ -977,7 +977,7 @@ class ExcelHandler {
           { col: 4, s: 5, v: "Tồn Vật Lý" },
           { col: 5, s: 5, v: "Đang Giữ Chỗ" },
           { col: 6, s: 5, v: "Tồn Khả Dụng ATP (Formula)" },
-          { col: 7, s: 5, v: "Đơn Giá Bán (VNĐ)" },
+          { col: 7, s: 5, v: "Đơn Giá Bán (VND)" },
           { col: 8, s: 5, v: "Giá Trị Tồn Kho (Formula)" },
           { col: 9, s: 5, v: "Danh sách Lô FEFO & Mã QR Định danh" }
         ]
@@ -1322,7 +1322,7 @@ class ExcelHandler {
           ? "Chưa xác nhận"
           : "Đã hủy đơn",
       "Phương thức thanh toán": o.paymentMethod || "COD (Thanh toán khi nhận hàng)",
-      "Tiền thu hộ COD (₫)":
+      "Tiền thu hộ COD (VND)":
         (o.paymentMethod || "").toUpperCase().includes("COD") || (o.paymentMethod || "").toLowerCase().includes("thu hộ")
           ? (o.quantity || 0) * (o.unitPrice || 0)
           : 0,

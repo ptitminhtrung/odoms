@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ODOMS — Hệ thống quản lý đơn hàng đa kênh thông minh</title>
-  <link rel="stylesheet" href="css/style.css?v=20261106_4" />
+  <link rel="stylesheet" href="css/style.css?v=20261108_2" />
   <!-- Thư viện SheetJS hỗ trợ đọc/xuất trực tiếp file Excel .xlsx -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -500,12 +500,8 @@
           <div class="wms-card" style="margin-bottom: 18px;">
             <div class="wms-card-header" style="margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
               <div>
-                <div class="wms-card-title">🏆📊 Xếp hạng Top 3 Kênh Bán Hàng Dẫn Đầu — Biểu đồ Cột Đứng & Tổng Doanh Thu</div>
-                <div id="unifiedRankingSubtitle" class="wms-card-subtitle">
-                  Xếp hạng từ cao xuống thấp theo số đơn tiếp nhận · Biểu diễn 3 kênh dẫn đầu về doanh thu & sản lượng đơn (Tiếp nhận · Xuất hàng · Hủy đơn)
-                </div>
+                <div class="wms-card-title">Xếp hạng 3 Kênh Bán Hàng Dẫn Đầu Về Doanh Thu và Đơn</div>
               </div>
-              <span class="status-badge st-ALLOCATED">Top 3 Channels · 3 Cột Trạng Thái</span>
             </div>
 
             <!-- Thanh bộ lọc thời gian tùy chọn: Theo Quý / Theo Tháng / Theo Tuần / Theo Ngày -->
@@ -513,10 +509,10 @@
               <div class="filter-group-item">
                 <label>Chế độ thời gian tùy chọn:</label>
                 <select id="unifiedFilterMode" class="form-control form-control-sm" onchange="AppUI.onUnifiedRankingFilterModeChange()">
-                  <option value="MONTH" selected>📅 Theo Tháng tùy chọn</option>
-                  <option value="QUARTER">📊 Theo Quý tùy chọn</option>
-                  <option value="WEEK">🗓️ Theo Tuần tùy chọn</option>
-                  <option value="DAY">📆 Theo Ngày tùy chọn</option>
+                  <option value="MONTH" selected>Theo Tháng</option>
+                  <option value="QUARTER">Theo Quý</option>
+                  <option value="WEEK">Theo Tuần</option>
+                  <option value="DAY">Theo Ngày</option>
                 </select>
               </div>
 
@@ -594,8 +590,7 @@
             <div class="wms-card-header" style="margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
               <div>
                 <div class="wms-card-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <span>💰🥧 Tổng Doanh Thu 5 Kênh · Cơ Cấu Đơn Bán (Donut Silk) & Sản Phẩm Bán Chạy (Top 10 / Top 50)</span>
-                  <span class="status-badge st-ALLOCATED" style="font-size:11px;">Silk Donut · Tách miếng tương tác</span>
+                  <span>Doanh Thu Bán Hàng</span>
                 </div>
                 <div id="oneMonthRollingTimeLabel" class="wms-card-subtitle">
                   Tùy chọn xem lại theo Quý / Tháng / Tuần / Ngày
@@ -616,10 +611,10 @@
               <div class="filter-group-item">
                 <label>Chế độ xem lại tùy chọn:</label>
                 <select id="revDonutFilterMode" class="form-control form-control-sm" onchange="AppUI.onRevDonutFilterModeChange()">
-                  <option value="MONTH" selected>📅 Theo Tháng tùy chọn</option>
-                  <option value="QUARTER">📊 Theo Quý tùy chọn</option>
-                  <option value="WEEK">🗓️ Theo Tuần tùy chọn</option>
-                  <option value="DAY">📆 Theo Ngày tùy chọn</option>
+                  <option value="MONTH" selected>Theo Tháng</option>
+                  <option value="QUARTER">Theo Quý</option>
+                  <option value="WEEK">Theo Tuần</option>
+                  <option value="DAY">Theo Ngày</option>
                 </select>
               </div>
 
@@ -1505,7 +1500,7 @@
   <script src="js/mock_data.js"></script>
   <script src="js/oms_engine.js"></script>
   <script src="js/excel_handler.js"></script>
-  <script src="js/app.js?v=20261106_4"></script>
+  <script src="js/app.js?v=20261108_3"></script>
 
   <!-- MODAL XEM GOOGLE MAPS HÀNH TRÌNH GIAO NHẬN TRỰC QUAN -->
   <div id="shippingMapModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeShippingMapModal()">

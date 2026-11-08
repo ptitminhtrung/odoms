@@ -1423,9 +1423,9 @@ handleResetPassword(username) {
     const totalCardHtml = `
       <div class="rev-channel-card total-hero" onclick="AppUI.selectPieChannel(null)" style="cursor:pointer;" title="Bấm để xem tổng hợp cả 5 kênh">
         <div class="rev-card-head">
-          <span class="rev-card-title">💎 TỔNG DOANH THU (5 KÊNH)</span>
+          <span class="rev-card-title">TỔNG DOANH THU</span>
         </div>
-        <div class="rev-card-value">${totalRevenue.toLocaleString("vi-VN")} ₫</div>
+        <div class="rev-card-value">${totalRevenue.toLocaleString("vi-VN")} VND</div>
         <div class="rev-card-meta">
           <span>Tổng: <strong>${totalOrders} đơn</strong></span>
         </div>
@@ -1445,7 +1445,7 @@ handleResetPassword(username) {
           <div class="rev-card-head">
             <span class="channel-badge ${ch.badgeClass}">${ch.name}</span>
           </div>
-          <div class="rev-card-value">${stat.revenue.toLocaleString("vi-VN")} ₫</div>
+          <div class="rev-card-value">${stat.revenue.toLocaleString("vi-VN")} VND</div>
           <div class="rev-card-meta">
             <span><strong>${stat.orders}</strong> đơn</span>
           </div>
@@ -1477,7 +1477,6 @@ handleResetPassword(username) {
 
   renderUnifiedTop3ChannelRankingChart() {
     const container = document.getElementById("unifiedTop3RankingBarContainer");
-    const subtitleEl = document.getElementById("unifiedRankingSubtitle");
     const noticeEl = document.getElementById("unifiedRankingFilterNotice");
     const footerEl = document.getElementById("unifiedRankingFooterSummary");
     if (!container) return;
@@ -1534,7 +1533,7 @@ handleResetPassword(username) {
       const qInfo = qMap[qVal] || qMap["2026-Q4"];
       periodLabel = qInfo.label;
       qInfo.months.forEach((mk) => addMonthWithRatio(mk, 1, 1));
-      filterDetailText = `📊 Đang xếp hạng theo <strong>Quý tùy chọn</strong>: <strong>${periodLabel}</strong>`;
+      filterDetailText = `📊 Đang xếp hạng <strong>Theo Quý</strong>: <strong>${periodLabel}</strong>`;
     } else if (mode === "WEEK") {
       const mKey = document.getElementById("unifiedSelectWeekMonth")?.value || "2026-10";
       const wKey = document.getElementById("unifiedSelectWeek")?.value || "W4";
@@ -1548,7 +1547,7 @@ handleResetPassword(username) {
       const wInfo = weekMeta[wKey] || weekMeta.W4;
       periodLabel = `${wInfo.label} · ${mObj.label}`;
       addMonthWithRatio(mKey, wInfo.ratio, 1);
-      filterDetailText = `🗓️ Đang xếp hạng theo <strong>Tuần tùy chọn</strong>: <strong>${periodLabel}</strong>`;
+      filterDetailText = `🗓️ Đang xếp hạng <strong>Theo Tuần</strong>: <strong>${periodLabel}</strong>`;
     } else if (mode === "DAY") {
       const startVal = document.getElementById("unifiedFilterStartDate")?.value || "2026-10-01";
       const endVal = document.getElementById("unifiedFilterEndDate")?.value || "2026-10-31";
@@ -1572,13 +1571,13 @@ handleResetPassword(username) {
       const fmtStart = startVal.split("-").reverse().join("/");
       const fmtEnd = endVal.split("-").reverse().join("/");
       periodLabel = fmtStart === fmtEnd ? `Ngày ${fmtStart}` : `Từ ${fmtStart} đến ${fmtEnd}`;
-      filterDetailText = `📆 Đang xếp hạng theo <strong>Ngày tùy chọn</strong>: <strong>${periodLabel}</strong>`;
+      filterDetailText = `📆 Đang xếp hạng <strong>Theo Ngày</strong>: <strong>${periodLabel}</strong>`;
     } else {
       const mKey = document.getElementById("unifiedSelectMonth")?.value || "2026-10";
       const mObj = allData[mKey] || allData["2026-10"];
       periodLabel = mObj.label;
       addMonthWithRatio(mKey, 1, 1);
-      filterDetailText = `📅 Đang xếp hạng theo <strong>Tháng tùy chọn</strong>: <strong>${periodLabel}</strong>`;
+      filterDetailText = `📅 Đang xếp hạng <strong>Theo Tháng</strong>: <strong>${periodLabel}</strong>`;
     }
 
     // Xếp hạng từ cao xuống thấp theo số đơn tiếp nhận (orders)
@@ -1598,11 +1597,8 @@ handleResetPassword(username) {
     const maxBarVal = Math.max(...top3Channels.map((c) => Math.max(c.orders, c.exported, c.cancelled)), 1);
     const medals = ["🥇 HẠNG 1", "🥈 HẠNG 2", "🥉 HẠNG 3"];
 
-    if (subtitleEl) {
-      subtitleEl.innerText = `Xếp hạng từ cao xuống thấp theo số đơn tiếp nhận trong ${periodLabel} · Top 3 kênh dẫn đầu về doanh thu & sản lượng đơn`;
-    }
     if (noticeEl) {
-      noticeEl.innerHTML = `${filterDetailText} · Tổng toàn hệ thống (5 kênh): <strong>${totalSystemOrders} đơn tiếp nhận</strong> — <strong>${totalSystemRevenue.toLocaleString("vi-VN")} ₫</strong>`;
+      noticeEl.innerHTML = `${filterDetailText} · Tổng toàn hệ thống (5 kênh): <strong>${totalSystemOrders} đơn tiếp nhận</strong> — <strong>${totalSystemRevenue.toLocaleString("vi-VN")} VND</strong>`;
     }
 
     const colsHtml = top3Channels
@@ -1615,9 +1611,9 @@ handleResetPassword(username) {
         return `
         <div class="bar-col-item">
           <div class="bar-top-revenue-badge" title="Tổng doanh thu & sản lượng đơn kênh ${item.name}">
-            <div>💰 ${item.revenue.toLocaleString("vi-VN")} ₫</div>
+            <div>💰 ${item.revenue.toLocaleString("vi-VN")} VND</div>
             <div style="font-size:11px;font-weight:700;color:var(--theme-primary);margin-top:1px;">
-              📦 Sản lượng: ${item.orders} đơn (${sharePct}%)
+              📦 Sản lượng: ${item.orders} đơn
             </div>
           </div>
 
@@ -1637,12 +1633,6 @@ handleResetPassword(username) {
             <div class="bar-col-title" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
               <span>${medals[idx]}</span>
               <span class="channel-badge ${item.badge}">${item.short}</span>
-              <span class="rev-growth-pill">${item.growth}</span>
-            </div>
-            <div class="bar-col-sub" style="margin-top:4px;">
-              Tiếp nhận: <strong style="color:${colorReceived};">${item.orders}</strong> ·
-              Xuất hàng: <strong style="color:${colorExported};">${item.exported}</strong> ·
-              Hủy đơn: <strong style="color:${colorCancelled};">${item.cancelled}</strong>
             </div>
           </div>
         </div>
@@ -1652,7 +1642,7 @@ handleResetPassword(username) {
 
     container.innerHTML = `
       <div class="three-month-legend-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:12px;font-weight:700;">
-        <span style="color:var(--text-secondary);">Thứ tự xếp hạng: <strong>Cao ➔ Thấp theo số đơn tiếp nhận</strong> · Nhãn trên đỉnh mỗi kênh: <strong>Tổng doanh thu (₫) & Sản lượng đơn</strong></span>
+        <span style="color:var(--text-secondary);"><strong>Tổng doanh thu (VND) & Sản lượng đơn</strong></span>
         <div style="display:flex;gap:14px;flex-wrap:wrap;">
           <span style="display:flex;align-items:center;gap:5px;">
             <span style="width:11px;height:11px;background:${colorReceived};border-radius:3px;display:inline-block;"></span> Tiếp nhận
@@ -1670,7 +1660,7 @@ handleResetPassword(username) {
 
     if (footerEl) {
       const top1 = top3Channels[0];
-      const restChannels = rankedAll.slice(3).map((r, i) => `#${i + 4} ${r.short}: <strong>${r.orders} đơn</strong> (${r.revenue.toLocaleString("vi-VN")} ₫)`).join(" · ");
+      const restChannels = rankedAll.slice(3).map((r, i) => `#${i + 4} ${r.short}: <strong>${r.orders} đơn</strong> (${r.revenue.toLocaleString("vi-VN")} VND)`).join(" · ");
       footerEl.innerHTML = `
         <div>
           🏆 Dẫn đầu (${periodLabel}): <strong>${top1 ? top1.name : "-"} (${top1 ? top1.orders : 0} đơn tiếp nhận · Xuất ${top1 ? top1.exported : 0} · Hủy ${top1 ? top1.cancelled : 0})</strong>
@@ -1975,7 +1965,7 @@ handleResetPassword(username) {
              data-dy="${dy}"
              onclick="AppUI.selectPieChannel('${item.key}')">
             <path class="pie-slice-path" d="${pathD}" fill="url(#silkGrad_${item.key})">
-              <title>${item.fullName} (${item.colorName}): ${item.orders} đơn đã bán (${item.pctText}%) — ${item.revenue.toLocaleString("vi-VN")} ₫</title>
+              <title>${item.fullName} (${item.colorName}): ${item.orders} đơn đã bán (${item.pctText}%) — ${item.revenue.toLocaleString("vi-VN")} VND</title>
             </path>
             <path class="pie-slice-silk-sheen" d="${pathD}" fill="url(#silkSheenOverlay)" pointer-events="none" />
             ${showLabel ? `<text class="pie-slice-pct-text" x="${lx}" y="${ly}">${item.pctText}%</text>` : ""}
@@ -2012,7 +2002,7 @@ handleResetPassword(username) {
                   <span class="sold-pie-order-num">${item.orders} đơn</span>
                   <span class="sold-pie-share-badge" style="background:${item.silkCss};">${item.pctText}%</span>
                 </div>
-                <div class="sold-pie-rev-text">${item.revenue.toLocaleString("vi-VN")} ₫</div>
+                <div class="sold-pie-rev-text">${item.revenue.toLocaleString("vi-VN")} VND</div>
               </div>
             </div>
             <div class="sold-pie-mini-bar-bg">
@@ -2114,16 +2104,16 @@ handleResetPassword(username) {
         valEl.style.color = activeItem.color;
       }
       if (subEl) {
-        subEl.innerText = `${activeItem.revenue.toLocaleString("vi-VN")} ₫`;
+        subEl.innerText = `${activeItem.revenue.toLocaleString("vi-VN")} VND`;
       }
       if (footerEl) {
         footerEl.innerHTML = `
           <div>
-            <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${activeItem.silkCss};margin-right:6px;vertical-align:middle;"></span>
-            Kênh đang tách: <strong style="color:${activeItem.color};">${activeItem.fullName}</strong> (${data.periodLabel})
+            <span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${activeItem.silkCss};margin-right:5px;vertical-align:middle;"></span>
+            Kênh đang tách: <strong style="color:${activeItem.color};">${activeItem.name}</strong> (${data.periodLabel})
           </div>
           <div>
-            Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn</strong> · Doanh thu kênh: <strong style="color:${activeItem.color};">${activeItem.revenue.toLocaleString("vi-VN")} ₫</strong>
+            Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn</strong> · Doanh thu kênh: <strong style="color:${activeItem.color};">${activeItem.revenue.toLocaleString("vi-VN")} VND</strong>
           </div>
         `;
       }
@@ -2146,7 +2136,7 @@ handleResetPassword(username) {
             📊 Tổng hợp <strong>5 kênh bán hàng</strong> · <strong>${data.periodLabel}</strong>
           </div>
           <div>
-            Tổng đơn đã bán: <strong>${data.totalOrders} đơn</strong> · Tổng doanh thu: <strong style="color:var(--theme-primary, #2563eb);">${data.totalRevenue.toLocaleString("vi-VN")} ₫</strong>
+            Tổng đơn đã bán: <strong>${data.totalOrders} đơn</strong> · Tổng doanh thu: <strong style="color:var(--theme-primary, #2563eb);">${data.totalRevenue.toLocaleString("vi-VN")} VND</strong>
           </div>
         `;
       }
@@ -2296,13 +2286,13 @@ handleResetPassword(username) {
                   <div class="top-product-meta">
                     <code>${prod.sku}</code>
                     <span class="channel-badge badge-${prod.displayChannel}" style="font-size:9.5px;padding:1px 6px;">${prod.displayChannel}</span>
-                    <span>Đơn giá: ${prod.price.toLocaleString("vi-VN")} ₫</span>
+                    <span>Đơn giá: ${prod.price.toLocaleString("vi-VN")} VND</span>
                   </div>
                 </div>
               </div>
               <div class="top-product-right">
                 <div class="top-product-sold">${prod.soldQty} SP đã bán</div>
-                <div class="top-product-rev">${prod.revenue.toLocaleString("vi-VN")} ₫</div>
+                <div class="top-product-rev">${prod.revenue.toLocaleString("vi-VN")} VND</div>
               </div>
             </div>
             <div class="silk-progress-bar">
@@ -2771,8 +2761,8 @@ handleResetPassword(username) {
         const isCodOrder = pm.toUpperCase().includes("COD") || pm.toLowerCase().includes("thu hộ") || pm.toLowerCase().includes("khi nhận hàng");
         const orderTotalVal = (ord.quantity || 0) * (ord.unitPrice || 0);
         const codSubLabel = isCodOrder
-          ? `<div style="font-size:10.5px;color:#c2410c;font-weight:700;margin-top:3px;">💵 Thu hộ COD: ${orderTotalVal.toLocaleString("vi-VN")} ₫</div>`
-          : `<div style="font-size:10.5px;color:#15803d;font-weight:700;margin-top:3px;">✔ Đã thanh toán (COD: 0 ₫)</div>`;
+          ? `<div style="font-size:10.5px;color:#c2410c;font-weight:700;margin-top:3px;">💵 Thu hộ COD: ${orderTotalVal.toLocaleString("vi-VN")} VND</div>`
+          : `<div style="font-size:10.5px;color:#15803d;font-weight:700;margin-top:3px;">✔ Đã thanh toán (COD: 0 VND)</div>`;
 
         let pmPill = "";
         if (isCodOrder) {
@@ -3689,7 +3679,7 @@ handleResetPassword(username) {
           <td style="color:#b45309;font-weight:700;">${back} đơn</td>
           <td style="color:#dc2626;font-weight:700;">${invErr} đơn</td>
           <td><strong>${heldUnits} SP</strong></td>
-          <td style="font-weight:700;">${revenue.toLocaleString("vi-VN")} ₫</td>
+          <td style="font-weight:700;">${revenue.toLocaleString("vi-VN")} VND</td>
         </tr>
       `;
       })
@@ -3745,7 +3735,7 @@ handleResetPassword(username) {
         <div>
           <p><strong>Khách hàng:</strong> ${ord.customerName} (${ord.customerPhone})</p>
           <p><strong>Sản phẩm:</strong> ${ord.sku} - ${ord.productName}</p>
-          <p><strong>Số lượng yêu cầu:</strong> <strong>${ord.quantity}</strong> (Đơn giá: ${ord.unitPrice.toLocaleString("vi-VN")} ₫)</p>
+          <p><strong>Số lượng yêu cầu:</strong> <strong>${ord.quantity}</strong> (Đơn giá: ${ord.unitPrice.toLocaleString("vi-VN")} VND)</p>
           <p><strong>Phương thức TT:</strong> <strong style="color:var(--theme-primary);">${ord.paymentMethod || "COD"}</strong></p>
           <p><strong>Địa chỉ:</strong> ${ord.shippingAddress}</p>
         </div>
@@ -3852,12 +3842,12 @@ handleResetPassword(username) {
 
     tbody.innerHTML = filtered.map(s => {
       const feeHtml = s.isFreeship
-        ? '<span class="badge-freeship">🎁 Freeship (0₫)</span>'
-        : `<span class="shipping-fee-val">${Number(s.shippingFee).toLocaleString("vi-VN")} ₫</span>`;
+        ? '<span class="badge-freeship">🎁 Freeship (0 VND)</span>'
+        : `<span class="shipping-fee-val">${Number(s.shippingFee).toLocaleString("vi-VN")} VND</span>`;
 
       const codHtml = s.totalCod > 0
-        ? `<span style="font-weight:800;color:#dc2626;">${Number(s.totalCod).toLocaleString("vi-VN")} ₫</span>`
-        : '<span style="font-weight:700;color:#16a34a;">0 ₫ (Đã TT)</span>';
+        ? `<span style="font-weight:800;color:#dc2626;">${Number(s.totalCod).toLocaleString("vi-VN")} VND</span>`
+        : '<span style="font-weight:700;color:#16a34a;">0 VND (Đã TT)</span>';
 
       return `
         <tr>
@@ -4017,7 +4007,7 @@ handleResetPassword(username) {
             <div style="font-weight:800;font-size:13px;color:var(--text-main);margin-top:3px;">${s.receiver.name} — ${s.receiver.phone}</div>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">📍 ${s.receiver.address}</div>
             <div style="font-size:11.5px;color:#16a34a;font-weight:700;margin-top:2px;">
-              ${s.isFreeship ? "🎁 Freeship 0₫" : "Phí ship: " + Number(s.shippingFee).toLocaleString("vi-VN") + " ₫"} · Thu hộ COD: ${Number(s.totalCod).toLocaleString("vi-VN")} ₫
+              ${s.isFreeship ? "🎁 Freeship 0 VND" : "Phí ship: " + Number(s.shippingFee).toLocaleString("vi-VN") + " VND"} · Thu hộ COD: ${Number(s.totalCod).toLocaleString("vi-VN")} VND
             </div>
           </div>
         </div>
