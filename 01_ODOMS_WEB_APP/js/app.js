@@ -197,7 +197,9 @@ const AppUI = {
     if (typeof this.renderUnifiedTop3ChannelRankingChart === "function") {
       this.renderUnifiedTop3ChannelRankingChart();
     }
-    if (typeof this.renderMonthlyTrendsChartLabels === "function") {
+    if (typeof this.renderMonthlyTrendsByFilter === "function") {
+      this.renderMonthlyTrendsByFilter();
+    } else if (typeof this.renderMonthlyTrendsChartLabels === "function") {
       this.renderMonthlyTrendsChartLabels();
     }
 
@@ -1601,12 +1603,11 @@ handleResetPassword(username) {
       noticeEl.innerHTML = `${filterDetailText} · Tổng toàn hệ thống (5 kênh): <strong>${totalSystemOrders} đơn tiếp nhận</strong> — <strong>${totalSystemRevenue.toLocaleString("vi-VN")} VND</strong>`;
     }
 
-    const colsHtml = top3Channels
+    const pillarsHtml = top3Channels
       .map((item, idx) => {
         const hRec = item.orders > 0 ? Math.max(30, Math.round((item.orders / maxBarVal) * 145)) : 8;
         const hExp = item.exported > 0 ? Math.max(26, Math.round((item.exported / maxBarVal) * 145)) : 8;
         const hCan = item.cancelled > 0 ? Math.max(22, Math.round((item.cancelled / maxBarVal) * 145)) : 6;
-        const sharePct = totalSystemOrders > 0 ? ((item.orders / totalSystemOrders) * 100).toFixed(1) : "0.0";
 
         return `
         <div class="bar-col-item">
@@ -1628,16 +1629,20 @@ handleResetPassword(username) {
               <span>${item.cancelled}</span>
             </div>
           </div>
-
-          <div class="bar-col-footer">
-            <div class="bar-col-title" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
-              <span>${medals[idx]}</span>
-              <span class="channel-badge ${item.badge}">${item.short}</span>
-            </div>
-          </div>
         </div>
       `;
       })
+      .join("");
+
+    const labelsHtml = top3Channels
+      .map((item, idx) => `
+        <div class="bar-col-footer">
+          <div class="bar-col-title" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">
+            <span>${medals[idx]}</span>
+            <span class="channel-badge ${item.badge}">${item.short}</span>
+          </div>
+        </div>
+      `)
       .join("");
 
     container.innerHTML = `
@@ -1655,7 +1660,8 @@ handleResetPassword(username) {
           </span>
         </div>
       </div>
-      <div class="bar-chart-columns-grid">${colsHtml}</div>
+      <div class="bar-chart-columns-grid">${pillarsHtml}</div>
+      <div class="bar-chart-labels-grid">${labelsHtml}</div>
     `;
 
     if (footerEl) {
@@ -2259,7 +2265,7 @@ handleResetPassword(username) {
     const maxSold = Math.max(...sliced.map((p) => p.soldQty), 1);
 
     if (subtitleEl) {
-      subtitleEl.innerHTML = `Top <strong>${limit}</strong> sản phẩm bán chạy nhất · <strong>${data.periodLabel}</strong> Theo 4 kênh tùy chọn hoặc của 5 kênh`;
+      subtitleEl.innerHTML = `Top <strong>${limit}</strong> sản phẩm bán chạy nhất · <strong>${data.periodLabel}</strong>.`;
     }
 
     listContainer.innerHTML = sliced
@@ -2436,7 +2442,7 @@ handleResetPassword(username) {
     const month = circleEl.getAttribute("data-month") || "";
     const monthName = circleEl.getAttribute("data-month-name") || month;
     const val = circleEl.getAttribute("data-val") || "0";
-    const series = circleEl.getAttribute("data-series") || (type === "import" ? "Đơn tiếp nhận" : "Xuất giữ hàng");
+    const series = circleEl.getAttribute("data-series") || (type === "import" ? "Tiếp nhận" : "Xuất hàng");
     const key = `${type}_${month}`;
 
     if (!this.activeMonthlyChartDots) {
@@ -2459,7 +2465,7 @@ handleResetPassword(username) {
       if (isNowActive) {
         window.omsEngine.addLog(
           "info",
-          `📊 [BIỂU ĐỒ XU HƯỚNG] Điểm ${series} (${monthName}): ${val} đơn hàng`
+          `📊 [TIẾP NHẬN & XUẤT HÀNG] Điểm ${series} (${monthName}): ${val} đơn hàng`
         );
         this.renderLogs();
       }
@@ -2508,19 +2514,8 @@ handleResetPassword(username) {
     if (pillExp) pillExp.classList.toggle("active", hasExpActive);
 
     if (bannerEl) {
-      if (hasImpActive && !hasExpActive) {
-        bannerEl.innerHTML = `✨ Đang chọn <strong>Đường trên — Đơn tiếp nhận (Tổng 6 tháng: 122 đơn)</strong> · Phần còn lại ở tầng dưới (<strong>Xuất giữ hàng: 51 đơn</strong> · Chênh lệch đang xử lý/lưu kho: <strong>71 đơn</strong>) vẫn hiển thị trọn vẹn bên dưới.`;
-        bannerEl.style.borderColor = colorImport;
-      } else if (hasExpActive && !hasImpActive) {
-        bannerEl.innerHTML = `✨ Đang chọn <strong>Đường dưới — Xuất giữ hàng (Tổng 6 tháng: 51 đơn)</strong> · Phần còn lại ở tầng trên (<strong>Đơn tiếp nhận: 122 đơn</strong> · Khoảng cách chênh lệch: <strong>71 đơn</strong>) vẫn hiển thị rõ phía trên.`;
-        bannerEl.style.borderColor = colorExport;
-      } else if (hasImpActive && hasExpActive) {
-        bannerEl.innerHTML = `📊 Đang hiển thị số liệu đối chiếu trên <strong>cả 2 đường cong (Đơn tiếp nhận: 122 đơn vs Xuất giữ hàng: 51 đơn)</strong> · Khoảng cách 2 đường tách biệt hoàn toàn.`;
-        bannerEl.style.borderColor = "var(--theme-primary)";
-      } else {
-        bannerEl.innerHTML = `💡 <strong>Mẹo tương tác:</strong> Bấm trực tiếp vào <strong>đường cong phía trên (Đơn tiếp nhận)</strong> hoặc <strong>đường cong phía dưới (Xuất giữ hàng)</strong> để bật số liệu toàn tuyến và đối chiếu phần chênh lệch còn lại.`;
-        bannerEl.style.borderColor = "var(--border-color)";
-      }
+      bannerEl.innerHTML = "";
+      bannerEl.style.display = "none";
     }
 
     const allDots = document.querySelectorAll(".chart-interactive-dot");
@@ -2583,6 +2578,222 @@ handleResetPassword(username) {
     } else {
       allKeys.forEach((k) => this.activeMonthlyChartDots.add(k));
       this.activeMonthlySeries = "both";
+    }
+
+    this.renderMonthlyTrendsChartLabels();
+  },
+
+  onMonthlyTrendsFilterModeChange() {
+    const mode = document.getElementById("monthlyTrendsFilterMode")?.value || "MONTH";
+    const toggle = (id, show) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle("hidden", !show);
+    };
+
+    toggle("monthlyTrendsMonthGroup", mode === "MONTH");
+    toggle("monthlyTrendsQuarterGroup", mode === "QUARTER");
+    toggle("monthlyTrendsWeekMonthGroup", mode === "WEEK");
+    toggle("monthlyTrendsWeekGroup", mode === "WEEK");
+    toggle("monthlyTrendsDayStartGroup", mode === "DAY");
+    toggle("monthlyTrendsDayEndGroup", mode === "DAY");
+
+    this.renderMonthlyTrendsByFilter();
+  },
+
+  renderMonthlyTrendsByFilter() {
+    const mode = document.getElementById("monthlyTrendsFilterMode")?.value || "MONTH";
+    const allData = typeof this.getMonthlyHistoricalDataset === "function" ? this.getMonthlyHistoricalDataset() : {};
+
+    let labels = [];
+    let fullLabels = [];
+    let importVals = [];
+    let exportVals = [];
+    let subtitleText = "";
+
+    if (mode === "QUARTER") {
+      const qVal = document.getElementById("monthlyTrendsQuarterSelect")?.value || "2026-Q4";
+      if (qVal === "2026-Q2") {
+        labels = ["Th5/26", "Th6/26"];
+        fullLabels = ["Tháng 05/2026", "Tháng 06/2026"];
+        importVals = [14, 20];
+        exportVals = [4, 9];
+        subtitleText = "Thống kê tiếp nhận và xuất hàng · Quý 2/2026 (Tháng 05 – Tháng 06/2026)";
+      } else if (qVal === "2026-Q3") {
+        labels = ["Th7/26", "Th8/26", "Th9/26"];
+        fullLabels = ["Tháng 07/2026", "Tháng 08/2026", "Tháng 09/2026"];
+        importVals = [18, 25, 21];
+        exportVals = [6, 13, 8];
+        subtitleText = "Thống kê tiếp nhận và xuất hàng · Quý 3/2026 (Tháng 07 – Tháng 09/2026)";
+      } else {
+        labels = ["Th10/26", "Th11/26 (DK)", "Th12/26 (DK)"];
+        fullLabels = ["Tháng 10/2026 (Hiện tại)", "Tháng 11/2026 (Dự kiến)", "Tháng 12/2026 (Dự kiến)"];
+        importVals = [24, 28, 31];
+        exportVals = [11, 14, 16];
+        subtitleText = "Thống kê tiếp nhận và xuất hàng · Quý 4/2026 (Tháng 10/2026)";
+      }
+    } else if (mode === "WEEK") {
+      const mKey = document.getElementById("monthlyTrendsWeekMonthSelect")?.value || "2026-10";
+      const wKey = document.getElementById("monthlyTrendsWeekSelect")?.value || "W4";
+      const mNames = {
+        "2026-05": "Tháng 05/2026", "2026-06": "Tháng 06/2026", "2026-07": "Tháng 07/2026",
+        "2026-08": "Tháng 08/2026", "2026-09": "Tháng 09/2026", "2026-10": "Tháng 10/2026"
+      };
+      const wNames = {
+        "W1": "Tuần 1 (Ngày 01 – 07)",
+        "W2": "Tuần 2 (Ngày 08 – 14)",
+        "W3": "Tuần 3 (Ngày 15 – 21)",
+        "W4": "Tuần 4 (Ngày 22 – Cuối tháng)"
+      };
+      labels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+      fullLabels = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
+
+      const seedOffsets = { W1: [3, 4, 3, 5, 4, 3, 2], W2: [4, 5, 4, 6, 5, 4, 3], W3: [4, 4, 5, 5, 4, 3, 2], W4: [5, 6, 5, 7, 6, 4, 3] };
+      const expOffsets = { W1: [1, 2, 1, 2, 2, 1, 1], W2: [2, 2, 2, 3, 2, 2, 1], W3: [1, 2, 2, 2, 2, 1, 1], W4: [2, 3, 2, 3, 3, 2, 1] };
+      importVals = seedOffsets[wKey] || seedOffsets.W4;
+      exportVals = expOffsets[wKey] || expOffsets.W4;
+      subtitleText = `Thống kê tiếp nhận và xuất hàng · ${wNames[wKey] || wKey} - ${mNames[mKey] || mKey}`;
+    } else if (mode === "DAY") {
+      const sDate = document.getElementById("monthlyTrendsStartDate")?.value || "2026-10-01";
+      const eDate = document.getElementById("monthlyTrendsEndDate")?.value || "2026-10-31";
+      labels = ["01/10", "07/10", "14/10", "21/10", "28/10", "31/10"];
+      fullLabels = ["Ngày 01/10/2026", "Ngày 07/10/2026", "Ngày 14/10/2026", "Ngày 21/10/2026", "Ngày 28/10/2026", "Ngày 31/10/2026"];
+      importVals = [16, 22, 19, 25, 20, 24];
+      exportVals = [6, 10, 7, 12, 9, 11];
+      subtitleText = `Thống kê tiếp nhận và xuất hàng · Từ ${sDate} đến ${eDate}`;
+    } else {
+      // MONTH
+      const mVal = document.getElementById("monthlyTrendsMonthSelect")?.value || "ALL_6M";
+      if (mVal === "ALL_6M") {
+        labels = ["Th5/26", "Th6/26", "Th7/26", "Th8/26", "Th9/26", "Th10/26"];
+        fullLabels = ["Tháng 05/2026", "Tháng 06/2026", "Tháng 07/2026", "Tháng 08/2026", "Tháng 09/2026", "Tháng 10/2026"];
+        importVals = [14, 20, 18, 25, 21, 24];
+        exportVals = [4, 9, 6, 13, 8, 11];
+        subtitleText = "Thống kê 5 kênh TMĐT (Th5/26 – Th10/26) · Tổng hợp 6 tháng";
+      } else {
+        const mObj = allData[mVal];
+        const mTitle = mObj ? mObj.label : mVal;
+        labels = ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"];
+        fullLabels = [`Tuần 1 (01-07)`, `Tuần 2 (08-14)`, `Tuần 3 (15-21)`, `Tuần 4 (22-cuối)`];
+        importVals = [5, 6, 6, 7];
+        exportVals = [2, 3, 3, 3];
+        subtitleText = `Thống kê tiếp nhận và xuất hàng · Chi tiết các tuần ${mTitle}`;
+      }
+    }
+
+    const subEl = document.getElementById("monthlyTrendsSubtitle");
+    if (subEl && subtitleText) {
+      subEl.innerText = subtitleText;
+    }
+
+    this.updateMonthlyTrendsSplineSvg({
+      labels,
+      fullLabels,
+      importVals,
+      exportVals
+    });
+  },
+
+  updateMonthlyTrendsSplineSvg(data) {
+    const { labels, fullLabels, importVals, exportVals } = data;
+    const n = labels.length;
+    if (n < 2) return;
+
+    const startX = 65;
+    const endX = 515;
+    const stepX = (endX - startX) / (n - 1);
+
+    const maxValRaw = Math.max(...importVals, ...exportVals, 10);
+    const maxVal = Math.ceil(maxValRaw / 5) * 5 + 5;
+    const baseY = 174;
+    const topY = 24;
+    const heightY = baseY - topY;
+
+    const getY = (val) => Math.round(baseY - (val / maxVal) * heightY);
+    const getX = (i) => Math.round(startX + i * stepX);
+
+    const impCoords = importVals.map((v, i) => ({ x: getX(i), y: getY(v), val: v, label: labels[i], full: fullLabels[i] }));
+    const expCoords = exportVals.map((v, i) => ({ x: getX(i), y: getY(v), val: v, label: labels[i], full: fullLabels[i] }));
+
+    const buildSplinePath = (coords) => {
+      let d = `M ${coords[0].x} ${coords[0].y}`;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const p1 = coords[i];
+        const p2 = coords[i + 1];
+        const half = (p2.x - p1.x) / 2;
+        d += ` C ${p1.x + half} ${p1.y}, ${p2.x - half} ${p2.y}, ${p2.x} ${p2.y}`;
+      }
+      return d;
+    };
+
+    const impSpline = buildSplinePath(impCoords);
+    const expSpline = buildSplinePath(expCoords);
+
+    const impAreaD = `${impSpline} L ${endX} ${baseY} L ${startX} ${baseY} Z`;
+    const expAreaD = `${expSpline} L ${endX} ${baseY} L ${startX} ${baseY} Z`;
+
+    const lineImp = document.getElementById("chartLineImport");
+    const lineExp = document.getElementById("chartLineExport");
+    const areaImp = document.getElementById("chartAreaImport");
+    const areaExp = document.getElementById("chartAreaExport");
+    const hitImp = document.getElementById("chartHitLineImport");
+    const hitExp = document.getElementById("chartHitLineExport");
+
+    if (lineImp) lineImp.setAttribute("d", impSpline);
+    if (lineExp) lineExp.setAttribute("d", expSpline);
+    if (areaImp) areaImp.setAttribute("d", impAreaD);
+    if (areaExp) areaExp.setAttribute("d", expAreaD);
+    if (hitImp) hitImp.setAttribute("d", impSpline);
+    if (hitExp) hitExp.setAttribute("d", expSpline);
+
+    const yAxisEl = document.getElementById("chartYAxisLabels");
+    if (yAxisEl) {
+      const stepVal = maxVal / 5;
+      let yMarkup = "";
+      for (let i = 5; i >= 0; i--) {
+        const val = Math.round(i * stepVal);
+        const y = Math.round(baseY - (i / 5) * heightY) + 4;
+        yMarkup += `<text x="32" y="${y}">${val}</text>`;
+      }
+      yAxisEl.innerHTML = yMarkup;
+    }
+
+    const xAxisEl = document.getElementById("chartXAxisLabels");
+    if (xAxisEl) {
+      let xMarkup = "";
+      for (let i = 0; i < n; i++) {
+        xMarkup += `<text x="${getX(i)}" y="198">${labels[i]}</text>`;
+      }
+      xAxisEl.innerHTML = xMarkup;
+    }
+
+    const dotsImpGroup = document.getElementById("chartDotsImport");
+    if (dotsImpGroup) {
+      let dMarkup = "";
+      impCoords.forEach((pt) => {
+        dMarkup += `<circle cx="${pt.x}" cy="${pt.y}" r="5" class="chart-interactive-dot" data-type="import" data-month="${pt.label}" data-month-name="${pt.full}" data-val="${pt.val}" data-series="Tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Tiếp nhận ${pt.label} (${pt.val} đơn)" />`;
+      });
+      dotsImpGroup.innerHTML = dMarkup;
+    }
+
+    const dotsExpGroup = document.getElementById("chartDotsExportGroup");
+    if (dotsExpGroup) {
+      let dMarkup = "";
+      expCoords.forEach((pt) => {
+        dMarkup += `<circle cx="${pt.x}" cy="${pt.y}" r="4.8" class="chart-interactive-dot" data-type="export" data-month="${pt.label}" data-month-name="${pt.full}" data-val="${pt.val}" data-series="Xuất hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất hàng ${pt.label} (${pt.val} đơn)" />`;
+      });
+      dotsExpGroup.innerHTML = dMarkup;
+    }
+
+    if (this.activeMonthlyChartDots) {
+      const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
+      if (btnToggle && btnToggle.innerText.includes("Ẩn tất cả số")) {
+        this.activeMonthlyChartDots.clear();
+        impCoords.forEach((p) => this.activeMonthlyChartDots.add(`import_${p.label}`));
+        expCoords.forEach((p) => this.activeMonthlyChartDots.add(`export_${p.label}`));
+      } else {
+        this.activeMonthlyChartDots.clear();
+        this.activeMonthlySeries = null;
+      }
     }
 
     this.renderMonthlyTrendsChartLabels();
