@@ -267,55 +267,59 @@
         <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI CHIẾN LƯỢC (Hiển thị ở Dashboard, FIFO, Backorder, Kho, Gom đơn) -->
         <section class="oms-view-section" data-views="dashboard fifo backorder inventory ingest">
           <div class="kpi-cards-grid">
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('ingest')" title="Bấm để chuyển đến Tiếp nhận / Gom đơn">
+            <!-- Khối 1: Kho hàng (Liên kết với Kho) -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('inventory')" title="Bấm để vào xem Kho hàng">
               <div class="kpi-card-top">
-                <span class="kpi-card-label">Tổng đơn tiếp nhận<br>(5 kênh TMĐT)</span>
+                <span class="kpi-card-label">Kho hàng</span>
                 <div class="kpi-icon-box green">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 </div>
               </div>
-              <div id="kpiTotalOrders" class="kpi-card-number">0</div>
-              <div id="kpiAvailableSummary" class="kpi-card-sub green">
-                ⊞ Đã chuẩn hóa Canonical Schema
+              <div id="kpiInventoryTotal" class="kpi-card-number">59 SP</div>
+              <div id="kpiInventorySub" class="kpi-card-sub green">
+                Sẵn sàng bán: 31 SP · Đã xác nhận: 28 SP
               </div>
             </div>
 
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('shipping')" title="Bấm để xem Vận chuyển đơn & Xuất giữ hàng">
+            <!-- Khối 2: Đơn hàng các kênh (Liên kết với Tiếp nhận / Gom đơn) -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('ingest')" title="Bấm để xem Đơn hàng các kênh (Tiếp nhận / Gom đơn)">
               <div class="kpi-card-top">
-                <span class="kpi-card-label">Cần xuất / Đã giữ hàng<br>(FIFO & FEFO)</span>
-                <div class="kpi-icon-box green">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span class="kpi-card-label">Đơn hàng các kênh</span>
+                <div class="kpi-icon-box blue" style="background:rgba(37,99,235,0.12);color:#2563eb;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
                 </div>
               </div>
-              <div id="kpiAllocated" class="kpi-card-number">0</div>
-              <div class="kpi-card-sub green">
-                ✔ Đã trừ tồn khả dụng & phân bổ lô hàng
+              <div id="kpiOrdersTotal" class="kpi-card-number">11 đơn</div>
+              <div id="kpiOrdersSub" class="kpi-card-sub blue" style="color:#2563eb;">
+                Đã xác nhận: 8 · Chờ xác nhận: 2 · Đã hủy: 1
               </div>
             </div>
 
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('inventory')" title="Bấm để vào Kho xử lý nhập bù">
+            <!-- Khối 3: Quản lý Vận đơn (Liên kết với Vận đơn) -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('qr_api')" title="Bấm để vào Quản lý Vận đơn & In QR">
               <div class="kpi-card-top">
-                <span class="kpi-card-label">Chặn bán lố<br>(Thiếu tồn kho)</span>
-                <div class="kpi-icon-box red">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+                <span class="kpi-card-label">Quản lý Vận đơn</span>
+                <div class="kpi-icon-box orange" style="background:rgba(249,115,22,0.12);color:#ea580c;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/></svg>
                 </div>
               </div>
-              <div id="kpiBackorder" class="kpi-card-number">0</div>
-              <div class="kpi-card-sub red">
-                🔥 Bảo vệ chống âm kho · Cần nhập bù
+              <div id="kpiWaybillTotal" class="kpi-card-number">1 vận đơn</div>
+              <div id="kpiWaybillSub" class="kpi-card-sub orange" style="color:#ea580c;">
+                Đã cấp mã vận đơn: 1 · Sẵn sàng in phiếu QR: 1
               </div>
             </div>
 
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('ingest')" title="Bấm để kiểm tra đơn lỗi tại Tiếp nhận / Gom đơn">
+            <!-- Khối 4: Vận chuyển đơn (Liên kết với Vận chuyển đơn) -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('shipping')" title="Bấm để xem Vận chuyển đơn & Giám sát hành trình">
               <div class="kpi-card-top">
-                <span class="kpi-card-label">Cảnh báo đơn lỗi<br>(Sai mã SKU / Cú pháp)</span>
-                <div class="kpi-icon-box orange">
+                <span class="kpi-card-label">Vận chuyển đơn</span>
+                <div class="kpi-icon-box purple" style="background:rgba(124,58,237,0.12);color:#7c3aed;">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 </div>
               </div>
-              <div id="kpiInvalid" class="kpi-card-number">0</div>
-              <div class="kpi-card-sub orange">
-                ⚠ Đã ngắt tại Bước 2 Validation
+              <div id="kpiShippingTotal" class="kpi-card-number">5 đơn</div>
+              <div id="kpiShippingSub" class="kpi-card-sub purple" style="color:#7c3aed;">
+                Đang vận chuyển: 3 đơn · Đã giao thành công: 1 đơn
               </div>
             </div>
           </div>
@@ -344,10 +348,10 @@
               </div>
             </div>
 
-            <!-- Thanh bộ lọc thời gian tùy chọn: Theo Quý / Theo Tháng / Theo Tuần / Theo Ngày -->
+            <!-- Thanh bộ lọc thời gian: Theo Quý / Theo Tháng / Theo Tuần / Theo Ngày -->
             <div class="unified-ranking-filter-bar" style="margin-bottom: 14px;">
               <div class="filter-group-item">
-                <label>Chế độ xem lại tùy chọn:</label>
+                <label>Chế độ xem:</label>
                 <select id="revDonutFilterMode" class="form-control form-control-sm" onchange="AppUI.onRevDonutFilterModeChange()">
                   <option value="MONTH" selected>Theo Tháng</option>
                   <option value="QUARTER">Theo Quý</option>
@@ -356,9 +360,9 @@
                 </select>
               </div>
 
-              <!-- 1. Theo Tháng tùy chọn -->
+              <!-- 1. Theo Tháng -->
               <div id="revDonutMonthGroup" class="filter-group-item">
-                <label>Chọn Tháng xem lại:</label>
+                <label>Chọn Tháng:</label>
                 <select id="soldPieMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
                   <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
                   <option value="2026-09">Tháng 09/2026</option>
@@ -370,9 +374,9 @@
                 </select>
               </div>
 
-              <!-- 2. Theo Quý tùy chọn -->
+              <!-- 2. Theo Quý -->
               <div id="revDonutQuarterGroup" class="filter-group-item hidden">
-                <label>Chọn Quý xem lại:</label>
+                <label>Chọn Quý:</label>
                 <select id="revDonutQuarterSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
                   <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10/2026)</option>
                   <option value="2026-Q3">Quý 3/2026 (Tháng 07 – Tháng 09/2026)</option>
@@ -380,7 +384,7 @@
                 </select>
               </div>
 
-              <!-- 3. Theo Tuần tùy chọn -->
+              <!-- 3. Theo Tuần -->
               <div id="revDonutWeekMonthGroup" class="filter-group-item hidden">
                 <label>Tháng của Tuần:</label>
                 <select id="revDonutWeekMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
@@ -393,7 +397,7 @@
                 </select>
               </div>
               <div id="revDonutWeekGroup" class="filter-group-item hidden">
-                <label>Chọn Tuần tùy chọn:</label>
+                <label>Chọn Tuần:</label>
                 <select id="revDonutWeekSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
                   <option value="W1">Tuần 1 (Ngày 01 – 07)</option>
                   <option value="W2">Tuần 2 (Ngày 08 – 14)</option>
@@ -402,13 +406,13 @@
                 </select>
               </div>
 
-              <!-- 4. Theo Ngày tùy chọn -->
+              <!-- 4. Theo Ngày -->
               <div id="revDonutDayStartGroup" class="filter-group-item hidden">
-                <label>Từ ngày tùy chọn:</label>
+                <label>Từ ngày:</label>
                 <input type="date" id="revDonutStartDate" class="form-control form-control-sm" value="2026-10-01" onchange="AppUI.renderFiveChannelSoldPieChart()" />
               </div>
               <div id="revDonutDayEndGroup" class="filter-group-item hidden">
-                <label>Đến ngày tùy chọn:</label>
+                <label>Đến ngày:</label>
                 <input type="date" id="revDonutEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderFiveChannelSoldPieChart()" />
               </div>
             </div>
@@ -474,10 +478,10 @@
               </div>
             </div>
 
-            <!-- Thanh bộ lọc thời gian tùy chọn: Theo Quý / Theo Tháng / Theo Tuần / Theo Ngày -->
+            <!-- Thanh bộ lọc thời gian: Theo Quý / Theo Tháng / Theo Tuần / Theo Ngày -->
             <div class="unified-ranking-filter-bar">
               <div class="filter-group-item">
-                <label>Chế độ thời gian tùy chọn:</label>
+                <label>Chế độ xem:</label>
                 <select id="unifiedFilterMode" class="form-control form-control-sm" onchange="AppUI.onUnifiedRankingFilterModeChange()">
                   <option value="MONTH" selected>Theo Tháng</option>
                   <option value="QUARTER">Theo Quý</option>
@@ -486,9 +490,9 @@
                 </select>
               </div>
 
-              <!-- 1. Tùy chọn Theo Tháng -->
+              <!-- 1. Theo Tháng -->
               <div id="unifiedFilterMonthGroup" class="filter-group-item">
-                <label>Chọn Tháng thống kê:</label>
+                <label>Chọn Tháng:</label>
                 <select id="unifiedSelectMonth" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
                   <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
                   <option value="2026-09">Tháng 09/2026</option>
@@ -499,9 +503,9 @@
                 </select>
               </div>
 
-              <!-- 2. Tùy chọn Theo Quý -->
+              <!-- 2. Theo Quý -->
               <div id="unifiedFilterQuarterGroup" class="filter-group-item hidden">
-                <label>Chọn Quý thống kê:</label>
+                <label>Chọn Quý:</label>
                 <select id="unifiedSelectQuarter" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
                   <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10/2026)</option>
                   <option value="2026-Q3">Quý 3/2026 (Tháng 07 – Tháng 09/2026)</option>
@@ -509,7 +513,7 @@
                 </select>
               </div>
 
-              <!-- 3. Tùy chọn Theo Tuần -->
+              <!-- 3. Theo Tuần -->
               <div id="unifiedFilterWeekMonthGroup" class="filter-group-item hidden">
                 <label>Tháng của Tuần:</label>
                 <select id="unifiedSelectWeekMonth" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
@@ -522,7 +526,7 @@
                 </select>
               </div>
               <div id="unifiedFilterWeekGroup" class="filter-group-item hidden">
-                <label>Chọn Tuần trong tháng:</label>
+                <label>Chọn Tuần:</label>
                 <select id="unifiedSelectWeek" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
                   <option value="W1">Tuần 1 (Ngày 01 – 07)</option>
                   <option value="W2">Tuần 2 (Ngày 08 – 14)</option>
@@ -531,13 +535,13 @@
                 </select>
               </div>
 
-              <!-- 4. Tùy chọn Theo Ngày -->
+              <!-- 4. Theo Ngày -->
               <div id="unifiedFilterDayStartGroup" class="filter-group-item hidden">
-                <label>Từ ngày tùy chọn:</label>
+                <label>Từ ngày:</label>
                 <input type="date" id="unifiedFilterStartDate" class="form-control form-control-sm" value="2026-10-01" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
               </div>
               <div id="unifiedFilterDayEndGroup" class="filter-group-item hidden">
-                <label>Đến ngày tùy chọn:</label>
+                <label>Đến ngày:</label>
                 <input type="date" id="unifiedFilterEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
               </div>
             </div>

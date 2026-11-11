@@ -2311,41 +2311,75 @@ handleResetPassword(username) {
   },
 
   renderKPIsAndBadges() {
-    const orders = window.omsEngine.orders;
-    const inv = window.omsEngine.inventory;
+    const orders = window.omsEngine ? window.omsEngine.orders : [];
+    const inv = window.omsEngine ? window.omsEngine.inventory : [];
 
+    // 1. Dữ liệu Khối 1: Kho hàng
+    const totalPhysical = inv.reduce((s, i) => s + (i.physicalStock || 0), 0);
+    const totalAvailable = inv.reduce((s, i) => s + (i.availableStock || 0), 0);
+    const totalReserved = inv.reduce((s, i) => s + (i.reservedStock || 0), 0);
+    const outOfStockSkus = inv.filter((i) => (i.availableStock || 0) === 0).length;
+
+    // 2. Dữ liệu Khối 2: Đơn hàng các kênh (Tiếp nhận / Gom đơn)
     const totalOrders = orders.length;
-    const allocatedOrders = orders.filter((o) => o.status === "ALLOCATED").length;
-    const backorderOrders = orders.filter((o) => o.status === "BACKORDER").length;
-    const invalidOrders = orders.filter((o) => o.status === "INVALID").length;
+    const confirmedCount = orders.filter((o) => {
+      const ps = o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
+      return ps === "CONFIRMED" && o.status !== "CANCELLED";
+    }).length;
+    const unconfirmedCount = orders.filter((o) => (o.platformStatus || "") === "UNCONFIRMED").length;
+    const cancelledCount = orders.filter((o) => {
+      const ps = o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
+      return ps === "CANCELLED" || o.status === "CANCELLED";
+    }).length;
 
-    const totalPhysical = inv.reduce((s, i) => s + i.physicalStock, 0);
-    const totalReserved = inv.reduce((s, i) => s + i.reservedStock, 0);
-    const totalAvailable = inv.reduce((s, i) => s + i.availableStock, 0);
-    const outOfStockSkus = inv.filter((i) => i.availableStock === 0).length;
+    // 3. Dữ liệu Khối 3: Quản lý Vận đơn
+    const waybillList = this.waybillHistory || [];
+    const totalWaybills = waybillList.length;
+
+    // 4. Dữ liệu Khối 4: Vận chuyển đơn
+    if (!this.shipments || this.shipments.length === 0) {
+      if (window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0) {
+        this.shipments = JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA));
+      }
+    }
+    const shipmentsList = this.shipments || [];
+    const totalShipments = shipmentsList.length;
+    const inTransitShipments = shipmentsList.filter(s => s.status === "IN_TRANSIT" || s.status === "PENDING_PICKUP").length;
+    const deliveredShipments = shipmentsList.filter(s => s.status === "DELIVERED").length;
 
     const setElText = (id, val) => {
       const el = document.getElementById(id);
       if (el) el.innerText = val;
     };
 
-    // 4 Thẻ KPI chính
-    setElText("kpiTotalOrders", totalOrders);
-    setElText("kpiAllocated", allocatedOrders);
-    setElText("kpiBackorder", backorderOrders);
-    setElText("kpiInvalid", invalidOrders);
-    setElText("kpiAvailableSummary", `Tồn khả dụng (ATP): ${totalAvailable} / ${totalPhysical} SP (Giữ chỗ: ${totalReserved})`);
+    // Cập nhật hiển thị 4 Khối chức năng mới trên Thẻ Tổng Quan
+    // Khối 1: Kho hàng
+    setElText("kpiInventoryTotal", `${totalPhysical} SP`);
+    setElText("kpiInventorySub", `Sẵn sàng bán: ${totalAvailable} SP · Đã xác nhận: ${totalReserved} SP`);
 
-    // Banner trạng thái
+    // Khối 2: Đơn hàng các kênh
+    setElText("kpiOrdersTotal", `${totalOrders} đơn`);
+    setElText("kpiOrdersSub", `Đã xác nhận: ${confirmedCount} · Chờ xác nhận: ${unconfirmedCount} · Đã hủy: ${cancelledCount}`);
+
+    // Khối 3: Quản lý Vận đơn
+    setElText("kpiWaybillTotal", `${totalWaybills} vận đơn`);
+    setElText("kpiWaybillSub", `Đã cấp mã vận đơn: ${totalWaybills} · Sẵn sàng in phiếu QR: ${totalWaybills}`);
+
+    // Khối 4: Vận chuyển đơn
+    setElText("kpiShippingTotal", `${totalShipments} đơn`);
+    setElText("kpiShippingSub", `Đang vận chuyển: ${inTransitShipments} đơn · Đã giao thành công: ${deliveredShipments} đơn`);
+
+    // Banner trạng thái trên đầu trang
     setElText(
       "bannerTrackingText",
       `5 Kênh kết nối · ${totalOrders} đơn hàng · Tồn khả dụng: ${totalAvailable}/${totalPhysical} SP`
     );
 
-    // Badges trên Sidebar ODOMS
-    const activeShippingCount = (this.shipments || []).filter(s => s.status === "IN_TRANSIT" || s.status === "PENDING_PICKUP").length;
-    setElText("badgeShippingCount", activeShippingCount || allocatedOrders);
-    setElText("badgeFifoCount", activeShippingCount || allocatedOrders);
+    // Badges số lượng trên Sidebar ODOMS
+    const backorderOrders = orders.filter((o) => o.status === "BACKORDER").length;
+    const allocatedOrders = orders.filter((o) => o.status === "ALLOCATED").length;
+    setElText("badgeShippingCount", inTransitShipments || allocatedOrders);
+    setElText("badgeFifoCount", inTransitShipments || allocatedOrders);
     setElText("badgeBackorderCount", backorderOrders + outOfStockSkus);
   },
 
