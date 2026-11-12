@@ -81,6 +81,10 @@ const AppUI = {
   currentChannelFilter: "ALL",
   currentStatusFilter: "ALL",
   searchQuery: "",
+  invCategoryFilter: "ALL",
+  invStatusFilter: "ALL",
+  invSearchQuery: "",
+  activeInvCard: null,
   qrLookupQuery: "",
   demoTimer: null,
   currentTheme: "navy",
@@ -832,9 +836,195 @@ const AppUI = {
   },
 
   handleRestock(sku, qty) {
-    window.omsEngine.restockSku(sku, qty);
+    const numQty = parseInt(qty, 10);
+    if (!sku || isNaN(numQty) || numQty <= 0) return;
+    window.omsEngine.restockSku(sku, numQty);
     this.triggerChannelSyncAnimation();
     this.renderAll();
+    const popEl = document.getElementById("invRestockPopover");
+    if (popEl && !popEl.classList.contains("hidden")) {
+      this.openRestockPopover(sku);
+    }
+  },
+
+  onFirstKpiCardClick() {
+    if (this.currentMenuTab === "inventory") {
+      this.switchSidebarTab("dashboard");
+    } else {
+      this.switchSidebarTab("inventory");
+    }
+  },
+
+  onInventoryFilterChange() {
+    const catEl = document.getElementById("invCategoryFilter");
+    const statusEl = document.getElementById("invStatusFilter");
+    const searchEl = document.getElementById("invSearchInput");
+    this.invCategoryFilter = catEl ? catEl.value : "ALL";
+    this.invStatusFilter = statusEl ? statusEl.value : "ALL";
+    this.invSearchQuery = searchEl ? String(searchEl.value || "").trim().toLowerCase() : "";
+    this.activeInvCard = null;
+    this.closeRestockPopover();
+    this.renderInventoryTable();
+  },
+
+  filterInventoryByCard(cardType) {
+    const catEl = document.getElementById("invCategoryFilter");
+    const statusEl = document.getElementById("invStatusFilter");
+    const searchEl = document.getElementById("invSearchInput");
+    if (catEl) catEl.value = "ALL";
+    if (searchEl) searchEl.value = "";
+    this.invCategoryFilter = "ALL";
+    this.invSearchQuery = "";
+
+    const targetVal = ["ALL", "AVAILABLE", "RESERVED", "ALERT"].includes(cardType) ? cardType : "ALL";
+    if (statusEl) statusEl.value = targetVal;
+    this.invStatusFilter = targetVal;
+    this.activeInvCard = targetVal;
+    this.closeRestockPopover();
+    this.renderInventoryTable();
+  },
+
+  openRestockPopover(sku, btnEl, ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    const popEl = document.getElementById("invRestockPopover");
+    if (!popEl || !window.omsEngine) return;
+
+    const item = window.omsEngine.inventory.find((i) => i.sku === sku);
+    if (!item) return;
+
+    const formatDateDMY = (dateStr) => {
+      if (!dateStr) return "-";
+      const parts = String(dateStr).split("-");
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+    };
+
+    const unit = item.unit || "SP";
+    const reversedBatches = [...(item.batches || [])].reverse();
+    const batchRowsHtml = reversedBatches
+      .map((b, idx) => {
+        const expStr = formatDateDMY(b.expiryDate || b.importDate);
+        const isLatestRestock = idx === 0 && String(b.batchCode || "").startsWith("LO-BOSUNG");
+        const rowBg = isLatestRestock ? "background:#eff6ff;" : "";
+        const newBadge = isLatestRestock
+          ? ` <span style="display:inline-block;font-size:10px;font-weight:800;color:#2563eb;background:#dbeafe;padding:1px 5px;border-radius:4px;margin-left:4px;">Mới</span>`
+          : "";
+        return `
+          <tr style="${rowBg}">
+            <td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#111827;">${b.batchCode}${newBadge}</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;color:#111827;">${expStr}</td>
+            <td style="padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;">${b.remainingQty} / ${b.initialQty} ${unit}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    popEl.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:13.5px;font-weight:800;color:#111827;">Chi tiết mặt hàng & Nhập kho</span>
+        <button type="button" onclick="AppUI.closeRestockPopover()" style="background:none;border:none;font-size:15px;cursor:pointer;color:var(--text-muted);">✖</button>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px;">${item.name}</div>
+      <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;">Mã SKU: <strong style="color:#111827;">${item.sku}</strong></div>
+
+      <!-- Thông tin Sẵn sàng bán & Tồn thực tế -->
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;margin-bottom:10px;">
+        <div>
+          <div style="font-size:11.5px;color:#475569;">Sẵn sàng bán</div>
+          <div style="font-size:15.5px;font-weight:800;color:${item.availableStock === 0 ? "#dc2626" : "#2563eb"};">${item.availableStock} ${unit}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11.5px;color:#475569;">Tồn kho thực tế</div>
+          <div style="font-size:14px;font-weight:700;color:#111827;">${item.physicalStock} ${unit}</div>
+        </div>
+      </div>
+
+      <!-- Khu vực thao tác Nhập hàng -->
+      <div style="background:#f1f5f9;border-radius:8px;padding:10px;margin-bottom:12px;">
+        <label style="font-size:12px;font-weight:700;color:#111827;display:block;margin-bottom:6px;">➕ Nhập hàng bổ sung (${unit}):</label>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input type="number" id="invRestockQtyInput" class="form-control" min="1" max="1000" value="10" style="flex:1;font-weight:700;" />
+          <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.submitRestockPopover('${item.sku}')">Nhập hàng</button>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button type="button" class="btn btn-outline btn-sm" style="flex:1;padding:3px 0;font-size:11.5px;background:#fff;" onclick="document.getElementById('invRestockQtyInput').value=5">+5</button>
+          <button type="button" class="btn btn-outline btn-sm" style="flex:1;padding:3px 0;font-size:11.5px;background:#fff;" onclick="document.getElementById('invRestockQtyInput').value=10">+10</button>
+          <button type="button" class="btn btn-outline btn-sm" style="flex:1;padding:3px 0;font-size:11.5px;background:#fff;" onclick="document.getElementById('invRestockQtyInput').value=20">+20</button>
+        </div>
+      </div>
+
+      <!-- Bảng Lô hàng & Hạn sử dụng ở dưới -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12.5px;font-weight:700;color:#111827;">Danh sách Lô hàng & Hạn sử dụng</span>
+          <span style="font-size:11.5px;font-weight:600;color:#475569;">Tổng: ${reversedBatches.length} lô</span>
+        </div>
+        <div id="invBatchListScroll" style="max-height:175px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:#f8fafc;text-align:left;position:sticky;top:0;">
+                <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0;color:#475569;">Lô hàng</th>
+                <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0;color:#475569;">Hạn sử dụng</th>
+                <th style="padding:7px 8px;border-bottom:1px solid #e2e8f0;color:#475569;text-align:right;">Còn lại</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${batchRowsHtml || `<tr><td colspan="3" style="padding:8px;text-align:center;color:#6b7280;">Chưa có lô hàng</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    popEl.classList.remove("hidden");
+
+    const actualWidth = popEl.offsetWidth || 420;
+    const actualHeight = popEl.offsetHeight || 400;
+    const margin = 20;
+
+    if (btnEl && btnEl.getBoundingClientRect) {
+      const rect = btnEl.getBoundingClientRect();
+      let left = rect.left - actualWidth - 12;
+      if (left < margin) {
+        left = Math.min(window.innerWidth - actualWidth - margin, rect.right - actualWidth);
+      }
+      let top = rect.top - Math.round(actualHeight / 2) + Math.round(rect.height / 2);
+      if (top + actualHeight > window.innerHeight - margin) {
+        top = window.innerHeight - actualHeight - margin;
+      }
+      if (top < margin) top = margin;
+      popEl.style.left = `${left}px`;
+      popEl.style.top = `${top}px`;
+    } else {
+      let currentTop = parseFloat(popEl.style.top) || margin;
+      if (currentTop + actualHeight > window.innerHeight - margin) {
+        currentTop = Math.max(margin, window.innerHeight - actualHeight - margin);
+        popEl.style.top = `${currentTop}px`;
+      }
+    }
+
+    const batchScrollEl = document.getElementById("invBatchListScroll");
+    if (batchScrollEl) batchScrollEl.scrollTop = 0;
+
+    const qtyInput = document.getElementById("invRestockQtyInput");
+    if (qtyInput) {
+      qtyInput.focus();
+      qtyInput.select();
+    }
+  },
+
+  closeRestockPopover() {
+    const popEl = document.getElementById("invRestockPopover");
+    if (popEl) popEl.classList.add("hidden");
+  },
+
+  submitRestockPopover(sku) {
+    const qtyInput = document.getElementById("invRestockQtyInput");
+    const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
+    if (!qty || qty <= 0) {
+      alert("Vui lòng nhập số lượng hợp lệ lớn hơn 0!");
+      return;
+    }
+    this.handleRestock(sku, qty);
   },
 
   // ============================================================================
@@ -2353,9 +2543,20 @@ handleResetPassword(username) {
     };
 
     // Cập nhật hiển thị 4 Khối chức năng mới trên Thẻ Tổng Quan
-    // Khối 1: Kho hàng
-    setElText("kpiInventoryTotal", `${totalPhysical} SP`);
-    setElText("kpiInventorySub", `Sẵn sàng bán: ${totalAvailable} SP · Đã xác nhận: ${totalReserved} SP`);
+    // Khối 1: Khi đang ở tab Kho -> Hiển thị nội dung chắt lọc nhất của Tổng Quan và liên kết về Tổng Quan
+    const firstCardEl = document.getElementById("kpiFirstCard");
+    if (this.currentMenuTab === "inventory") {
+      const fulfillmentRate = totalOrders > 0 ? Math.round((confirmedCount / totalOrders) * 100) : 0;
+      setElText("kpiInventoryLabel", "Tổng Quan");
+      setElText("kpiInventoryTotal", `${fulfillmentRate}%`);
+      setElText("kpiInventorySub", `Tỷ lệ hoàn tất đơn hàng (${confirmedCount} đơn đủ hàng / ${totalOrders} đơn tiếp nhận)`);
+      if (firstCardEl) firstCardEl.title = "Bấm để quay về xem Tổng Quan";
+    } else {
+      setElText("kpiInventoryLabel", "Kho hàng");
+      setElText("kpiInventoryTotal", `${totalPhysical} SP`);
+      setElText("kpiInventorySub", `Sẵn sàng bán: ${totalAvailable} SP · Đã xác nhận: ${totalReserved} SP`);
+      if (firstCardEl) firstCardEl.title = "Bấm để vào xem Kho hàng";
+    }
 
     // Khối 2: Đơn hàng các kênh
     setElText("kpiOrdersTotal", `${totalOrders} đơn`);
@@ -2369,11 +2570,22 @@ handleResetPassword(username) {
     setElText("kpiShippingTotal", `${totalShipments} đơn`);
     setElText("kpiShippingSub", `Đang vận chuyển: ${inTransitShipments} đơn · Đã giao thành công: ${deliveredShipments} đơn`);
 
-    // Banner trạng thái trên đầu trang
-    setElText(
-      "bannerTrackingText",
-      `5 Kênh kết nối · ${totalOrders} đơn hàng · Tồn khả dụng: ${totalAvailable}/${totalPhysical} SP`
-    );
+    // Cập nhật 4 Thẻ chỉ số riêng của Kho (Tab Kho)
+    const uniqueCategories = new Set(inv.map((i) => i.category)).size;
+    const lowStockSkus = inv.filter((i) => {
+      const pct = i.physicalStock > 0 ? Math.round((i.availableStock / i.physicalStock) * 100) : 0;
+      return (i.availableStock || 0) > 0 && pct <= 35;
+    }).length;
+    const alertTotalSkus = outOfStockSkus + lowStockSkus;
+
+    setElText("invKpiPhysical", `${inv.length} mặt hàng`);
+    setElText("invKpiPhysicalSub", `Thuộc ${uniqueCategories} danh mục`);
+    setElText("invKpiAvailable", `${totalAvailable} SP`);
+    setElText("invKpiAvailableSub", `Đang đồng bộ mở bán trên 5 kênh`);
+    setElText("invKpiReserved", `${totalReserved} SP`);
+    setElText("invKpiReservedSub", `Hàng chờ đóng gói xuất đi`);
+    setElText("invKpiAlert", `${alertTotalSkus} mặt hàng`);
+    setElText("invKpiAlertSub", `Hết hàng: ${outOfStockSkus} · Sắp hết hàng: ${lowStockSkus}`);
 
     // Badges số lượng trên Sidebar ODOMS
     const backorderOrders = orders.filter((o) => o.status === "BACKORDER").length;
@@ -3182,65 +3394,125 @@ handleResetPassword(username) {
 
   renderInventoryTable() {
     const tbody = document.getElementById("inventoryTableBody");
-    if (!tbody) return;
+    if (!tbody || !window.omsEngine) return;
 
-    tbody.innerHTML = window.omsEngine.inventory
+    const channelNameMap = {
+      SHOPEE: "Shopee",
+      TIKTOK: "TikTok Shop",
+      LAZADA: "Lazada",
+      POS: "Cửa hàng POS",
+      FACEBOOK: "Facebook"
+    };
+
+    const formatDateDMY = (dateStr) => {
+      if (!dateStr) return "-";
+      const parts = String(dateStr).split("-");
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return dateStr;
+    };
+
+    const catFilter = this.invCategoryFilter || "ALL";
+    const statusFilter = this.invStatusFilter || "ALL";
+    const q = (this.invSearchQuery || "").toLowerCase();
+
+    const filteredItems = window.omsEngine.inventory.filter((item) => {
+      if (catFilter !== "ALL" && item.category !== catFilter) return false;
+
+      const pct = item.physicalStock > 0 ? Math.round((item.availableStock / item.physicalStock) * 100) : 0;
+      const itemStatusKey = item.availableStock === 0 ? "OUT" : pct <= 35 ? "LOW" : "ENOUGH";
+      if (statusFilter === "AVAILABLE") {
+        if ((item.availableStock || 0) <= 0) return false;
+      } else if (statusFilter === "RESERVED") {
+        if ((item.reservedStock || 0) <= 0) return false;
+      } else if (statusFilter === "ALERT") {
+        if ((item.availableStock || 0) > 0 && pct > 35) return false;
+      } else if (statusFilter !== "ALL" && itemStatusKey !== statusFilter) {
+        return false;
+      }
+
+      if (q) {
+        const matchSku = String(item.sku || "").toLowerCase().includes(q);
+        const matchName = String(item.name || "").toLowerCase().includes(q);
+        if (!matchSku && !matchName) return false;
+      }
+      return true;
+    });
+
+    if (filteredItems.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);font-weight:600;">
+            Không tìm thấy sản phẩm nào khớp với bộ lọc hiện tại.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const activeCard = this.activeInvCard || null;
+    const defaultTextColor = "#111827";
+    const catColColor = activeCard === "ALL" ? "#3d27eb" : defaultTextColor;
+    const prodColColor = defaultTextColor;
+    const physColColor = activeCard === "ALERT" ? "#dc2626" : defaultTextColor;
+    const resColColor = activeCard === "RESERVED" ? "#ea580c" : defaultTextColor;
+    const availColColor = activeCard === "AVAILABLE" ? "#2563eb" : activeCard === "ALERT" ? "#dc2626" : defaultTextColor;
+
+    tbody.innerHTML = filteredItems
       .map((item) => {
         const pct = item.physicalStock > 0 ? Math.round((item.availableStock / item.physicalStock) * 100) : 0;
         const barClass = item.availableStock === 0 ? "out" : pct <= 30 ? "low" : "";
 
-        const channelHolds = Object.entries(item.channelReserved)
+        const channelHolds = Object.entries(item.channelReserved || {})
           .filter(([, count]) => count > 0)
           .map(
             ([ch, count]) =>
-              `<span class="channel-badge badge-${ch}" style="font-size:10.5px;padding:2px 6px;">${ch}: ${count}</span>`
-          )
-          .join(" ");
-
-        const batchSummary = item.batches
-          .map(
-            (b) =>
-              `<span class="hold-pill">${b.batchCode}: còn ${b.remainingQty}/${b.initialQty}</span>`
+              `<span class="channel-badge badge-${ch}" style="font-size:10.5px;padding:2px 6px;">${channelNameMap[ch] || ch}: ${count}</span>`
           )
           .join(" ");
 
         const statusLabel =
           item.availableStock === 0
-            ? `<span class="status-badge st-INVALID">Hết hàng (0%)</span>`
+            ? `<span class="status-badge st-INVALID">Hết hàng</span>`
             : pct <= 35
-            ? `<span class="status-badge st-BACKORDER">Sắp hết (${pct}%)</span>`
-            : `<span class="status-badge st-ALLOCATED">Bình thường (${pct}%)</span>`;
+            ? `<span class="status-badge st-BACKORDER">Sắp hết hàng</span>`
+            : `<span class="status-badge st-ALLOCATED">Đủ hàng</span>`;
 
         return `
         <tr>
           <td>
-            <div style="font-weight:800;color:var(--theme-primary);">${item.category}</div>
-            <div style="font-size:11px;color:var(--text-muted);">Đơn vị: ${item.unit || "SP"}</div>
+            <div style="font-weight:800;color:${catColColor};">${item.category}</div>
+            <div style="font-size:11px;color:${catColColor};">Đơn vị: ${item.unit || "SP"}</div>
           </td>
           <td>
-            <div style="font-weight:700;color:var(--text-main);">${item.sku}</div>
-            <div style="font-size:12px;color:var(--text-muted);">${item.name}</div>
+            <div style="font-weight:700;color:${prodColColor};">${item.name}</div>
+            <div style="font-size:11.5px;color:${prodColColor};margin-top:2px;">Mã SKU: <strong>${item.sku}</strong></div>
           </td>
-          <td style="font-weight:800;font-size:14px;">${item.physicalStock} ${item.unit || "SP"}</td>
+          <td style="font-weight:800;font-size:14px;color:${physColColor};">${item.physicalStock} ${item.unit || "SP"}</td>
           <td>
-            <div style="font-weight:700;color:var(--theme-primary);font-size:14px;">${item.reservedStock}</div>
+            <div style="font-weight:700;color:${resColColor};font-size:14px;">${item.reservedStock} ${item.unit || "SP"}</div>
             <div style="margin-top:4px;">
-              ${channelHolds || '<span style="font-size:11px;color:var(--text-muted);">Chưa giữ hàng</span>'}
+              ${channelHolds || `<span style="font-size:11px;color:${resColColor};">Chưa có đơn giữ</span>`}
             </div>
           </td>
           <td>
-            <div style="font-weight:800;font-size:15px;color:${item.availableStock === 0 ? "#dc2626" : "var(--theme-primary)"};">
-              ${item.availableStock} / ${item.physicalStock}
+            <div style="font-weight:800;font-size:15px;color:${availColColor};">
+              ${item.availableStock} ${item.unit || "SP"}
             </div>
-            <div class="stock-bar-wrap">
+            ${
+              item.availableStock === 0
+                ? `<div style="font-size:11px;color:${activeCard === "AVAILABLE" ? "#2563eb" : activeCard === "ALERT" ? "#dc2626" : "#6b7280"};margin-top:2px;font-weight:600;">Đã giữ hết cho đơn</div>`
+                : ""
+            }
+            <div class="stock-bar-wrap" style="margin-top:4px;">
               <div class="stock-bar-fill ${barClass}" style="width: ${pct}%;"></div>
             </div>
           </td>
-          <td>${ batchSummary }</td>
-          <td>${ statusLabel }</td>
+          <td>${statusLabel}</td>
           <td>
-            <button class="btn btn-outline btn-sm" onclick="AppUI.handleRestock('${item.sku}', 5)">
-              ➕ Nhập bù +5
+            <button class="btn btn-outline btn-sm" style="color:#111827;" onclick="AppUI.openRestockPopover('${item.sku}', this, event)">
+              Xem chi tiết
             </button>
           </td>
         </tr>

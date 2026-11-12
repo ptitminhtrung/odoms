@@ -1,0 +1,8 @@
+
+
+Đăng nhập trang web ở thiết bị khác thì gửi mã xác thực về cho điện thoại
+
+Tiếp nối cuộc trò chuyện trước (ReOMStqP1_UI), Mục đích của cuộc trò chuyện này là nâng cao trải nghiệm giao diện chức năng Tổng quan cho người dùng. Hiện tại giao diện chức năng của thẻ tổng quan quá rối và bị lặp lại các chức năng trong phần Nghiệp vụ. bạn được review lại toàn bộ code có trong file S:\HTTT\ . Sử dụng các file hiện có trong thư mục S:\HTTT\ để phục vụ cho yêu cầu này.  đảm bảo tuân thủ yêu cầu: chưa rõ thì hỏi lại. Không tự đoán. 
+Đơn giản trước, chỉ viết đúng thứ tự yêu cầu. Không thêm thắt. 
+Làm theo mục tiêu. Đặt tiêu chí kiểm tra rồi chạy đến khi đạt. Bạn được phép truy cập thư mục HTTT để xem kỹ lại toàn bộ nội dung các file. quy tắc làm việc chung giữa bạn và tôi như sau: bạn sẽ phản hồi cho tôi được biết là bạn hiểu yêu cầu của tôi như thế nào trước khi tôi nói là bạn được phép thực hiện thay đổi nội dung của bất kì file nào, chính xác đến mức nội dun mà bạn đề xuất thay đổi ở dòng nào thuộc file nào, file bạn được phép thay đổi lưu ý chỉ có trong thư mục HTTT. Sau đó, bạn hãy cho tôi biết file nào đã được thực hiện thay đổi. 
+thanh nút công cụ phía trên cùng bạn sẽ đề xuất cho tôi cách xử lí sao cho đẹp, gọn gàng hiện đại phù hợp thị hiếu người xem , mà sau khi dẹp các khối chức năng nghiệp vụ đang bị lặp lại trên thẻ Tổng Quan.

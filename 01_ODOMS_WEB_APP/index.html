@@ -234,10 +234,10 @@
             <span class="banner-dot" style="width:7px;height:7px;"></span>
             Live Analytics
           </span>
-          <button class="btn btn-primary hidden" data-action-views="ingest inventory shipping fifo backorder qr_api" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
+          <button class="btn btn-primary hidden" data-action-views="ingest shipping fifo backorder qr_api" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
             📥 Nạp Gom 5 Kênh (11 Đơn)
           </button>
-          <button id="btnRunDemo" class="btn btn-warning hidden" data-action-views="ingest inventory shipping fifo backorder qr_api" onclick="AppUI.runStepByStepFifoDemo()">
+          <button id="btnRunDemo" class="btn btn-warning hidden" data-action-views="ingest shipping fifo backorder qr_api" onclick="AppUI.runStepByStepFifoDemo()">
             ▶️ Chạy Mô Phỏng FIFO
           </button>
           <button class="btn btn-outline" onclick="window.ExcelHandler.exportAllocatedReport()">
@@ -255,22 +255,13 @@
 
       <!-- NỘI DUNG CUỘN CHÍNH -->
       <div class="wms-content-container">
-        <!-- 1. BANNER TRẠNG THÁI FEFO / FIFO -->
-        <div class="fefo-status-banner">
-          <div class="banner-left">
-            <span class="banner-dot"></span>
-            <span>FIFO & FEFO đang hoạt động – Đơn đặt trước được ưu tiên giữ hàng & xuất lô cận hạn trước</span>
-          </div>
-          <div id="bannerTrackingText">5 Kênh kết nối · 5 SKU (59 SP vật lý) đang theo dõi</div>
-        </div>
-
         <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI CHIẾN LƯỢC (Hiển thị ở Dashboard, FIFO, Backorder, Kho, Gom đơn) -->
         <section class="oms-view-section" data-views="dashboard fifo backorder inventory ingest">
           <div class="kpi-cards-grid">
-            <!-- Khối 1: Kho hàng (Liên kết với Kho) -->
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('inventory')" title="Bấm để vào xem Kho hàng">
+            <!-- Khối 1: Kho hàng / Tổng Quan (Liên kết động giữa Kho và Tổng Quan) -->
+            <div id="kpiFirstCard" class="wms-kpi-card kpi-card-interactive" onclick="AppUI.onFirstKpiCardClick()" title="Bấm để vào xem Kho hàng">
               <div class="kpi-card-top">
-                <span class="kpi-card-label">Kho hàng</span>
+                <span id="kpiInventoryLabel" class="kpi-card-label">Kho hàng</span>
                 <div class="kpi-icon-box green">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 </div>
@@ -320,6 +311,67 @@
               <div id="kpiShippingTotal" class="kpi-card-number">5 đơn</div>
               <div id="kpiShippingSub" class="kpi-card-sub purple" style="color:#7c3aed;">
                 Đang vận chuyển: 3 đơn · Đã giao thành công: 1 đơn
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2.1. KHỐI 4 THẺ CHỈ SỐ CỦA KHO (Hiển thị riêng ở tab Kho) -->
+        <section class="oms-view-section hidden" data-views="inventory">
+          <div class="kpi-cards-grid">
+            <!-- Thẻ 1: Danh mục mặt hàng -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('ALL')" title="Bấm để lọc hiển thị tất cả mặt hàng">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Danh mục mặt hàng</span>
+                <div class="kpi-icon-box green">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+                </div>
+              </div>
+              <div id="invKpiPhysical" class="kpi-card-number">5 mặt hàng</div>
+              <div id="invKpiPhysicalSub" class="kpi-card-sub green">
+                Thuộc 4 danh mục
+              </div>
+            </div>
+
+            <!-- Thẻ 2: Sẵn sàng bán -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('AVAILABLE')" title="Bấm để lọc các mặt hàng sẵn sàng bán">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Sẵn sàng bán</span>
+                <div class="kpi-icon-box blue" style="background:rgba(37,99,235,0.12);color:#2563eb;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </div>
+              </div>
+              <div id="invKpiAvailable" class="kpi-card-number">31 SP</div>
+              <div id="invKpiAvailableSub" class="kpi-card-sub blue" style="color:#2563eb;">
+                Đang đồng bộ mở bán trên 5 kênh
+              </div>
+            </div>
+
+            <!-- Thẻ 3: Đã xác nhận -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('RESERVED')" title="Bấm để lọc các mặt hàng đang có hàng chờ đóng gói">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Đã xác nhận</span>
+                <div class="kpi-icon-box orange" style="background:rgba(249,115,22,0.12);color:#ea580c;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
+                </div>
+              </div>
+              <div id="invKpiReserved" class="kpi-card-number">28 SP</div>
+              <div id="invKpiReservedSub" class="kpi-card-sub orange" style="color:#ea580c;">
+                Hàng chờ đóng gói xuất đi
+              </div>
+            </div>
+
+            <!-- Thẻ 4: Cảnh báo cần nhập -->
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('ALERT')" title="Bấm để lọc mặt hàng Hết hàng hoặc Sắp hết hàng">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Cảnh báo cần nhập</span>
+                <div class="kpi-icon-box red">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </div>
+              </div>
+              <div id="invKpiAlert" class="kpi-card-number">0 mặt hàng</div>
+              <div id="invKpiAlertSub" class="kpi-card-sub red">
+                Hết hàng: 0 · Sắp hết hàng: 0
               </div>
             </div>
           </div>
@@ -895,7 +947,7 @@
         </section>
 
         <!-- 6. KHỐI CẢNH BÁO CẦN XỬ LÝ (Actionable Alerts) -->
-        <section class="oms-view-section hidden" data-views="fifo backorder inventory" style="margin-top:20px;">
+        <section class="oms-view-section hidden" data-views="fifo backorder" style="margin-top:20px;">
           <div class="wms-card">
             <div class="wms-card-header">
               <div>
@@ -1083,13 +1135,49 @@
           </div>
         </section>
 
-        <!-- 8. BẢNG TỒN KHO NỘI BỘ & ĐỐI CHIẾU LÔ HÀNG ATP -->
+        <!-- 8. BẢNG QUẢN LÝ TỒN KHO HÀNG HÓA -->
         <section class="oms-view-section hidden" data-views="inventory backorder">
-          <div class="wms-card">
-            <div class="wms-card-header">
+          <div class="wms-card" style="position:relative;">
+            <div class="wms-card-header" style="flex-wrap:wrap;gap:12px;">
               <div>
-                <div class="wms-card-title">Tồn kho hiện tại & Đối chiếu Khả dụng (ATP)</div>
-                <div class="wms-card-subtitle">Tồn Khả Dụng (Available) = Tồn Vật Lý (Physical) − Đang Giữ Chỗ (Reserved)</div>
+                <div class="wms-card-title">Bảng Quản Lý Tồn Kho Hàng Hóa</div>
+                <div class="wms-card-subtitle">Theo dõi tồn kho thực tế, lượng sẵn sàng bán và hạn sử dụng theo từng lô hàng</div>
+              </div>
+
+              <!-- Thanh Tìm kiếm & Bộ lọc nhanh ngay trên bảng Kho -->
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <label for="invCategoryFilter" style="font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap;">Danh mục:</label>
+                  <select id="invCategoryFilter" class="form-control" style="width:auto;font-weight:600;" onchange="AppUI.onInventoryFilterChange()">
+                    <option value="ALL">Tất cả</option>
+                    <option value="Thời trang">Thời trang</option>
+                    <option value="Phụ kiện số">Phụ kiện số</option>
+                    <option value="Túi & Balo">Túi &amp; Balo</option>
+                    <option value="Gia dụng">Gia dụng</option>
+                  </select>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <label for="invStatusFilter" style="font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap;">Tình trạng:</label>
+                  <select id="invStatusFilter" class="form-control" style="width:auto;font-weight:600;" onchange="AppUI.onInventoryFilterChange()">
+                    <option value="ALL">Tất cả</option>
+                    <option value="AVAILABLE">Có hàng sẵn sàng bán</option>
+                    <option value="RESERVED">Có hàng chờ đóng gói (Đã xác nhận)</option>
+                    <option value="ALERT">Cần nhập hàng (Hết / Sắp hết)</option>
+                    <option value="ENOUGH">Đủ hàng</option>
+                    <option value="LOW">Sắp hết hàng</option>
+                    <option value="OUT">Hết hàng</option>
+                  </select>
+                </div>
+
+                <input
+                  type="text"
+                  id="invSearchInput"
+                  class="form-control"
+                  style="width:220px;"
+                  placeholder="🔍 Tìm tên sản phẩm, mã SKU..."
+                  oninput="AppUI.onInventoryFilterChange()"
+                />
               </div>
             </div>
 
@@ -1097,19 +1185,25 @@
               <table class="wms-table">
                 <thead>
                   <tr>
-                    <th>Nhóm Hàng / Danh Mục</th>
-                    <th>Sản Phẩm (SKU Nội Bộ)</th>
-                    <th>Tồn Vật Lý</th>
-                    <th>Đang Giữ Chỗ (Theo Sàn)</th>
-                    <th>Tồn Khả Dụng (ATP)</th>
-                    <th>Phân Bổ Lô Hàng (Batch FEFO)</th>
-                    <th>Trạng Thái</th>
-                    <th>Thao Tác</th>
+                    <th>Danh mục</th>
+                    <th>Sản phẩm</th>
+                    <th>Tồn kho thực tế</th>
+                    <th>Hàng chờ đóng gói</th>
+                    <th>Sẵn sàng bán</th>
+                    <th>Tình trạng</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody id="inventoryTableBody"></tbody>
               </table>
             </div>
+
+            <!-- Bảng thông báo nhỏ Xem chi tiết: Lô hàng & Hạn sử dụng + Nhập hàng -->
+            <div
+              id="invRestockPopover"
+              class="hidden"
+              style="position:fixed;z-index:1050;width:420px;max-height:calc(100vh - 32px);overflow-y:auto;background:var(--bg-card, #ffffff);border:1.5px solid var(--theme-primary, #0A2947);border-radius:12px;box-shadow:0 12px 28px rgba(10,41,71,0.18);padding:16px;"
+            ></div>
           </div>
         </section>
 
