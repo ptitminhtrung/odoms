@@ -286,13 +286,18 @@
   padding: 0;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: var(--theme-workspace-bg);
   color: var(--text-main);
   font-size: 13.5px;
   line-height: 1.5;
-  overflow-x: hidden;
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
@@ -679,6 +684,8 @@ body {
   display: flex;
   min-height: 100vh;
   width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 /* SIDEBAR TRÁI */
@@ -919,6 +926,8 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   background: var(--theme-workspace-bg);
   transition: background-color 0.25s ease;
 }
@@ -992,7 +1001,14 @@ body {
   padding: 18px 22px 36px;
   max-width: 1520px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin: 0 auto;
+}
+
+.oms-view-section {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Thanh trạng thái FEFO / FIFO (System Status Banner) */
@@ -1027,7 +1043,7 @@ body {
 /* Hàng 4 Thẻ Chỉ số KPI (Grid 4 cột tổng quan ODOMS) */
 .kpi-cards-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }
@@ -1041,6 +1057,9 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
@@ -1212,7 +1231,7 @@ body {
 /* Danh mục kênh bán & Thanh đồng bộ 5 kênh */
 .channel-strip-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -1222,6 +1241,8 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 11px;
   padding: 12px 14px;
+  min-width: 0;
+  max-width: 100%;
   transition: all 0.2s;
 }
 
@@ -1556,7 +1577,7 @@ body {
 /* 1. Bảng Tổng Doanh Thu + 5 Kênh Bán Hàng (6 thẻ ngang) */
 .revenue-6cards-grid {
   display: grid;
-  grid-template-columns: 1.35fr repeat(5, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1569,6 +1590,8 @@ body {
   flex-direction: column;
   justify-content: space-between;
   position: relative;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -1601,16 +1624,17 @@ body {
 }
 
 .rev-card-value {
-  font-size: 19px;
+  font-size: clamp(15px, 1.35vw, 19px);
   font-weight: 900;
   color: var(--text-main);
   letter-spacing: -0.3px;
   line-height: 1.2;
   margin: 2px 0 6px;
+  word-break: break-word;
 }
 
 .rev-channel-card.total-hero .rev-card-value {
-  font-size: 22px;
+  font-size: clamp(16.5px, 1.5vw, 22px);
   color: var(--theme-primary);
 }
 
@@ -1650,9 +1674,9 @@ body {
 }
 
 .unified-ranking-filter-bar .filter-group-item {
-  min-width: 190px;
-  flex: 1 1 200px;
-  max-width: 320px;
+  min-width: 145px;
+  flex: 1 1 180px;
+  max-width: 100%;
 }
 
 .filter-group-item label {
@@ -1708,15 +1732,17 @@ body {
 }
 
 .bar-top-revenue-badge {
-  font-size: 12.5px;
+  font-size: clamp(10.5px, 1.05vw, 12.5px);
   font-weight: 900;
   color: var(--text-main);
   background: var(--theme-card-bg);
   border: 1.5px solid var(--theme-primary);
-  padding: 5px 12px;
+  padding: 5px 10px;
   border-radius: 10px;
   margin-bottom: 9px;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 100%;
   text-align: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
@@ -1896,12 +1922,18 @@ body {
   border-radius: 12px;
   padding: 18px 20px;
   font-family: "Inter", system-ui, -apple-system, sans-serif;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .wb-ticket-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   border-bottom: 2px solid #0A2947;
   padding-bottom: 10px;
   margin-bottom: 12px;
@@ -1911,6 +1943,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .wb-brand-logo {
@@ -1924,18 +1957,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .wb-qr-and-code-row {
   display: grid;
-  grid-template-columns: 145px 1fr;
-  gap: 16px;
+  grid-template-columns: 145px minmax(0, 1fr);
+  gap: 14px;
   align-items: center;
   background: #f8fafc;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 12px;
   margin-bottom: 12px;
+  min-width: 0;
 }
 
 .wb-qr-box {
@@ -1951,7 +1986,7 @@ body {
 
 .wb-info-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   font-size: 12.5px;
   margin-bottom: 12px;
@@ -1962,6 +1997,8 @@ body {
   border-radius: 8px;
   padding: 9px 11px;
   background: #ffffff;
+  min-width: 0;
+  word-break: break-word;
 }
 
 /* ============================================================================
@@ -2037,13 +2074,74 @@ body {
    RESPONSIVE MEDIA QUERIES (TỰ ĐỘNG THÍCH ỨNG CHO ĐIỆN THOẠI & TABLET)
    ============================================================================ */
 
-/* 1. Màn hình máy tính xách tay nhỏ / Tablet ngang (<= 1280px) */
+/* 1. Màn hình Laptop 14 inch / Full HD phóng 125% (<= 1500px) & Tablet ngang (<= 1280px) */
+@media (max-width: 1500px) {
+  .wms-sidebar {
+    min-width: 235px;
+  }
+  .revenue-6cards-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .wms-content-container {
+    padding: 14px 16px 28px;
+  }
+  .wms-kpi-card {
+    padding: 14px 16px;
+  }
+  .kpi-card-number {
+    font-size: 25px;
+  }
+}
+
 @media (max-width: 1280px) {
   .revenue-6cards-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .three-month-filter-bar {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .wb-qr-and-code-row {
+    grid-template-columns: 125px minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+/* Đảm bảo Màn hình Đăng nhập hiển thị trọn vẹn trên Laptop 14 inch có chiều cao khung nhìn thấp */
+@media (max-height: 780px) {
+  .login-screen-wrapper {
+    padding: 14px 16px;
+  }
+  .login-brand-header {
+    margin-bottom: 12px;
+  }
+  .od-logo-square {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  .login-brand-title {
+    font-size: 26px;
+  }
+  .login-brand-subtitle {
+    font-size: 13px;
+    margin-top: 3px;
+  }
+  .login-form-card {
+    padding: 18px 22px 16px;
+  }
+  .login-subheading {
+    margin-bottom: 12px;
+  }
+  .login-field-group {
+    margin-bottom: 11px;
+  }
+  .quick-accounts-section {
+    margin-top: 12px;
+    padding-top: 10px;
+  }
+  .quick-account-list {
+    max-height: 125px;
   }
 }
 
@@ -2251,21 +2349,23 @@ body {
 
   .bar-top-revenue-badge {
     font-size: 10px;
-    padding: 2px 5px;
+    padding: 3px 5px;
     margin-bottom: 5px;
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    line-height: 1.25;
   }
 
-  .bar-pair-wrap {
+  .bar-pair-wrap,
+  .bar-triple-wrap {
     height: 120px;
-    gap: 5px;
+    gap: 4px;
   }
 
-  .bar-pillar {
-    width: 24px;
-    font-size: 9.5px;
+  .bar-pillar,
+  .bar-pillar.triple-col {
+    width: clamp(18px, 6vw, 26px);
+    font-size: 9px;
   }
 
   .bar-pillar.single-wide {
@@ -2763,13 +2863,20 @@ body {
   background: var(--bg-subtle);
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  padding: 14px 10px;
+  padding: 16px 12px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .sold-pie-svg-stage {
   position: relative;
-  width: 215px;
-  height: 215px;
+  width: clamp(175px, 48vw, 225px);
+  height: auto;
+  aspect-ratio: 1 / 1;
+  max-width: 100%;
+  margin: 6px auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2828,14 +2935,25 @@ body {
 /* Lưới 2 cột cho Khối Hợp Nhất: Donut Silk (Trái) & Top 10 / Top 50 Sản phẩm bán chạy (Phải) */
 .unified-rev-donut-top-grid {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  gap: 18px;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 16px;
   align-items: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.unified-donut-left-panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 1200px) {
   .unified-rev-donut-top-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2847,6 +2965,10 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .top-products-header {
@@ -2858,6 +2980,7 @@ body {
   padding-bottom: 10px;
   margin-bottom: 10px;
   border-bottom: 1px dashed var(--border-color);
+  min-width: 0;
 }
 
 .top-products-title {
@@ -2876,6 +2999,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .top-products-scroll-box {
@@ -2884,7 +3008,10 @@ body {
   gap: 8px;
   max-height: 365px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .top-product-row {
@@ -2892,6 +3019,10 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 9px 12px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -2906,6 +3037,8 @@ body {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 6px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .top-product-left {
@@ -2914,6 +3047,7 @@ body {
   gap: 9px;
   min-width: 0;
   flex: 1;
+  overflow: hidden;
 }
 
 .top-product-name {
@@ -2978,8 +3112,10 @@ body {
 
 .sold-pie-center-hub {
   position: absolute;
-  width: 112px;
-  height: 112px;
+  width: 47%;
+  height: 47%;
+  max-width: 112px;
+  max-height: 112px;
   border-radius: 50%;
   background: var(--bg-surface, #ffffff);
   box-shadow: inset 0 2px 6px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.08);
@@ -2988,7 +3124,7 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 8px;
+  padding: 6px;
   cursor: pointer;
   user-select: none;
   border: 2px solid var(--border-color);
@@ -3019,7 +3155,7 @@ body {
 }
 
 .sold-pie-center-value {
-  font-size: 20px;
+  font-size: clamp(14px, 1.5vw, 19px);
   font-weight: 900;
   color: var(--text-main);
   margin: 2px 0;
@@ -3195,11 +3331,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: nowrap;
-  white-space: nowrap;
+  flex-wrap: wrap;
+  white-space: normal;
   gap: 6px;
   font-size: 11.5px;
-  overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Trạng thái On / Off Toggle và Inactive cho Quản trị Tài khoản Nhân sự */

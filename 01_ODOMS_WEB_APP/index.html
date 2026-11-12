@@ -479,8 +479,8 @@
               <!-- Cột Trái: Biểu đồ Donut Silk Tách Rời 5 Kênh (Đã lược bỏ cột chú thích theo yêu cầu) -->
               <div class="unified-donut-left-panel">
                 <div class="sold-pie-interactive-grid single-donut-col">
-                  <div class="sold-pie-visual-col" style="width:100%;height:100%;padding:20px 16px;">
-                    <div class="sold-pie-svg-stage" style="width:260px;height:260px;">
+                  <div class="sold-pie-visual-col" style="width:100%;height:100%;padding:16px 12px;">
+                    <div class="sold-pie-svg-stage">
                       <svg id="soldChannelPieSvg" viewBox="0 0 300 300" class="sold-pie-svg">
                         <!-- Các miếng cắt Donut màu Silk lụa óng ánh được vẽ động tại đây -->
                       </svg>
@@ -708,8 +708,8 @@
               </div>
             </div>
 
-            <div style="padding-top:6px;">
-              <svg id="monthlyTrendsSplineSvg" viewBox="0 0 560 225" style="width:100%;height:230px;overflow:visible;">
+            <div style="padding-top:6px;max-width:100%;overflow:hidden;">
+              <svg id="monthlyTrendsSplineSvg" viewBox="0 0 560 225" style="width:100%;height:auto;aspect-ratio:560/225;max-height:230px;display:block;overflow:hidden;">
                 <defs>
                   <!-- Gradient mềm mại dưới đường trên (Đơn tiếp nhận) -->
                   <linearGradient id="gradAreaImport" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -983,7 +983,7 @@
                   type="text"
                   id="orderSearchInput"
                   class="form-control"
-                  style="width:200px;"
+                  style="width:200px;max-width:100%;flex:1 1 160px;"
                   placeholder="🔍 Tìm mã đơn, SKU, khách..."
                 />
               </div>
@@ -1106,7 +1106,7 @@
                   type="text"
                   id="shippingSearchInput"
                   class="form-control"
-                  style="width:230px;"
+                  style="width:230px;max-width:100%;flex:1 1 180px;"
                   placeholder="🔍 Mã vận đơn, mã đơn, khách..."
                   oninput="AppUI.onShippingFilterChange()"
                 />
@@ -1174,7 +1174,7 @@
                   type="text"
                   id="invSearchInput"
                   class="form-control"
-                  style="width:220px;"
+                  style="width:220px;max-width:100%;flex:1 1 180px;"
                   placeholder="🔍 Tìm tên sản phẩm, mã SKU..."
                   oninput="AppUI.onInventoryFilterChange()"
                 />
@@ -1202,7 +1202,7 @@
             <div
               id="invRestockPopover"
               class="hidden"
-              style="position:fixed;z-index:1050;width:420px;max-height:calc(100vh - 32px);overflow-y:auto;background:var(--bg-card, #ffffff);border:1.5px solid var(--theme-primary, #0A2947);border-radius:12px;box-shadow:0 12px 28px rgba(10,41,71,0.18);padding:16px;"
+              style="position:fixed;z-index:1050;width:420px;max-width:calc(100vw - 24px);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--bg-card, #ffffff);border:1.5px solid var(--theme-primary, #0A2947);border-radius:12px;box-shadow:0 12px 28px rgba(10,41,71,0.18);padding:16px;"
             ></div>
           </div>
         </section>
@@ -1389,7 +1389,7 @@
                 type="text"
                 id="qrSearchInput"
                 class="form-control"
-                style="width:280px;"
+                style="width:280px;max-width:100%;flex:1 1 180px;"
                 placeholder="🔍 Nhập mã QR, SKU hoặc mã lô..."
               />
             </div>
