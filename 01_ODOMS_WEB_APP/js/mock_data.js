@@ -209,6 +209,7 @@ window.CHANNELS_CONFIG = {
     shortName: "Shopee",
     color: "#ee4d2d",
     apiEndpoint: "https://partner.shopeemobile.com/api/v2/product/update_stock",
+    isConnected: true,
     lastSync: "Chưa đồng bộ",
     syncCount: 0
   },
@@ -218,6 +219,7 @@ window.CHANNELS_CONFIG = {
     shortName: "TikTok Shop",
     color: "#0f172a",
     apiEndpoint: "https://open-api.tiktokglobalshop.com/product/202309/inventory/update",
+    isConnected: true,
     lastSync: "Chưa đồng bộ",
     syncCount: 0
   },
@@ -227,6 +229,7 @@ window.CHANNELS_CONFIG = {
     shortName: "Lazada",
     color: "#1d4ed8",
     apiEndpoint: "https://api.lazada.vn/rest/product/price_quantity/update",
+    isConnected: true,
     lastSync: "Chưa đồng bộ",
     syncCount: 0
   },
@@ -236,6 +239,7 @@ window.CHANNELS_CONFIG = {
     shortName: "Facebook",
     color: "#0284c7",
     apiEndpoint: "https://graph.facebook.com/v19.0/commerce_inventory/sync",
+    isConnected: true,
     lastSync: "Chưa đồng bộ",
     syncCount: 0
   },
@@ -245,6 +249,7 @@ window.CHANNELS_CONFIG = {
     shortName: "Cửa hàng POS",
     color: "#15803d",
     apiEndpoint: "wss://pos-internal.oms.local/realtime-stock",
+    isConnected: true,
     lastSync: "Chưa đồng bộ",
     syncCount: 0
   }

@@ -280,6 +280,750 @@
   --border-color: #334155;
 }
 
+/* 8. CHỦ ĐỀ VIVO (Enterprise SaaS tối giản: Nền chính #FFFFFF, Sidebar/Topbar #F8FAFC, Viền 1px solid #E2E8F0, Bo góc 8px, Không gradient/shadow - data-theme="vivo") */
+[data-theme="vivo"] {
+  --theme-name: "Vivo";
+  --theme-logo-gradient: #1877FF;
+  --theme-input-bg: #FFFFFF;
+  --theme-input-border: #E2E8F0;
+
+  --theme-sidebar-bg: #F8FAFC;
+  --theme-sidebar-card: #FFFFFF;
+  --theme-sidebar-active-bg: #EEF5FF;
+  --theme-sidebar-active-text: #1877FF;
+  --theme-avatar-bg: #1877FF;
+  --theme-avatar-text: #FFFFFF;
+
+  --theme-workspace-bg: #FFFFFF;
+  --theme-topbar-bg: #F8FAFC;
+  --theme-card-bg: #FFFFFF;
+  --theme-card-border: #E2E8F0;
+  --theme-table-th-bg: #F8FAFC;
+  --theme-table-row-hover: #F8FAFC;
+
+  --theme-banner-bg: #F8FAFC;
+  --theme-banner-border: #E2E8F0;
+  --theme-banner-text: #0F172A;
+
+  --theme-primary: #1877FF;
+  --theme-primary-hover: #465AFF;
+  --theme-accent-secondary: #465AFF;
+  --theme-dropzone-bg: #F8FAFC;
+  --theme-dropzone-border: #1877FF;
+  --theme-console-bg: #F8FAFC;
+
+  --bg-subtle: #F8FAFC;
+  --text-main: #0F172A;
+  --text-secondary: #64748B;
+  --text-muted: #64748B;
+  --border-color: #E2E8F0;
+  --danger: #947AEC;
+  --warning: #465AFF;
+  --shadow-sm: none;
+}
+
+/* Ô chọn màu Vivo (lựa chọn thứ 8) phẳng, không gradient */
+.theme-swatch-btn[data-theme-key="vivo"].active,
+[data-theme="vivo"] .theme-swatch-btn[data-theme-key="vivo"] {
+  background: #1877FF;
+  border-color: #1877FF;
+  color: #FFFFFF;
+}
+
+/* Nền chủ đạo #FFFFFF */
+[data-theme="vivo"] body,
+[data-theme="vivo"] .wms-app-layout,
+[data-theme="vivo"] .wms-main-workspace,
+[data-theme="vivo"] .wms-content-container {
+  background-color: #FFFFFF;
+  color: #0F172A;
+}
+
+/* Thanh nghiệp vụ (Sidebar) & Thanh hệ thống (Header / Topbar) nền #F8FAFC + viền 1px solid #E2E8F0 */
+[data-theme="vivo"] .wms-sidebar {
+  background-color: #F8FAFC;
+  color: #0F172A;
+  border-right: 1px solid #E2E8F0;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .sidebar-brand-logo.od-square-sm {
+  background: #1877FF;
+  border: 1px solid #1877FF;
+  border-radius: 8px;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .sidebar-brand-title,
+[data-theme="vivo"] .user-info-name,
+[data-theme="vivo"] .wms-card-title,
+[data-theme="vivo"] .top-products-title,
+[data-theme="vivo"] .top-product-name,
+[data-theme="vivo"] .sold-pie-channel-title {
+  color: #0F172A;
+}
+
+[data-theme="vivo"] .sidebar-brand-desc,
+[data-theme="vivo"] .user-info-greeting,
+[data-theme="vivo"] .sidebar-group-label,
+[data-theme="vivo"] .wms-card-subtitle,
+[data-theme="vivo"] .kpi-card-label,
+[data-theme="vivo"] .kpi-card-hint,
+[data-theme="vivo"] .top-products-subtitle,
+[data-theme="vivo"] .top-product-meta,
+[data-theme="vivo"] .top-product-meta code,
+[data-theme="vivo"] .rev-card-meta,
+[data-theme="vivo"] .sold-pie-center-label,
+[data-theme="vivo"] .sold-pie-center-sub,
+[data-theme="vivo"] .sold-pie-channel-desc,
+[data-theme="vivo"] .filter-group-item label {
+  color: #64748B;
+  opacity: 1;
+}
+
+[data-theme="vivo"] .sidebar-user-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .user-avatar-circle {
+  background: #1877FF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .online-dot {
+  background: #4BC8E1;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .sidebar-menu-item,
+[data-theme="vivo"] .sidebar-logout-btn {
+  color: #0F172A;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="vivo"] .sidebar-menu-item:hover,
+[data-theme="vivo"] .sidebar-logout-btn:hover {
+  background: #EEF5FF;
+  color: #1877FF;
+}
+
+[data-theme="vivo"] .sidebar-menu-item.active {
+  background: #EEF5FF;
+  color: #1877FF;
+  font-weight: 700;
+}
+
+/* Thanh chỉ báo mục đang chọn (active indicator) màu đặc #1877FF, không gradient */
+[data-theme="vivo"] .sidebar-menu-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: #1877FF;
+}
+
+[data-theme="vivo"] .menu-badge.orange {
+  background: #465AFF;
+  color: #FFFFFF;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="vivo"] .menu-badge.red {
+  background: #947AEC;
+  color: #FFFFFF;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="vivo"] .menu-badge.green {
+  background: #1877FF;
+  color: #FFFFFF;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="vivo"] .sidebar-footer {
+  border-top: 1px solid #E2E8F0;
+}
+
+[data-theme="vivo"] .sidebar-mobile-close-btn,
+[data-theme="vivo"] .mobile-menu-btn {
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: #FFFFFF;
+}
+
+[data-theme="vivo"] .wms-topbar {
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  color: #0F172A;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .mobile-bottom-nav {
+  background: #F8FAFC;
+  border-top: 1px solid #E2E8F0;
+  box-shadow: none;
+}
+
+/* Nút hành động chính & Tab đang chọn: dùng màu nhấn #1877FF, bo góc 8px, không bóng đổ */
+[data-theme="vivo"] .btn,
+[data-theme="vivo"] .btn-primary,
+[data-theme="vivo"] .btn-warning,
+[data-theme="vivo"] .btn-outline,
+[data-theme="vivo"] .btn-danger-outline,
+[data-theme="vivo"] .btn-qr-quick,
+[data-theme="vivo"] .tab-btn,
+[data-theme="vivo"] .btn-google-maps,
+[data-theme="vivo"] .theme-swatch-btn {
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .btn-primary,
+[data-theme="vivo"] .tab-btn.active,
+[data-theme="vivo"] .btn-google-maps {
+  background: #1877FF;
+  border-color: #1877FF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .btn-primary:hover,
+[data-theme="vivo"] .tab-btn.active:hover,
+[data-theme="vivo"] .btn-google-maps:hover {
+  background: #465AFF;
+  border-color: #465AFF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .btn-warning {
+  background: #465AFF;
+  border-color: #465AFF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .btn-warning:hover {
+  background: #947AEC;
+  border-color: #947AEC;
+}
+
+[data-theme="vivo"] .btn-outline,
+[data-theme="vivo"] .tab-btn {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  color: #0F172A;
+}
+
+[data-theme="vivo"] .btn-outline:hover,
+[data-theme="vivo"] .tab-btn:hover {
+  background: #F8FAFC;
+  border-color: #1877FF;
+  color: #1877FF;
+}
+
+[data-theme="vivo"] .btn-danger-outline {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  color: #465AFF;
+}
+
+[data-theme="vivo"] .btn-danger-outline:hover {
+  background: #465AFF;
+  border-color: #465AFF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .btn-qr-quick {
+  background: #EEF5FF;
+  border: 1px solid #1877FF;
+  color: #1877FF;
+}
+
+[data-theme="vivo"] .btn-qr-quick:hover {
+  background: #1877FF;
+  border-color: #1877FF;
+  color: #FFFFFF;
+  opacity: 1;
+}
+
+[data-theme="vivo"] .theme-swatch-btn {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  color: #0F172A;
+}
+
+[data-theme="vivo"] .theme-swatch-btn.active {
+  background: #1877FF;
+  border-color: #1877FF;
+  color: #FFFFFF;
+}
+
+/* Form inputs, selects, search bars đồng bộ viền 1px solid #E2E8F0, bo góc 8px */
+[data-theme="vivo"] input,
+[data-theme="vivo"] select,
+[data-theme="vivo"] textarea,
+[data-theme="vivo"] .form-control {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  color: #0F172A;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] input:focus,
+[data-theme="vivo"] select:focus,
+[data-theme="vivo"] textarea:focus,
+[data-theme="vivo"] .form-control:focus {
+  border-color: #1877FF;
+  outline: none;
+  box-shadow: none;
+}
+
+/* Thẻ cấp 1 phẳng sắc nét: #FFFFFF, viền 1px solid #E2E8F0, bo góc 8px, không đổ bóng */
+[data-theme="vivo"] .wms-card,
+[data-theme="vivo"] .wms-kpi-card,
+[data-theme="vivo"] .rev-channel-card,
+[data-theme="vivo"] .shipping-map-card,
+[data-theme="vivo"] .modal-dialog {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+/* Bỏ triệt để card-in-card: các vùng con bên trong .wms-card phẳng hóa, không đóng khung lồng */
+[data-theme="vivo"] .top-products-panel,
+[data-theme="vivo"] .sold-pie-visual-col,
+[data-theme="vivo"] .three-month-bars-stage,
+[data-theme="vivo"] .top3-bar-chart-wrap,
+[data-theme="vivo"] .sold-pie-center-hub,
+[data-theme="vivo"] .shipping-route-info-box,
+[data-theme="vivo"] .waybill-ticket-preview {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .top-products-panel {
+  border-left: 1px solid #E2E8F0;
+  border-radius: 0;
+}
+
+[data-theme="vivo"] .top-product-row {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #E2E8F0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .top-product-row:last-child {
+  border-bottom: none;
+}
+
+/* Thanh lọc / dải tóm tắt giữa các khối dùng nền #F8FAFC phân tách bằng đường viền 1px */
+[data-theme="vivo"] .unified-ranking-filter-bar,
+[data-theme="vivo"] .three-month-filter-bar,
+[data-theme="vivo"] .filter-tabs-bar,
+[data-theme="vivo"] .sold-pie-summary-footer,
+[data-theme="vivo"] .ranking-footer-box,
+[data-theme="vivo"] .fefo-status-banner,
+[data-theme="vivo"] .monthly-trend-status-banner {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+/* Thẻ TỔNG DOANH THU phẳng (không gradient), dùng nền #EEF5FF + viền #1877FF */
+[data-theme="vivo"] .rev-channel-card.total-hero {
+  background: #EEF5FF;
+  border: 1px solid #1877FF;
+  color: #0F172A;
+}
+
+[data-theme="vivo"] .rev-channel-card.total-hero .rev-card-title {
+  color: #1877FF !important;
+}
+
+[data-theme="vivo"] .rev-channel-card.total-hero .rev-card-value,
+[data-theme="vivo"] .rev-channel-card.total-hero .rev-card-meta,
+[data-theme="vivo"] .rev-channel-card.total-hero .rev-card-meta strong {
+  color: #0F172A !important;
+}
+
+/* Bỏ dải màu gradient trên đầu thẻ KPI */
+[data-theme="vivo"] .wms-kpi-card {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="vivo"] .wms-kpi-card::before {
+  display: none;
+}
+
+/* Toàn bộ con số thống kê tĩnh dùng màu #0F172A + tabular-nums (không tô xanh toàn bộ) */
+[data-theme="vivo"] .kpi-card-number,
+[data-theme="vivo"] .rev-card-value,
+[data-theme="vivo"] .top-product-rev,
+[data-theme="vivo"] .top-product-sold,
+[data-theme="vivo"] .sold-pie-center-value,
+[data-theme="vivo"] .sold-pie-order-num,
+[data-theme="vivo"] .sold-pie-rev-text,
+[data-theme="vivo"] .shipping-fee-val,
+[data-theme="vivo"] .vivo-legend-pct {
+  color: #0F172A;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="vivo"] .rev-channel-card:hover,
+[data-theme="vivo"] .wms-kpi-card.kpi-card-interactive:hover,
+[data-theme="vivo"] .top-product-row:hover {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .rev-channel-card.silk-card-selected {
+  border-color: #1877FF;
+  background: #EEF5FF;
+  box-shadow: none;
+}
+
+/* Bảng dữ liệu phẳng, sắc nét cho toàn bộ phân hệ */
+[data-theme="vivo"] .table-responsive {
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: #FFFFFF;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .wms-table th {
+  background: #F8FAFC;
+  color: #64748B;
+  border-bottom: 1px solid #E2E8F0;
+  font-weight: 600;
+}
+
+[data-theme="vivo"] .wms-table td {
+  color: #0F172A;
+  border-bottom: 1px solid #E2E8F0;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="vivo"] .wms-table tbody tr:hover td {
+  background: #F8FAFC;
+}
+
+/* Nhật ký hệ thống / Log console phẳng */
+[data-theme="vivo"] .log-console {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  color: #0F172A;
+  box-shadow: none;
+}
+
+[data-theme="vivo"] .log-entry {
+  color: #0F172A;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+[data-theme="vivo"] .log-entry.success { border-left: 3px solid #1877FF; color: #0F172A; }
+[data-theme="vivo"] .log-entry.warn { border-left: 3px solid #465AFF; color: #0F172A; }
+[data-theme="vivo"] .log-entry.error { border-left: 3px solid #947AEC; color: #0F172A; }
+[data-theme="vivo"] .log-entry.sync { border-left: 3px solid #4BC8E1; color: #0F172A; }
+[data-theme="vivo"] .log-time { color: #64748B; }
+
+/* Biểu đồ Donut trên theme Vivo: viền trắng 2px ngăn cách rõ từng lát cắt + bảng chú thích 5 kênh phẳng */
+[data-theme="vivo"] .pie-slice-path {
+  stroke: #FFFFFF;
+  stroke-width: 2px;
+}
+
+[data-theme="vivo"] .pie-slice-group.slice-active .pie-slice-path {
+  stroke: #FFFFFF;
+  stroke-width: 2.5px;
+}
+
+.sold-pie-vivo-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: transparent;
+  border-top: 1px solid #E2E8F0;
+  border-radius: 0;
+  padding: 10px 0 0;
+}
+
+.vivo-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #0F172A;
+  transition: background-color 0.15s ease;
+}
+
+.vivo-legend-row:hover,
+.vivo-legend-row.active {
+  background: #EEF5FF;
+}
+
+.vivo-legend-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #0F172A;
+  min-width: 0;
+}
+
+.vivo-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vivo-legend-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #64748B;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.vivo-legend-pct {
+  font-weight: 700;
+  color: #0F172A;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nhãn kênh trên 5 thẻ doanh thu Vivo: nền nhạt #EEF5FF chữ đậm #0F172A kèm chấm màu 8px */
+.vivo-rev-channel-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #EEF5FF;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.vivo-rev-channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Ẩn thanh màu tiến trình bên dưới trong Xếp Hạng Sản Phẩm Bán Chạy */
+[data-theme="vivo"] .silk-progress-bar {
+  display: none !important;
+}
+
+[data-theme="vivo"] .rank-medal-1 {
+  background: #1877FF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .rank-medal-2 {
+  background: #465AFF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .rank-medal-3 {
+  background: #4BC8E1;
+  color: #0F172A;
+}
+
+[data-theme="vivo"] .rank-medal-other {
+  background: #EEF5FF;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+}
+
+/* Đồng bộ toàn bộ huy hiệu kênh, trạng thái nghiệp vụ, nút gạt & thẻ vận chuyển theo 4 màu nhấn Vivo */
+[data-theme="vivo"] .badge-SHOPEE,
+[data-theme="vivo"] .badge-TIKTOK,
+[data-theme="vivo"] .badge-LAZADA,
+[data-theme="vivo"] .badge-FACEBOOK,
+[data-theme="vivo"] .badge-POS {
+  background: #EEF5FF;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .st-ALLOCATED,
+[data-theme="vivo"] .st-DELIVERED {
+  background: #EEF5FF;
+  color: #1877FF;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .st-BACKORDER,
+[data-theme="vivo"] .st-PENDING_PICKUP {
+  background: #EEF5FF;
+  color: #465AFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .st-IN_TRANSIT {
+  background: #EEF5FF;
+  color: #0F172A;
+  border: 1px solid #4BC8E1;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .st-INVALID,
+[data-theme="vivo"] .st-FAILED_RETURNING,
+[data-theme="vivo"] .status-badge.st-INACTIVE {
+  background: #EEF5FF !important;
+  color: #465AFF !important;
+  border: 1px solid #947AEC !important;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .st-PENDING {
+  background: #F8FAFC;
+  color: #64748B;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .toggle-switch-btn {
+  border-radius: 8px;
+}
+
+[data-theme="vivo"] .toggle-switch-btn.state-on {
+  background: #EEF5FF;
+  color: #1877FF;
+  border-color: #1877FF;
+}
+
+[data-theme="vivo"] .toggle-switch-btn.state-on:hover {
+  background: #1877FF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .toggle-switch-btn.state-off {
+  background: #F8FAFC;
+  color: #64748B;
+  border-color: #E2E8F0;
+}
+
+[data-theme="vivo"] .toggle-switch-btn.state-off:hover {
+  background: #EEF5FF;
+  color: #465AFF;
+  border-color: #465AFF;
+}
+
+[data-theme="vivo"] .kpi-icon-box {
+  border-radius: 8px;
+  background: #EEF5FF !important;
+}
+
+[data-theme="vivo"] .kpi-icon-box.green {
+  background: #EEF5FF !important;
+  color: #1877FF !important;
+}
+
+[data-theme="vivo"] .kpi-icon-box.orange {
+  background: #EEF5FF !important;
+  color: #465AFF !important;
+}
+
+[data-theme="vivo"] .kpi-icon-box.red {
+  background: #EEF5FF !important;
+  color: #947AEC !important;
+}
+
+[data-theme="vivo"] .kpi-icon-box.slate {
+  background: #F8FAFC !important;
+  color: #0F172A !important;
+  border: 1px solid #E2E8F0;
+}
+
+/* Thanh tiến trình tồn kho phẳng, màu đặc #1877FF (không gradient) */
+[data-theme="vivo"] .stock-bar-fill {
+  background: #1877FF;
+}
+
+[data-theme="vivo"] .bar-top-revenue-badge,
+[data-theme="vivo"] .fifo-rank {
+  background: #EEF5FF;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  color: #0F172A;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="vivo"] .carrier-pill,
+[data-theme="vivo"] .badge-freeship,
+[data-theme="vivo"] .hold-pill {
+  background: #F8FAFC;
+  color: #0F172A;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .shipping-addr-tag.from {
+  background: #1877FF;
+  color: #FFFFFF;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .shipping-addr-tag.to {
+  background: #465AFF;
+  color: #FFFFFF;
+  border-radius: 6px;
+}
+
+[data-theme="vivo"] .shipping-timeline-step.completed .timeline-dot {
+  background: #1877FF;
+  border-color: #1877FF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .shipping-timeline-step.current .timeline-dot {
+  background: #465AFF;
+  border-color: #465AFF;
+  color: #FFFFFF;
+}
+
+[data-theme="vivo"] .mobile-nav-btn.active {
+  color: #1877FF;
+}
+
+[data-theme="vivo"] .mobile-nav-btn.active svg {
+  stroke: #1877FF;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -1249,6 +1993,58 @@ body {
 .channel-card.sync-flash {
   border-color: var(--theme-primary);
   background: var(--theme-banner-bg);
+}
+
+.channel-card.channel-paused {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.channel-conn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.channel-conn-btn.connected {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.channel-conn-btn.connected:hover {
+  background: #bbf7d0;
+}
+
+.channel-conn-btn.disconnected {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.channel-conn-btn.disconnected:hover {
+  background: #fecaca;
+}
+
+.channel-stat-line {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.channel-sync-line {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
 }
 
 /* Cảnh báo cần xử lý (Actionable Alerts List) */

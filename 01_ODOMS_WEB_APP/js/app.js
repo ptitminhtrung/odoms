@@ -73,6 +73,16 @@ const THEMES_LIST = [
     chartPrimary: "#10B981",
     chartPrimaryArea: "rgba(16, 185, 129, 0.18)",
     chartSecondary: "#FB923C"
+  },
+  {
+    key: "vivo",
+    name: "Vivo",
+    fullTitle: "Chủ đề Vivo",
+    swatches: ["#1877FF", "#465AFF", "#4BC8E1", "#947AEC"],
+    // Bảng màu nhận diện VIVOTEK: #1877FF, #465AFF, #4BC8E1, #947AEC trên nền #FFFFFF
+    chartPrimary: "#1877FF",
+    chartPrimaryArea: "#EEF5FF",
+    chartSecondary: "#465AFF"
   }
 ];
 
@@ -80,6 +90,7 @@ const AppUI = {
   currentMenuTab: "dashboard",
   currentChannelFilter: "ALL",
   currentStatusFilter: "ALL",
+  orderSortMode: "NEWEST_FIRST",
   searchQuery: "",
   invCategoryFilter: "ALL",
   invStatusFilter: "ALL",
@@ -197,7 +208,10 @@ const AppUI = {
     const legendBoxImport = document.getElementById("legendBoxImport");
     if (legendBoxImport) legendBoxImport.style.background = themeObj.chartSecondary;
 
-    // Cập nhật lại biểu đồ cột đứng hợp nhất Top 3 kênh theo cặp màu đối kháng của chủ đề mới
+    // Cập nhật lại biểu đồ cột đứng hợp nhất Top 3 kênh, Donut & Doanh thu theo chủ đề mới
+    if (typeof this.renderFiveChannelSoldPieChart === "function") {
+      this.renderFiveChannelSoldPieChart();
+    }
     if (typeof this.renderUnifiedTop3ChannelRankingChart === "function") {
       this.renderUnifiedTop3ChannelRankingChart();
     }
@@ -267,23 +281,12 @@ const AppUI = {
       });
     }
 
-    // 3. Thay đổi quy tắc phân bổ (FIFO theo thời gian đặt vs Ưu tiên kênh)
+    // 3. Thay đổi thứ tự hiển thị danh sách đơn hàng trên bảng (Mới nhất lên trên / Cũ nhất lên trên)
     const ruleSelect = document.getElementById("allocationRuleSelect");
     if (ruleSelect) {
       ruleSelect.addEventListener("change", (e) => {
-        window.omsEngine.allocationMode = e.target.value;
-        window.omsEngine.addLog(
-          "info",
-          `Chuyển quy tắc ưu tiên giữ hàng sang: [${
-            e.target.value === "FIFO_TIME"
-              ? "FIFO - Ai đặt trước ưu tiên trước (Theo Timestamp)"
-              : "Ưu tiên Kênh bán hàng (POS > Shopee > TikTok > Lazada > FB)"
-          }]`
-        );
-        if (window.omsEngine.orders.length > 0) {
-          window.omsEngine.recalculateAllAllocations();
-        }
-        this.renderAll();
+        this.orderSortMode = e.target.value || "NEWEST_FIRST";
+        this.renderOrdersTable();
       });
     }
 
@@ -528,7 +531,7 @@ const AppUI = {
 
     const titleMap = {
       dashboard: "Tổng Quan",
-      ingest: "Tiếp nhận & Gom đơn 5 Kênh",
+      ingest: "Tiếp nhận / Gom đơn",
       inventory: "Kho",
       shipping: "Vận chuyển đơn hàng đa kênh",
       fifo: "Vận chuyển đơn hàng đa kênh",
@@ -678,9 +681,21 @@ const AppUI = {
 
   simulateWebhookOrder() {
     const channel = document.getElementById("simChannel").value;
+    const chCfg = window.omsEngine.channels && window.omsEngine.channels[channel];
+    if (chCfg && chCfg.isConnected === false) {
+      const chName = chCfg.shortName || channel;
+      window.omsEngine.addLog(
+        "warn",
+        `[TẠM NGƯNG SÀN] Không thể tiếp nhận đơn mới từ [${chName}] vì sàn đang ở trạng thái "● Hủy kết nối". Vui lòng bật lại "● Đang kết nối" trước khi nhận đơn.`
+      );
+      this.renderAll();
+      alert(`Kênh ${chName} hiện đang ở trạng thái "● Hủy kết nối" (tạm ngưng bán).\nVui lòng bấm nút bật lại "● Đang kết nối" tại thẻ ${chName} nếu muốn tiếp nhận đơn mới.`);
+      return;
+    }
+
     const sku = document.getElementById("simSku").value;
     const qty = parseInt(document.getElementById("simQty").value, 10) || 1;
-    const customer = document.getElementById("simCustomer").value.trim() || "Khách đặt Online Real-time";
+    const customer = document.getElementById("simCustomer").value.trim() || "Khách mua hàng";
     const addressEl = document.getElementById("simAddress");
     const address =
       addressEl && addressEl.value.trim()
@@ -782,7 +797,7 @@ const AppUI = {
         this.demoTimer = null;
         if (btn) {
           btn.disabled = false;
-          btn.innerText = "▶️ Chạy Mô Phỏng FIFO (4 Bước)";
+          btn.innerText = "Chạy mô phỏng";
         }
         return;
       }
@@ -810,7 +825,7 @@ const AppUI = {
     const btn = document.getElementById("btnRunDemo");
     if (btn) {
       btn.disabled = false;
-      btn.innerText = "▶️ Chạy Mô Phỏng FIFO (4 Bước)";
+      btn.innerText = "Chạy mô phỏng";
     }
     window.omsEngine.resetSystem();
     if (window.cloudSync) {
@@ -1601,13 +1616,22 @@ handleResetPassword(username) {
       timeLabel.innerHTML = `⏱️ Đang xem chu kỳ: <strong>${data.periodLabel}</strong> (Cập nhật lúc ${fmtTime(now)})`;
     }
 
-    const chOrder = [
-      { key: "SHOPEE", name: "Shopee", badgeClass: "badge-SHOPEE", silkBorder: "linear-gradient(90deg, #FFD1B3, #FB923C, #EA580C)" },
-      { key: "TIKTOK", name: "TikTok Shop", badgeClass: "badge-TIKTOK", silkBorder: "linear-gradient(90deg, #CBD5E1, #64748B, #1E293B)" },
-      { key: "LAZADA", name: "Lazada", badgeClass: "badge-LAZADA", silkBorder: "linear-gradient(90deg, #E0E7FF, #818CF8, #4F46E5)" },
-      { key: "FACEBOOK", name: "Facebook", badgeClass: "badge-FACEBOOK", silkBorder: "linear-gradient(90deg, #BAE6FD, #38BDF8, #0284C7)" },
-      { key: "POS", name: "Cửa hàng POS", badgeClass: "badge-POS", silkBorder: "linear-gradient(90deg, #A7F3D0, #34D399, #059669)" }
-    ];
+    const isVivo = this.currentTheme === "vivo";
+    const chOrder = isVivo
+      ? [
+          { key: "SHOPEE", name: "Shopee", badgeClass: "badge-SHOPEE", dotColor: "#1877FF", silkBorder: "#1877FF" },
+          { key: "TIKTOK", name: "TikTok Shop", badgeClass: "badge-TIKTOK", dotColor: "#465AFF", silkBorder: "#465AFF" },
+          { key: "LAZADA", name: "Lazada", badgeClass: "badge-LAZADA", dotColor: "#0F62DB", silkBorder: "#0F62DB" },
+          { key: "FACEBOOK", name: "Facebook", badgeClass: "badge-FACEBOOK", dotColor: "#4BC8E1", silkBorder: "#4BC8E1" },
+          { key: "POS", name: "Cửa hàng POS", badgeClass: "badge-POS", dotColor: "#947AEC", silkBorder: "#947AEC" }
+        ]
+      : [
+          { key: "SHOPEE", name: "Shopee", badgeClass: "badge-SHOPEE", silkBorder: "linear-gradient(90deg, #FFD1B3, #FB923C, #EA580C)" },
+          { key: "TIKTOK", name: "TikTok Shop", badgeClass: "badge-TIKTOK", silkBorder: "linear-gradient(90deg, #CBD5E1, #64748B, #1E293B)" },
+          { key: "LAZADA", name: "Lazada", badgeClass: "badge-LAZADA", silkBorder: "linear-gradient(90deg, #E0E7FF, #818CF8, #4F46E5)" },
+          { key: "FACEBOOK", name: "Facebook", badgeClass: "badge-FACEBOOK", silkBorder: "linear-gradient(90deg, #BAE6FD, #38BDF8, #0284C7)" },
+          { key: "POS", name: "Cửa hàng POS", badgeClass: "badge-POS", silkBorder: "linear-gradient(90deg, #A7F3D0, #34D399, #059669)" }
+        ];
 
     const totalRevenue = data.totalRevenue;
     const totalOrders = data.totalOrders;
@@ -1628,14 +1652,17 @@ handleResetPassword(username) {
       .map((ch) => {
         const stat = data.items.find((i) => i.key === ch.key) || { orders: 0, revenue: 0 };
         const isSelected = this.activePieChannel === ch.key;
+        const badgeHtml = isVivo
+          ? `<span class="vivo-rev-channel-pill"><span class="vivo-rev-channel-dot" style="background:${ch.dotColor};"></span>${ch.name}</span>`
+          : `<span class="channel-badge ${ch.badgeClass}">${ch.name}</span>`;
         return `
         <div class="rev-channel-card ${isSelected ? "silk-card-selected" : ""}"
              onclick="AppUI.selectPieChannel('${ch.key}')"
              style="cursor:pointer;position:relative;overflow:hidden;"
              title="Kênh ${ch.name}">
-          <div style="position:absolute;top:0;left:0;right:0;height:4px;background:${ch.silkBorder};"></div>
+          ${isVivo ? "" : `<div style="position:absolute;top:0;left:0;right:0;height:4px;background:${ch.silkBorder};"></div>`}
           <div class="rev-card-head">
-            <span class="channel-badge ${ch.badgeClass}">${ch.name}</span>
+            ${badgeHtml}
           </div>
           <div class="rev-card-value">${stat.revenue.toLocaleString("vi-VN")} VND</div>
           <div class="rev-card-meta">
@@ -1674,9 +1701,10 @@ handleResetPassword(username) {
     if (!container) return;
 
     const themeObj = THEMES_LIST.find((t) => t.key === this.currentTheme) || THEMES_LIST[0];
-    const colorReceived = themeObj.chartSecondary || "#F97316"; // Cột 1: Tiếp nhận
-    const colorExported = themeObj.chartPrimary || "#2563EB";   // Cột 2: Xuất hàng
-    const colorCancelled = "#EF4444";                           // Cột 3: Hủy đơn
+    const isVivo = this.currentTheme === "vivo";
+    const colorReceived = isVivo ? "#1877FF" : (themeObj.chartSecondary || "#F97316"); // Cột 1: Tiếp nhận
+    const colorExported = isVivo ? "#465AFF" : (themeObj.chartPrimary || "#2563EB");   // Cột 2: Xuất hàng
+    const colorCancelled = isVivo ? "#947AEC" : "#EF4444";                           // Cột 3: Hủy đơn
 
     const mode = document.getElementById("unifiedFilterMode")?.value || "MONTH";
     const allData = this.getMonthlyHistoricalDataset();
@@ -1893,9 +1921,63 @@ handleResetPassword(username) {
     const mode = document.getElementById("revDonutFilterMode")?.value || "MONTH";
     const allData = this.getMonthlyHistoricalDataset();
 
-    // Bảng màu Silk (Lụa óng ánh đa tầng — tuyệt đối không dùng màu Solid phẳng)
-    const channelMeta = {
-      SHOPEE: {
+    const isVivo = this.currentTheme === "vivo";
+    // Bảng màu Silk (hoặc bảng màu Vivo thuần nhất khi chọn chủ đề Vivo)
+    const channelMeta = isVivo
+      ? {
+          SHOPEE: {
+            key: "SHOPEE",
+            name: "Shopee",
+            fullName: "Shopee Mall",
+            color: "#1877FF",
+            silkStops: ["#1877FF", "#1877FF", "#1877FF", "#1877FF"],
+            silkCss: "#1877FF",
+            colorName: "Vivo Blue (#1877FF)",
+            badge: "badge-SHOPEE"
+          },
+          FACEBOOK: {
+            key: "FACEBOOK",
+            name: "Facebook",
+            fullName: "Facebook Shop / Live",
+            color: "#4BC8E1",
+            silkStops: ["#4BC8E1", "#4BC8E1", "#4BC8E1", "#4BC8E1"],
+            silkCss: "#4BC8E1",
+            colorName: "Vivo Cyan (#4BC8E1)",
+            badge: "badge-FACEBOOK"
+          },
+          TIKTOK: {
+            key: "TIKTOK",
+            name: "TikTok Shop",
+            fullName: "TikTok Shop",
+            color: "#465AFF",
+            silkStops: ["#465AFF", "#465AFF", "#465AFF", "#465AFF"],
+            silkCss: "#465AFF",
+            colorName: "Vivo Indigo (#465AFF)",
+            badge: "badge-TIKTOK"
+          },
+          LAZADA: {
+            key: "LAZADA",
+            name: "Lazada",
+            fullName: "Lazada Mall",
+            color: "#0F62DB",
+            silkStops: ["#0F62DB", "#0F62DB", "#0F62DB", "#0F62DB"],
+            silkCss: "#0F62DB",
+            colorName: "Vivo Deep Blue (#0F62DB)",
+            badge: "badge-LAZADA"
+          },
+          POS: {
+            key: "POS",
+            name: "Cửa hàng POS",
+            fullName: "Cửa hàng Vật lý (POS)",
+            color: "#947AEC",
+            silkStops: ["#947AEC", "#947AEC", "#947AEC", "#947AEC"],
+            silkCss: "#947AEC",
+            colorName: "Vivo Violet (#947AEC)",
+            badge: "badge-POS"
+          }
+        }
+      : {
+          SHOPEE: {
         key: "SHOPEE",
         name: "Shopee",
         fullName: "Shopee Mall",
@@ -2154,16 +2236,19 @@ handleResetPassword(username) {
 
         const showLabel = item.pct >= 4.5;
 
+        const isVivo = this.currentTheme === "vivo";
+        const sliceFill = isVivo ? item.color : `url(#silkGrad_${item.key})`;
+
         return `
           <g class="pie-slice-group"
              data-channel="${item.key}"
              data-dx="${dx}"
              data-dy="${dy}"
              onclick="AppUI.selectPieChannel('${item.key}')">
-            <path class="pie-slice-path" d="${pathD}" fill="url(#silkGrad_${item.key})">
+            <path class="pie-slice-path" d="${pathD}" fill="${sliceFill}">
               <title>${item.fullName} (${item.colorName}): ${item.orders} đơn đã bán (${item.pctText}%) — ${item.revenue.toLocaleString("vi-VN")} VND</title>
             </path>
-            <path class="pie-slice-silk-sheen" d="${pathD}" fill="url(#silkSheenOverlay)" pointer-events="none" />
+            ${isVivo ? "" : `<path class="pie-slice-silk-sheen" d="${pathD}" fill="url(#silkSheenOverlay)" pointer-events="none" />`}
             ${showLabel ? `<text class="pie-slice-pct-text" x="${lx}" y="${ly}">${item.pctText}%</text>` : ""}
           </g>
         `;
@@ -2171,6 +2256,37 @@ handleResetPassword(username) {
       .join("");
 
     svgEl.innerHTML = defsHtml + slicesHtml;
+
+    // Bảng chú thích 5 dòng rõ nét ngay dưới Donut cho chủ đề Vivo
+    const vivoLegendEl = document.getElementById("soldPieVivoLegend");
+    if (vivoLegendEl) {
+      if (this.currentTheme === "vivo") {
+        vivoLegendEl.classList.remove("hidden");
+        const vivoOrder = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
+        const orderedItems = vivoOrder
+          .map((k) => data.items.find((it) => it.key === k))
+          .filter(Boolean);
+        vivoLegendEl.innerHTML = orderedItems
+          .map(
+            (it) => `
+            <div class="vivo-legend-row ${this.activePieChannel === it.key ? "active" : ""}" onclick="AppUI.selectPieChannel('${it.key}')">
+              <div class="vivo-legend-left">
+                <span class="vivo-legend-dot" style="background:${it.color};"></span>
+                <span>${it.name}</span>
+              </div>
+              <div class="vivo-legend-right">
+                <span>${it.orders} đơn</span>
+                <span class="vivo-legend-pct">${it.pctText}%</span>
+              </div>
+            </div>
+          `
+          )
+          .join("");
+      } else {
+        vivoLegendEl.classList.add("hidden");
+        vivoLegendEl.innerHTML = "";
+      }
+    }
 
     // Nếu có vùng chú giải (tùy chọn) thì mới render
     if (legendEl) legendEl.innerHTML = data.items
@@ -3045,6 +3161,12 @@ handleResetPassword(username) {
     this.renderMonthlyTrendsChartLabels();
   },
 
+  toggleChannelConnection(chKey) {
+    window.omsEngine.toggleChannelConnection(chKey);
+    this.triggerChannelSyncAnimation();
+    this.renderAll();
+  },
+
   renderChannelStrip() {
     const container = document.getElementById("channelStripContainer");
     if (!container) return;
@@ -3059,19 +3181,35 @@ handleResetPassword(username) {
         const ch = channels[chKey];
         const chOrders = orders.filter((o) => o.channel === chKey).length;
         const heldUnits = inv.reduce((sum, item) => sum + (item.channelReserved[chKey] || 0), 0);
+        const isConnected = ch.isConnected !== false;
+        const hasSync = ch.syncCount > 0 && ch.lastSync && ch.lastSync !== "Chưa đồng bộ";
+
+        const syncText = hasSync
+          ? `Cập nhật lượng hàng bán: Đã cập nhật lúc ${ch.lastSync}`
+          : "Cập nhật lượng hàng bán: Chưa có biến động mới";
+
+        const btnClass = isConnected ? "connected" : "disconnected";
+        const btnLabel = isConnected ? "● Đang kết nối" : "● Hủy kết nối";
+        const btnTitle = isConnected
+          ? `Bấm để tạm ngưng hoạt động và đưa tồn bán trên ${ch.shortName} về 0`
+          : `Bấm để kết nối lại và đồng bộ số lượng sẵn sàng bán lên ${ch.shortName}`;
 
         return `
-        <div class="channel-card" id="ch-card-${chKey}">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div class="channel-card${isConnected ? "" : " channel-paused"}" id="ch-card-${chKey}">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;">
             <span class="channel-badge badge-${chKey}">${ch.shortName}</span>
-            <span style="font-size:11px;color:var(--theme-primary);font-weight:700;">● Active</span>
+            <button type="button" class="channel-conn-btn ${btnClass}" onclick="AppUI.toggleChannelConnection('${chKey}')" title="${btnTitle}">
+              ${btnLabel}
+            </button>
           </div>
-          <div style="font-size: 12.5px; color: var(--text-secondary);">
-            Đơn nhận: <strong style="color: var(--text-main);">${chOrders}</strong> ·
-            Giữ hàng: <strong style="color: var(--theme-primary);">${heldUnits} SP</strong>
+          <div class="channel-stat-line">
+            Đơn tiếp nhận: <strong style="color: var(--text-main);">${chOrders} đơn</strong>
           </div>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
-            ⇄ Đồng bộ ATP: ${ch.lastSync} (${ch.syncCount} lần)
+          <div class="channel-stat-line">
+            Hàng chờ đóng gói: <strong style="color: var(--theme-primary);">${heldUnits} SP</strong>
+          </div>
+          <div class="channel-sync-line">
+            ${syncText}
           </div>
         </div>
       `;
@@ -3124,7 +3262,7 @@ handleResetPassword(username) {
     if (items.length === 0 && zeroSkus.length === 0) {
       container.innerHTML = `
         <div style="padding:14px;background:var(--theme-primary-light);border:1px solid var(--theme-banner-border);border-radius:10px;color:var(--theme-primary);font-size:13px;font-weight:600;">
-          ✔ Tất cả đơn hàng và tồn kho đều ở trạng thái an toàn. Hãy bấm "Nạp Bảng Gom 5 Kênh (11 Đơn)" hoặc "Chạy Mô Phỏng FIFO" để kiểm thử kịch bản tranh chấp tồn kho!
+          ✔ Tất cả đơn hàng và lượng hàng sẵn sàng bán đều ở trạng thái an toàn. Bạn có thể bấm "📥 Đồng bộ đơn 5 kênh" để nhận dữ liệu mẫu hoặc vào "Cài đặt" > "Chạy mô phỏng" để kiểm tra luồng xử lý.
         </div>
       `;
       return;
@@ -3139,7 +3277,11 @@ handleResetPassword(username) {
     if (!tbody) return;
 
     let list = [...window.omsEngine.orders];
-    list.sort((a, b) => a.timestampMs - b.timestampMs);
+    list.sort((a, b) =>
+      this.orderSortMode === "OLDEST_FIRST"
+        ? a.timestampMs - b.timestampMs
+        : b.timestampMs - a.timestampMs
+    );
 
     if (this.currentChannelFilter !== "ALL") {
       list = list.filter((o) => o.channel === this.currentChannelFilter);
@@ -3168,7 +3310,7 @@ handleResetPassword(username) {
       tbody.innerHTML = `
         <tr>
           <td colspan="10" style="text-align: center; padding: 30px 16px; color: var(--text-muted);">
-            Chưa có đơn hàng nào khớp bộ lọc. Hãy bấm <strong>"📥 Nạp Bảng Gom 5 Kênh (11 Đơn)"</strong> hoặc <strong>"▶️ Chạy Mô Phỏng FIFO"</strong> trên thanh công cụ!
+            Chưa có đơn hàng nào khớp bộ lọc. Hãy bấm <strong>"📥 Đồng bộ đơn 5 kênh"</strong> trên thanh công cụ để tải danh sách đơn hàng!
           </td>
         </tr>
       `;
@@ -3180,25 +3322,29 @@ handleResetPassword(username) {
         let statusBadge = "";
         const ps = ord.platformStatus || (ord.status === "CANCELLED" || ord.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
         if (ps === "CANCELLED" || ord.status === "INVALID") {
-          statusBadge = `<span class="status-badge st-INVALID">✖️ Đã hủy đơn</span>`;
+          statusBadge = `<span class="status-badge st-INVALID">✖️ Đã hủy</span>`;
         } else {
           const isConfirmed = ps === "CONFIRMED";
           statusBadge = `
             <div class="order-confirm-cell">
-              <label class="order-confirm-switch" title="Gạt để xác nhận đơn hàng và tự động gửi xác nhận về sàn ${ord.channel}">
+              <label class="order-confirm-switch" title="Gạt để xác nhận đơn hàng và tự động gửi xác nhận về kênh ${ord.channel}">
                 <input type="checkbox" ${isConfirmed ? "checked" : ""} onchange="AppUI.handleToggleOrderConfirm('${ord.orderId}', this.checked)" />
                 <span class="order-switch-track"><span class="order-switch-thumb"></span></span>
                 <span class="order-switch-label ${isConfirmed ? "is-on" : "is-off"}">Xác nhận</span>
               </label>
               <div class="order-confirm-subtext ${isConfirmed ? "is-confirmed" : "is-waiting"}">
-                ${isConfirmed ? "Đã gửi xác nhận về sàn" : "⏳ Chờ xác nhận"}
+                ${isConfirmed ? "Đã xác nhận" : "⏳ Chờ xác nhận"}
               </div>
             </div>
           `;
         }
 
+        const channelDisplay =
+          (window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[ord.channel] && window.CHANNELS_CONFIG[ord.channel].shortName) ||
+          ord.channel;
+
         const fifoBadge = ord.fifoRank
-          ? `<span class="fifo-rank" title="Thứ tự ưu tiên theo thời gian đặt của mã ${ord.sku}">FIFO #${ord.fifoRank}</span>`
+          ? `<span class="fifo-rank" title="Thứ tự ưu tiên giữ hàng theo thời gian đặt">#${ord.fifoRank}</span>`
           : `<span style="color:#94a3b8;font-size:11px;">-</span>`;
 
         const shortageQty = ord.stockSnapshot ? Math.max(0, (ord.quantity || 0) - (ord.stockSnapshot.before || 0)) : (ord.quantity || 0);
@@ -3207,12 +3353,9 @@ handleResetPassword(username) {
             ? `<span style="color:#d97706;font-size:11.5px;font-weight:700;">⏳ Chờ xác nhận</span>`
             : ord.stockSnapshot
             ? ord.status === "BACKORDER"
-              ? `<div>
-                  <span style="font-weight:700;color:#dc2626;">${ord.stockSnapshot.before} ➔ ${ord.stockSnapshot.after}</span>
-                  <div style="font-size:10.5px;color:#dc2626;font-weight:700;margin-top:2px;">⚠️ Thiếu ${shortageQty} SP (Cần nhập kho)</div>
-                </div>`
-              : `<span style="font-weight:600;">${ord.stockSnapshot.before}</span> ➔ <strong style="color:var(--theme-primary)">${ord.stockSnapshot.after}</strong>`
-            : `<span style="color:#ef4444;font-size:11.5px;">Chặn ở Bước 2</span>`;
+              ? `<div style="font-size:12px;color:#dc2626;font-weight:700;">⚠️ Thiếu ${shortageQty} SP (Cần nhập hàng)</div>`
+              : `<div style="font-size:12px;color:#15803d;font-weight:700;">Đã giữ hàng</div><div style="font-size:11px;color:var(--text-muted);">Còn ${ord.stockSnapshot.after} sẵn sàng bán</div>`
+            : `<span style="color:#ef4444;font-size:11.5px;font-weight:600;">Đơn lỗi thông tin</span>`;
 
         const pm = ord.paymentMethod || "COD (Thanh toán khi nhận hàng)";
         const isCodOrder = pm.toUpperCase().includes("COD") || pm.toLowerCase().includes("thu hộ") || pm.toLowerCase().includes("khi nhận hàng");
@@ -3239,7 +3382,7 @@ handleResetPassword(username) {
 
         const sourceBadge =
           ord.sourceMethod === "WEBHOOK_API"
-            ? `<span style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Sàn TMDT</span>`
+            ? `<span style="font-size:11px;color:#7c3aed;font-weight:600;">⚡ Tiếp nhận trực tiếp</span>`
             : `<span style="font-size:11px;color:var(--theme-primary);font-weight:600;">📊 File Excel</span>`;
 
         return `
@@ -3249,7 +3392,7 @@ handleResetPassword(username) {
             <div style="font-weight:700;color:var(--text-main);">${ord.orderId}</div>
             <div>${sourceBadge}</div>
           </td>
-          <td><span class="channel-badge badge-${ord.channel}">${ord.channel}</span></td>
+          <td><span class="channel-badge badge-${ord.channel}">${channelDisplay}</span></td>
           <td>
             <div style="font-weight:700;font-family:monospace;font-size:12px;">${window.omsEngine && typeof window.omsEngine.parseAndFormatOrderTime === "function" ? window.omsEngine.parseAndFormatOrderTime(ord.orderTime).formatted : ord.orderTime}</div>
 
@@ -3264,11 +3407,11 @@ handleResetPassword(username) {
           <td>${pmBadge}</td>
           <td>
             <div style="display:flex;gap:5px;flex-wrap:wrap;">
-              <button class="btn btn-outline btn-sm" onclick="AppUI.openOrderAuditModal('${ord.orderId}')" title="Xem lưu vết 4 bước xử lý">
-                🔍 Xem chi tiết
+              <button class="btn btn-outline btn-sm" onclick="AppUI.openOrderAuditModal('${ord.orderId}')" title="Xem thông tin chi tiết và lịch sử xử lý đơn hàng">
+                Xem chi tiết
               </button>
               <button class="btn btn-primary btn-sm" onclick="AppUI.openWaybillForOrder('${ord.orderId}')" title="Tạo mã vận đơn & In mã QR cho đơn này">
-                🖨️ Vận đơn & QR
+                Tạo vận đơn
               </button>
             </div>
           </td>
@@ -4241,24 +4384,28 @@ handleResetPassword(username) {
       )
       .join("");
 
+    const channelDisplay =
+      (window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[ord.channel] && window.CHANNELS_CONFIG[ord.channel].shortName) ||
+      ord.channel;
+
     content.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:var(--bg-subtle);padding:14px;border-radius:10px;border:1px solid var(--border-color);">
         <div>
           <p><strong>Mã đơn hàng:</strong> ${ord.orderId}</p>
-          <p><strong>Kênh bán (Sàn):</strong> <span class="channel-badge badge-${ord.channel}">${ord.channel}</span></p>
+          <p><strong>Kênh bán:</strong> <span class="channel-badge badge-${ord.channel}">${channelDisplay}</span></p>
           <p><strong>Thời gian đặt:</strong> ${ord.orderTime}</p>
-          <p><strong>Phương thức nhận:</strong> ${ord.sourceMethod === "WEBHOOK_API" ? "Đồng bộ từ Sàn TMDT" : "Nạp từ File Excel"}</p>
+          <p><strong>Hình thức nhận đơn:</strong> ${ord.sourceMethod === "WEBHOOK_API" ? "Tiếp nhận trực tiếp" : "Nhập từ File Excel"}</p>
         </div>
         <div>
           <p><strong>Khách hàng:</strong> ${ord.customerName} (${ord.customerPhone})</p>
           <p><strong>Sản phẩm:</strong> ${ord.sku} - ${ord.productName}</p>
-          <p><strong>Số lượng yêu cầu:</strong> <strong>${ord.quantity}</strong> (Đơn giá: ${ord.unitPrice.toLocaleString("vi-VN")} VND)</p>
-          <p><strong>Phương thức TT:</strong> <strong style="color:var(--theme-primary);">${ord.paymentMethod || "COD"}</strong></p>
+          <p><strong>Số lượng đặt:</strong> <strong>${ord.quantity}</strong> (Đơn giá: ${ord.unitPrice.toLocaleString("vi-VN")} VND)</p>
+          <p><strong>Thanh toán:</strong> <strong style="color:var(--theme-primary);">${ord.paymentMethod || "COD"}</strong></p>
           <p><strong>Địa chỉ:</strong> ${ord.shippingAddress}</p>
         </div>
       </div>
 
-      <h4 style="margin-top:16px;font-size:14px;">Lưu vết quy trình xử lý 4 bước tại Phân hệ 1:</h4>
+      <h4 style="margin-top:16px;font-size:14px;">Lịch sử xử lý đơn hàng:</h4>
       <div class="audit-timeline">
         ${stepsHtml}
       </div>

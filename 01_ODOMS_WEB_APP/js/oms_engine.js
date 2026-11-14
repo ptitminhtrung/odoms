@@ -722,9 +722,9 @@ class OMSEngine {
       stockSnapshot: null,
       auditSteps: [
         {
-          step: "Bước 1: Tiếp nhận & Chuẩn hóa Đơn hàng (Canonical Schema)",
+          step: "Bước 1: Tiếp nhận đơn hàng từ kênh bán",
           time: orderTime,
-          detail: `Tiếp nhận qua [${String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "Đồng bộ từ Sàn TMDT" : "Nạp từ File Excel"}]. Nhận diện nguồn đơn từ kênh [${channelRaw || "CHƯA XÁC ĐỊNH"}].`
+          detail: `Tiếp nhận qua [${String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "Đồng bộ trực tiếp từ kênh bán" : "Nhập từ File Excel"}]. Ghi nhận nguồn đơn từ kênh [${(window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[channelRaw] && window.CHANNELS_CONFIG[channelRaw].shortName) || channelRaw || "Chưa xác định"}].`
         }
       ]
     };
@@ -760,20 +760,23 @@ class OMSEngine {
     if (errors.length > 0) {
       order.status = "INVALID";
       order.auditSteps.push({
-        step: "Bước 2: Kiểm tra tính hợp lệ (Validation Engine)",
+        step: "Bước 2: Kiểm tra thông tin sản phẩm & khách hàng",
         status: "ERROR",
-        detail: `Đơn hàng KHÔNG HỢP LỆ: ${errors.join("; ")}. Hệ thống chặn đơn ngay tại cổng kiểm duyệt, không trừ kho.`
+        detail: `Đơn hàng thiếu/sai thông tin: ${errors.join("; ")}. Hệ thống tạm giữ đơn để kiểm tra lại, chưa giữ hàng trong kho.`
       });
       this.addLog(
         "error",
-        `[CHẶN ĐƠN LỖI] Đơn ${order.orderId} (${order.channel}) bị từ chối: ${errors.join(", ")}`
+        `[ĐƠN LỖI THÔNG TIN] Đơn ${order.orderId} (${order.channel}) cần kiểm tra lại: ${errors.join(", ")}`
       );
       return false;
     } else {
+      const channelName =
+        (window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[order.channel] && window.CHANNELS_CONFIG[order.channel].shortName) ||
+        order.channel;
       order.auditSteps.push({
-        step: "Bước 2: Kiểm tra tính hợp lệ (Validation Engine)",
+        step: "Bước 2: Kiểm tra thông tin sản phẩm & khách hàng",
         status: "OK",
-        detail: `Hợp lệ: Đã xác thực nguồn sàn [${order.channel}], mã SKU [${order.sku}] khớp Danh mục Hàng hóa Nội bộ ODOMS, số lượng yêu cầu [${order.quantity}].`
+        detail: `Hợp lệ: Đã xác nhận kênh bán [${channelName}], mã sản phẩm [${order.sku}] khớp danh mục hàng hóa ODOMS, số lượng đặt [${order.quantity}].`
       });
       return true;
     }
@@ -783,10 +786,19 @@ class OMSEngine {
   ingestAndProcessOrders(rawRows, sourceHint = "EXCEL_IMPORT") {
     let addedCount = 0;
     let duplicateCount = 0;
+    let pausedSkippedCount = 0;
+    const pausedChannels = new Set();
 
     for (const row of rawRows) {
       const normalized = this.normalizeRawOrder(row, sourceHint);
       if (!normalized.orderId) continue;
+
+      const chCfg = this.channels && this.channels[normalized.channel];
+      if (chCfg && chCfg.isConnected === false) {
+        pausedSkippedCount++;
+        pausedChannels.add(chCfg.shortName || normalized.channel);
+        continue;
+      }
 
       const exists = this.orders.some((o) => o.orderId === normalized.orderId);
       if (exists) {
@@ -797,6 +809,13 @@ class OMSEngine {
       addedCount++;
     }
 
+    if (pausedSkippedCount > 0) {
+      this.addLog(
+        "warn",
+        `[TẠM NGƯNG TIẾP NHẬN] Bỏ qua ${pausedSkippedCount} đơn hàng thuộc kênh đang Hủy kết nối (${Array.from(pausedChannels).join(", ")}).`
+      );
+    }
+
     if (duplicateCount > 0) {
       this.addLog("warn", `Bỏ qua ${duplicateCount} đơn hàng bị trùng mã đơn đã tồn tại trên hệ thống.`);
     }
@@ -804,12 +823,12 @@ class OMSEngine {
     if (addedCount > 0) {
       this.addLog(
         "info",
-        `Đã tiếp nhận ${addedCount} đơn hàng mới từ [${sourceHint === "WEBHOOK_API" ? "API/Webhook Thời gian thực" : "Bảng Excel Đa Kênh"}]. Kích hoạt thuật toán đối chiếu ATP & phân bổ FIFO/FEFO...`
+        `Đã tiếp nhận ${addedCount} đơn hàng mới từ [${sourceHint === "WEBHOOK_API" ? "Tiếp nhận trực tiếp" : "File Excel đa kênh"}]. Tiến hành kiểm tra và giữ hàng cho đơn...`
       );
       this.recalculateAllAllocations();
     }
 
-    return { addedCount, duplicateCount };
+    return { addedCount, duplicateCount, pausedSkippedCount };
   }
 
   // Bước 3 & Bước 4: Thuật toán Đối chiếu tồn kho khả dụng (ATP) & Tự động giữ hàng theo ưu tiên FIFO & Lô FEFO
@@ -828,9 +847,9 @@ class OMSEngine {
       if (ord.platformStatus === "CANCELLED") {
         ord.status = "CANCELLED";
         ord.auditSteps.push({
-          step: "Bước 2: Kiểm tra trạng thái đơn từ Sàn TMĐT",
+          step: "Bước 2: Kiểm tra trạng thái đơn từ kênh bán",
           status: "CANCELLED",
-          detail: "Đơn hàng ở trạng thái [✖️ ĐÃ HỦY ĐƠN] trên sàn TMĐT. Hệ thống ODOMS không phân bổ giữ hàng và không trừ tồn kho."
+          detail: "Đơn hàng ở trạng thái [✖️ Đã hủy] trên kênh bán. Hệ thống ODOMS không giữ hàng cho đơn này."
         });
         continue;
       }
@@ -867,10 +886,13 @@ class OMSEngine {
           requested: ord.quantity,
           after: beforeAvailable
         };
+        const chName =
+          (window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[ord.channel] && window.CHANNELS_CONFIG[ord.channel].shortName) ||
+          ord.channel;
         ord.auditSteps.push({
-          step: "Bước 3: Trạng thái Chờ Xác Nhận Điều Phối",
+          step: "Bước 3: Chờ xác nhận đơn hàng",
           status: "WARN",
-          detail: `Xếp hạng FIFO #${ord.fifoRank} của mã ${ord.sku}. Đơn hàng đang ở trạng thái [Chờ xác nhận] — Hệ thống chưa khóa tồn kho cho đến khi người dùng gạt nút "Xác nhận" để đồng bộ về sàn [${ord.channel}].`
+          detail: `Thứ tự ưu tiên #${ord.fifoRank} của mã ${ord.sku}. Đơn hàng đang ở trạng thái [Chờ xác nhận] — Hệ thống chưa giữ hàng cho đến khi bạn bấm "Xác nhận" để đồng bộ về kênh [${chName}].`
         });
         continue;
       }
@@ -908,21 +930,24 @@ class OMSEngine {
 
         const batchText = batchDetails.map((b) => `${b.batchCode} (${b.takenQty} SP)`).join(" + ");
 
+        const chName =
+          (window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[ord.channel] && window.CHANNELS_CONFIG[ord.channel].shortName) ||
+          ord.channel;
         ord.auditSteps.push({
-          step: "Bước 3: Đối chiếu Tồn kho Khả dụng (ATP) & Xếp hạng FIFO",
+          step: "Bước 3: Kiểm tra số lượng sẵn sàng bán",
           status: "OK",
-          detail: `Xếp hạng ưu tiên: Đơn tới thứ #${ord.fifoRank} của mã ${ord.sku} (Đặt lúc ${ord.orderTime}). Tồn khả dụng trước khi trừ: [${beforeAvailable}] >= Yêu cầu: [${ord.quantity}] -> ĐỦ ĐIỀU KIỆN GIỮ HÀNG.`
+          detail: `Thứ tự ưu tiên: Đơn thứ #${ord.fifoRank} của mã ${ord.sku} (Đặt lúc ${ord.orderTime}). Sẵn sàng bán trước khi giữ: [${beforeAvailable}] >= Số lượng đặt: [${ord.quantity}] -> Đủ hàng để giữ cho đơn.`
         });
 
         ord.auditSteps.push({
-          step: "Bước 4: Tự động Giữ hàng theo Lô (FEFO) & Đồng bộ Đa kênh",
+          step: "Bước 4: Xác nhận giữ hàng đóng gói",
           status: "OK",
-          detail: `Đã khóa [${ord.quantity}] sản phẩm giữ riêng cho sàn [${ord.channel}] từ lô: ${batchText}. Tồn khả dụng còn lại: [${inv.availableStock}] (Đã đồng bộ tức thì lên 5 kênh).`
+          detail: `Đã giữ [${ord.quantity}] sản phẩm riêng cho kênh [${chName}] từ lô: ${batchText}. Số lượng sẵn sàng bán còn lại: [${inv.availableStock}] (Đã đồng bộ lên bảng Theo dõi trạng thái các sàn).`
         });
 
         this.addLog(
           "success",
-          `[FIFO #${ord.fifoRank} - GIỮ HÀNG] Đơn ${ord.orderId} (${ord.channel}) lúc ${ord.orderTime.split(" ")[1]}: Trừ ${ord.quantity} x ${ord.sku} (${batchText}). Tồn khả dụng: ${beforeAvailable} ➔ ${inv.availableStock}.`
+          `[Ưu tiên #${ord.fifoRank} - ĐÃ GIỮ HÀNG] Đơn ${ord.orderId} (${chName}) lúc ${ord.orderTime.split(" ")[1]}: Giữ ${ord.quantity} x ${ord.sku} (${batchText}). Sẵn sàng bán: ${beforeAvailable} ➔ ${inv.availableStock}.`
         );
       } else {
         ord.status = "BACKORDER";
@@ -933,15 +958,15 @@ class OMSEngine {
         };
 
         ord.auditSteps.push({
-          step: "Bước 3: Đối chiếu Tồn kho Khả dụng (ATP) & Xếp hạng FIFO",
+          step: "Bước 3: Kiểm tra số lượng sẵn sàng bán",
           status: "WARN",
-          detail: `Xếp hạng ưu tiên: Đơn tới thứ #${ord.fifoRank} của mã ${ord.sku} (Đặt lúc ${ord.orderTime}). Tồn khả dụng hiện tại chỉ còn [${beforeAvailable}] < Yêu cầu [${ord.quantity}] (Do các đơn đặt trước đã giữ hết hàng).`
+          detail: `Thứ tự ưu tiên: Đơn thứ #${ord.fifoRank} của mã ${ord.sku} (Đặt lúc ${ord.orderTime}). Số lượng sẵn sàng bán hiện chỉ còn [${beforeAvailable}] < Số lượng đặt [${ord.quantity}] (Do các đơn đặt trước đã giữ hết hàng).`
         });
 
         ord.auditSteps.push({
-          step: "Bước 4: Chặn Bán Lố (Anti-Overselling Gatekeeper)",
+          step: "Bước 4: Tạm dừng giữ hàng (Thiếu hàng trong kho)",
           status: "WARN",
-          detail: `Hệ thống TỪ CHỐI GIỮ HÀNG tự động và chuyển đơn sang trạng thái [CHẶN BÁN LỐ / CHỜ NHẬP BÙ] để ngăn chặn xuất âm kho.`
+          detail: `Hệ thống tạm dừng giữ hàng và chuyển đơn sang trạng thái [Thiếu hàng / Cần nhập thêm] để tránh nhận đơn vượt quá lượng hàng thực tế.`
         });
 
         this.addLog(
@@ -957,21 +982,69 @@ class OMSEngine {
     }
   }
 
+  formatSyncDateTime(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}-${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  toggleChannelConnection(chKey) {
+    const ch = this.channels && this.channels[chKey];
+    if (!ch) return null;
+
+    const nextState = ch.isConnected === false;
+    ch.isConnected = nextState;
+    const nowStr = this.formatSyncDateTime();
+    ch.lastSync = nowStr;
+    ch.syncCount += 1;
+
+    if (!nextState) {
+      this.addLog(
+        "warn",
+        `[TẠM NGƯNG SÀN] Đã chuyển [${ch.shortName}] sang trạng thái "Hủy kết nối": đưa số lượng hàng bán trên sàn về 0 và tạm ngưng tiếp nhận đơn mới từ ${ch.shortName} (cập nhật lúc ${nowStr}).`
+      );
+    } else {
+      const summaryStock = this.inventory.map((i) => `${i.sku}: ${i.availableStock}`).join(" | ");
+      this.addLog(
+        "sync",
+        `[KẾT NỐI LẠI SÀN] Đã bật lại [${ch.shortName}] sang "Đang kết nối" — đồng bộ lại số lượng sẵn sàng bán thực tế lên ${ch.shortName} lúc ${nowStr}: [ ${summaryStock} ].`
+      );
+    }
+
+    if (window.cloudSync && !window.cloudSync.isPulling) {
+      window.cloudSync.scheduleCloudPush("CHANNEL_TOGGLE");
+    }
+
+    return { isConnected: nextState, channelName: ch.shortName, timestamp: nowStr };
+  }
+
   broadcastInventorySync() {
-    const nowStr = new Date().toTimeString().split(" ")[0];
+    const nowStr = this.formatSyncDateTime();
+    const activeNames = [];
+    const pausedNames = [];
+
     Object.keys(this.channels).forEach((chKey) => {
-      this.channels[chKey].lastSync = nowStr;
-      this.channels[chKey].syncCount += 1;
+      const ch = this.channels[chKey];
+      if (ch.isConnected === false) {
+        pausedNames.push(ch.shortName);
+      } else {
+        ch.lastSync = nowStr;
+        ch.syncCount += 1;
+        activeNames.push(ch.shortName);
+      }
     });
 
     const summaryStock = this.inventory
       .map((i) => `${i.sku}: ${i.availableStock}`)
       .join(" | ");
 
-    this.addLog(
-      "sync",
-      `[ĐỒNG BỘ 2 CHIỀU ➔ 5 KÊNH] Cập nhật Tồn kho Khả dụng (ATP) lên Shopee, TikTok, Lazada, FB, POS: [ ${summaryStock} ]`
-    );
+    if (activeNames.length > 0) {
+      this.addLog(
+        "sync",
+        `[ĐỒNG BỘ LƯỢNG HÀNG BÁN] Cập nhật số lượng sẵn sàng bán lên ${activeNames.join(", ")} lúc ${nowStr}: [ ${summaryStock} ].${
+          pausedNames.length > 0 ? ` (Đang tạm ngưng: ${pausedNames.join(", ")})` : ""
+        }`
+      );
+    }
   }
 
   restockSku(sku, additionalQty) {

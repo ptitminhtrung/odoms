@@ -1296,12 +1296,76 @@ class ExcelHandler {
     ExcelHandler.triggerBlobDownload(blob, "Bo_Du_Lieu_Don_Hang_Da_Kenh_OMS_Mau.xlsx");
   }
 
-  // Phương thức chuẩn OOP (Mục II.4 DKDT_OOP.md): Xuất báo cáo tổng hợp ra file Excel
-  static exportReportToExcel() {
+  // Phương thức xuất báo cáo theo đúng ngữ cảnh tab hiện tại trên giao diện
+  static exportContextReport() {
+    const activeTab = window.AppUI && window.AppUI.currentMenuTab;
+    if (activeTab === "ingest") {
+      return ExcelHandler.exportOrdersStatusReport();
+    }
     return ExcelHandler.exportAllocatedReport();
   }
 
-  // Xuất kết quả Đối chiếu & Phân bổ Tồn kho ra Excel để nộp báo cáo
+  // Phương thức chuẩn OOP (Mục II.4 DKDT_OOP.md): Xuất báo cáo tổng hợp ra file Excel
+  static exportReportToExcel() {
+    return ExcelHandler.exportContextReport();
+  }
+
+  // Xuất tình trạng Bảng Điều Phối Đơn Hàng Đa Kênh ra Excel (dành riêng cho tab Tiếp nhận / Gom đơn)
+  static exportOrdersStatusReport() {
+    const engine = window.omsEngine;
+    const channelsCfg = window.CHANNELS_CONFIG || {};
+    const rows = (engine.orders || []).map((o) => {
+      const channelName = (channelsCfg[o.channel] && channelsCfg[o.channel].shortName) || o.channel || "";
+      let holdStatusText = "Đang kiểm tra";
+      if (o.status === "ALLOCATED") holdStatusText = "Đã giữ hàng";
+      else if (o.status === "BACKORDER") holdStatusText = "Thiếu hàng (Cần nhập thêm)";
+      else if (o.status === "PENDING") holdStatusText = "Chờ xác nhận";
+      else if (o.status === "CANCELLED") holdStatusText = "Đã hủy đơn";
+      else if (o.status === "INVALID") holdStatusText = "Đơn lỗi thông tin";
+
+      const platformStatusText =
+        o.platformStatus === "CONFIRMED"
+          ? "Đã xác nhận"
+          : o.platformStatus === "UNCONFIRMED"
+          ? "Chờ xác nhận"
+          : "Đã hủy";
+
+      const sourceText =
+        String(o.sourceMethod || "").indexOf("NhanTuSanTMDT") === 0 || o.sourceMethod === "WEBHOOK_API"
+          ? "Tiếp nhận trực tiếp"
+          : "File Excel";
+
+      const isCod =
+        (o.paymentMethod || "").toUpperCase().includes("COD") ||
+        (o.paymentMethod || "").toLowerCase().includes("thu hộ");
+
+      return {
+        "Thứ tự ưu tiên": o.fifoRank ? `#${o.fifoRank}` : "-",
+        "Mã đơn hàng": o.orderId,
+        "Kênh bán": channelName,
+        "Thời gian đặt": o.orderTime,
+        "Hình thức nhận đơn": sourceText,
+        "Sản phẩm": o.productName,
+        "Mã SKU": o.sku,
+        "Số lượng": o.quantity,
+        "Tình trạng giữ hàng": holdStatusText,
+        "Trạng thái đơn": platformStatusText,
+        "Thanh toán": o.paymentMethod || "COD (Thanh toán khi nhận hàng)",
+        "Tiền thu hộ COD (VND)": isCod ? (o.quantity || 0) * (o.unitPrice || 0) : 0,
+        "Khách hàng": o.customerName || "",
+        "Số điện thoại": o.customerPhone || "",
+        "Địa chỉ nhận hàng": o.customerAddress || ""
+      };
+    });
+
+    ExcelHandler.downloadDataset(
+      rows,
+      "Bao_Cao_Tinh_Trang_Dieu_Phoi_Don_Hang_Da_Kenh",
+      "Bang_Dieu_Phoi_Don_Hang"
+    );
+  }
+
+  // Xuất kết quả Đối chiếu & Phân bổ Tồn kho ra Excel để nộp báo cáo (dành cho tab Kho)
   static exportAllocatedReport() {
     const engine = window.omsEngine;
     const orderReportRows = engine.orders.map((o) => ({
