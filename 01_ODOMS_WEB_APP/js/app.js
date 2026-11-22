@@ -208,7 +208,10 @@ const AppUI = {
     const legendBoxImport = document.getElementById("legendBoxImport");
     if (legendBoxImport) legendBoxImport.style.background = themeObj.chartSecondary;
 
-    // Cập nhật lại biểu đồ cột đứng hợp nhất Top 3 kênh, Donut & Doanh thu theo chủ đề mới
+    // Cập nhật lại biểu đồ cột đứng hợp nhất Top 3 kênh, Donut, Doanh thu & Dashboard P2 theo chủ đề mới
+    if (typeof this.renderDashboardP2 === "function") {
+      this.renderDashboardP2();
+    }
     if (typeof this.renderFiveChannelSoldPieChart === "function") {
       this.renderFiveChannelSoldPieChart();
     }
@@ -531,6 +534,7 @@ const AppUI = {
 
     const titleMap = {
       dashboard: "Tổng Quan",
+      revenue_analytics: "Doanh thu & Phân tích",
       ingest: "Tiếp nhận / Gom đơn",
       inventory: "Kho",
       shipping: "Vận chuyển đơn hàng đa kênh",
@@ -629,13 +633,21 @@ const AppUI = {
 
   fillRandomWebhookOrder() {
     const channels = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
-    const skus = [
-      "SP-AO-POLO-01",
-      "SP-TAI-NGHE-02",
-      "SP-BALO-LAP-03",
-      "SP-BINH-NHIET-04",
-      "SP-BAN-PHIM-05"
-    ];
+    const invList =
+      window.omsEngine && Array.isArray(window.omsEngine.inventory) && window.omsEngine.inventory.length > 0
+        ? window.omsEngine.inventory
+        : window.INITIAL_INVENTORY || [];
+    const skus =
+      invList.length > 0
+        ? invList.map((item) => item.sku)
+        : [
+            "SP-AO-POLO-01",
+            "SP-AO-THUN-02",
+            "SP-QUAN-JEANS-06",
+            "SP-DAM-MIDI-11",
+            "SP-GIAY-SNEAKER-16",
+            "SP-TUI-DEO-21"
+          ];
     const sampleCustomers = [
       "Nguyễn Minh Tuấn",
       "Trần Thu Hà",
@@ -702,7 +714,7 @@ const AppUI = {
         ? addressEl.value.trim()
         : channel === "POS"
         ? "Mua trực tiếp tại Cửa hàng ODOMS (Quầy POS)"
-        : `Đơn đồng bộ qua Webhook ${channel}`;
+        : `Đơn tiếp nhận trực tiếp từ kênh ${channel}`;
 
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
@@ -717,6 +729,18 @@ const AppUI = {
     const unitPrice = invItem ? invItem.price : 250000;
     const productName = invItem ? invItem.name : "Sản phẩm chưa đăng ký kho";
 
+    // Bắt ĐVVC đúng nghiệp vụ 3 tầng theo nguồn phát sinh:
+    // - Sàn TMĐT (Shopee/TikTok/Lazada): sàn gửi kèm ĐVVC
+    // - POS: tự động gán "Tại quầy"
+    // - Facebook / ngoài sàn: để trống -> hệ thống ghi nhận "Chưa gán ĐVVC" cho tới khi tạo vận đơn vào bảng VanDon
+    const platformCarrierMap = {
+      SHOPEE: "SPX Express",
+      TIKTOK: "J&T Express",
+      LAZADA: "GHN (Giao Hàng Nhanh)",
+      POS: "Tại quầy",
+      FACEBOOK: ""
+    };
+
     const mockApiPayload = {
       "Mã đơn hàng": orderId,
       "Sàn TMĐT": channel,
@@ -729,7 +753,8 @@ const AppUI = {
       "Số điện thoại": "090" + Math.floor(1000000 + Math.random() * 8999999),
       "Địa chỉ nhận hàng": address,
       "Trạng thái đơn hàng": "Chờ xác nhận",
-      "Phương thức thanh toán": channel === "POS" ? "Tiền mặt tại quầy" : "Ví điện tử / Chuyển khoản"
+      "Phương thức thanh toán": channel === "POS" ? "Tiền mặt tại quầy" : "Ví điện tử / Chuyển khoản",
+      "Đơn vị vận chuyển": platformCarrierMap[channel] !== undefined ? platformCarrierMap[channel] : ""
     };
 
     window.omsEngine.ingestAndProcessOrders([mockApiPayload], "WEBHOOK_API");
@@ -743,6 +768,7 @@ const AppUI = {
       this.demoTimer = null;
     }
     window.omsEngine.resetSystem();
+    this.syncShipmentsFromEngine();
     if (window.cloudSync) {
       window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
     }
@@ -750,35 +776,32 @@ const AppUI = {
 
     const demoSequence = [
       {
-        note: "Đơn #1 từ Shopee đặt 4 Áo Polo lúc 08:15:10 (Tồn kho đang có 10)",
+        note: "Đơn #1 từ Shopee đặt 4 Áo Polo lúc 08:15:10 ngày 22/11/2026 (Tồn kho đang có 10)",
         row: window.SAMPLE_EXCEL_DATASETS.SHOPEE[0],
         mode: "WEBHOOK_API"
       },
       {
-        note: "Đơn #2 từ TikTok Shop đặt 4 Áo Polo lúc 08:16:05 (Tồn khả dụng còn 6 -> Giữ 4, còn 2)",
+        note: "Đơn #2 từ TikTok Shop đặt 4 Áo Polo lúc 08:16:05 ngày 22/11/2026 (Sẵn sàng bán còn 6 -> Giữ 4, còn 2)",
         row: window.SAMPLE_EXCEL_DATASETS.TIKTOK[0],
         mode: "WEBHOOK_API"
       },
       {
-        note: "Đơn #3 từ Cửa hàng vật lý (POS) mua 2 Áo Polo lúc 08:17:20 (Tồn khả dụng còn 2 -> Giữ nốt 2, Tồn về 0!)",
+        note: "Đơn #3 từ Cửa hàng vật lý (POS) mua 2 Áo Polo lúc 08:17:20 ngày 22/11/2026 (Sẵn sàng bán còn 2 -> Giữ nốt 2, tồn về 0)",
         row: window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS[0],
         mode: "WEBHOOK_API"
       },
       {
-        note: "Đơn #4 từ Lazada đặt 3 Áo Polo lúc 08:18:45 (Đến trễ hơn -> Tồn khả dụng = 0 -> Hệ thống chặn bán lố!)",
+        note: "Đơn #4 từ Lazada đặt 3 Áo Polo lúc 08:18:45 ngày 22/11/2026 (Đến sau -> Hết hàng sẵn sàng bán -> Hệ thống chặn vượt tồn)",
         row: window.SAMPLE_EXCEL_DATASETS.LAZADA[0],
         mode: "WEBHOOK_API"
       },
       {
-        note: "Nạp tiếp các đơn hàng khác từ bảng Excel đa kênh (bao gồm cả đơn sai mã SKU để kiểm tra lọc lỗi)",
+        note: "Nạp tiếp toàn bộ chuỗi đơn hàng Thời trang 01/2026 - 22/11/2026 từ 5 kênh bán hàng (bao gồm đơn sai mã sản phẩm để kiểm tra lọc lỗi)",
         rowsBatch: [
-          window.SAMPLE_EXCEL_DATASETS.SHOPEE[1],
-          window.SAMPLE_EXCEL_DATASETS.SHOPEE[2],
-          window.SAMPLE_EXCEL_DATASETS.TIKTOK[1],
-          window.SAMPLE_EXCEL_DATASETS.TIKTOK[2],
-          window.SAMPLE_EXCEL_DATASETS.LAZADA[1],
-          window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS[1],
-          window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS[2]
+          ...(window.SAMPLE_EXCEL_DATASETS.SHOPEE || []).slice(1),
+          ...(window.SAMPLE_EXCEL_DATASETS.TIKTOK || []).slice(1),
+          ...(window.SAMPLE_EXCEL_DATASETS.LAZADA || []).slice(1),
+          ...(window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS || []).slice(1)
         ],
         mode: "EXCEL_IMPORT"
       }
@@ -828,6 +851,7 @@ const AppUI = {
       btn.innerText = "Chạy mô phỏng";
     }
     window.omsEngine.resetSystem();
+    this.syncShipmentsFromEngine();
     if (window.cloudSync) {
       window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
     }
@@ -1418,6 +1442,9 @@ handleResetPassword(username) {
     this.renderShippingTab();
     this.renderOneMonthRevenueOverview();
     this.renderKPIsAndBadges();
+    if (typeof this.renderDashboardP2 === "function") {
+      this.renderDashboardP2();
+    }
     this.renderCharts();
     this.renderUnifiedTop3ChannelRankingChart();
     this.renderFiveChannelSoldPieChart();
@@ -1436,26 +1463,131 @@ handleResetPassword(username) {
     this.renderLogs();
   },
 
-  // Dữ liệu cơ sở 6 tháng (Th5/2026 - Th10/2026) tham chiếu theo m3db, m4db, m5db
-  // kết hợp động với các đơn hàng thực tế vừa nạp vào omsEngine
+  // Dữ liệu cơ sở 11 tháng ngành Thời trang (Tháng 01/2026 – ngày 22/11/2026)
+  // kết hợp động với các đơn hàng thực tế theo đúng tháng của từng đơn trong omsEngine
   getMonthlyHistoricalDataset() {
     const liveOrders = window.omsEngine ? window.omsEngine.orders : [];
-    const getLiveStats = (ch) => {
-      const list = ch ? liveOrders.filter((o) => o.channel === ch) : liveOrders;
-      const alloc = list.filter((o) => o.status === "ALLOCATED" && o.platformStatus !== "CANCELLED");
-      const canc = list.filter((o) => o.status === "INVALID" || o.status === "CANCELLED" || o.platformStatus === "CANCELLED");
-      const rev = alloc.reduce((s, o) => s + o.quantity * o.unitPrice, 0);
-      return {
-        received: list.length,
-        exported: alloc.length,
-        cancelled: canc.length,
-        revenue: rev
-      };
+
+    const extractMonthKey = (ord) => {
+      const s = String(ord && ord.orderTime ? ord.orderTime : "").trim();
+      const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (dmy) {
+        return `${dmy[3]}-${String(dmy[2]).padStart(2, "0")}`;
+      }
+      const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (ymd) {
+        return `${ymd[1]}-${String(ymd[2]).padStart(2, "0")}`;
+      }
+      return "2026-11";
     };
 
-    const liveAll = getLiveStats(null);
+    const liveByMonth = {};
+    liveOrders.forEach((o) => {
+      const mk = extractMonthKey(o);
+      if (!liveByMonth[mk]) {
+        liveByMonth[mk] = {
+          received: 0,
+          exported: 0,
+          cancelled: 0,
+          revenue: 0,
+          channels: {
+            SHOPEE: { received: 0, exported: 0, cancelled: 0, revenue: 0 },
+            TIKTOK: { received: 0, exported: 0, cancelled: 0, revenue: 0 },
+            LAZADA: { received: 0, exported: 0, cancelled: 0, revenue: 0 },
+            POS: { received: 0, exported: 0, cancelled: 0, revenue: 0 },
+            FACEBOOK: { received: 0, exported: 0, cancelled: 0, revenue: 0 }
+          }
+        };
+      }
+      const bucket = liveByMonth[mk];
+      const chKey = String(o.channel || "SHOPEE").toUpperCase();
+      const chBucket = bucket.channels[chKey];
+      const isExported = o.status === "ALLOCATED" && o.platformStatus !== "CANCELLED";
+      const isCancelled = o.status === "INVALID" || o.status === "CANCELLED" || o.platformStatus === "CANCELLED";
+      const ordRev = isExported ? (Number(o.quantity) || 0) * (Number(o.unitPrice) || 0) : 0;
 
-    return {
+      bucket.received += 1;
+      if (isExported) bucket.exported += 1;
+      if (isCancelled) bucket.cancelled += 1;
+      bucket.revenue += ordRev;
+
+      if (chBucket) {
+        chBucket.received += 1;
+        if (isExported) chBucket.exported += 1;
+        if (isCancelled) chBucket.cancelled += 1;
+        chBucket.revenue += ordRev;
+      }
+    });
+
+    const baseMonths = {
+      "2026-01": {
+        label: "Tháng 01/2026",
+        shortLabel: "Th1/26",
+        startDate: "2026-01-01",
+        endDate: "2026-01-31",
+        received: 268,
+        exported: 252,
+        cancelled: 16,
+        revenue: 86400000,
+        channels: {
+          SHOPEE: { orders: 112, exported: 106, cancelled: 6, revenue: 36800000, growth: "+9.4%" },
+          TIKTOK: { orders: 72, exported: 67, cancelled: 5, revenue: 22900000, growth: "+12.1%" },
+          LAZADA: { orders: 42, exported: 39, cancelled: 3, revenue: 13800000, growth: "+5.2%" },
+          POS: { orders: 24, exported: 23, cancelled: 1, revenue: 8100000, growth: "+4.6%" },
+          FACEBOOK: { orders: 18, exported: 17, cancelled: 1, revenue: 4800000, growth: "+2.8%" }
+        }
+      },
+      "2026-02": {
+        label: "Tháng 02/2026",
+        shortLabel: "Th2/26",
+        startDate: "2026-02-01",
+        endDate: "2026-02-28",
+        received: 242,
+        exported: 228,
+        cancelled: 14,
+        revenue: 78900000,
+        channels: {
+          SHOPEE: { orders: 102, exported: 96, cancelled: 6, revenue: 33400000, growth: "+6.2%" },
+          TIKTOK: { orders: 64, exported: 60, cancelled: 4, revenue: 20800000, growth: "+8.9%" },
+          LAZADA: { orders: 38, exported: 36, cancelled: 2, revenue: 12400000, growth: "+4.1%" },
+          POS: { orders: 22, exported: 21, cancelled: 1, revenue: 7600000, growth: "+3.4%" },
+          FACEBOOK: { orders: 16, exported: 15, cancelled: 1, revenue: 4700000, growth: "+2.5%" }
+        }
+      },
+      "2026-03": {
+        label: "Tháng 03/2026",
+        shortLabel: "Th3/26",
+        startDate: "2026-03-01",
+        endDate: "2026-03-31",
+        received: 286,
+        exported: 270,
+        cancelled: 16,
+        revenue: 92600000,
+        channels: {
+          SHOPEE: { orders: 118, exported: 112, cancelled: 6, revenue: 38900000, growth: "+10.6%" },
+          TIKTOK: { orders: 78, exported: 74, cancelled: 4, revenue: 25100000, growth: "+13.2%" },
+          LAZADA: { orders: 45, exported: 42, cancelled: 3, revenue: 14600000, growth: "+6.0%" },
+          POS: { orders: 26, exported: 25, cancelled: 1, revenue: 8800000, growth: "+4.5%" },
+          FACEBOOK: { orders: 19, exported: 17, cancelled: 2, revenue: 5200000, growth: "+3.2%" }
+        }
+      },
+      "2026-04": {
+        label: "Tháng 04/2026",
+        shortLabel: "Th4/26",
+        startDate: "2026-04-01",
+        endDate: "2026-04-30",
+        received: 298,
+        exported: 281,
+        cancelled: 17,
+        revenue: 95800000,
+        channels: {
+          SHOPEE: { orders: 124, exported: 117, cancelled: 7, revenue: 40100000, growth: "+10.8%" },
+          TIKTOK: { orders: 82, exported: 77, cancelled: 5, revenue: 26100000, growth: "+13.8%" },
+          LAZADA: { orders: 46, exported: 43, cancelled: 3, revenue: 15000000, growth: "+6.4%" },
+          POS: { orders: 27, exported: 26, cancelled: 1, revenue: 9200000, growth: "+4.3%" },
+          FACEBOOK: { orders: 19, exported: 18, cancelled: 1, revenue: 5400000, growth: "+3.0%" }
+        }
+      },
       "2026-05": {
         label: "Tháng 05/2026",
         shortLabel: "Th5/26",
@@ -1546,49 +1678,56 @@ handleResetPassword(username) {
         shortLabel: "Th10/26",
         startDate: "2026-10-01",
         endDate: "2026-10-31",
-        received: 485 + liveAll.received,
-        exported: 462 + liveAll.exported,
-        cancelled: 23 + liveAll.cancelled,
-        revenue: 158500000 + liveAll.revenue,
+        received: 485,
+        exported: 462,
+        cancelled: 23,
+        revenue: 158500000,
         channels: {
-          SHOPEE: {
-            orders: 205 + getLiveStats("SHOPEE").received,
-            exported: 195 + getLiveStats("SHOPEE").exported,
-            cancelled: 10 + getLiveStats("SHOPEE").cancelled,
-            revenue: 68400000 + getLiveStats("SHOPEE").revenue,
-            growth: "+18.4%"
-          },
-          TIKTOK: {
-            orders: 148 + getLiveStats("TIKTOK").received,
-            exported: 141 + getLiveStats("TIKTOK").exported,
-            cancelled: 7 + getLiveStats("TIKTOK").cancelled,
-            revenue: 47200000 + getLiveStats("TIKTOK").revenue,
-            growth: "+22.6%"
-          },
-          LAZADA: {
-            orders: 68 + getLiveStats("LAZADA").received,
-            exported: 65 + getLiveStats("LAZADA").exported,
-            cancelled: 3 + getLiveStats("LAZADA").cancelled,
-            revenue: 22100000 + getLiveStats("LAZADA").revenue,
-            growth: "+9.5%"
-          },
-          POS: {
-            orders: 38 + getLiveStats("POS").received,
-            exported: 37 + getLiveStats("POS").exported,
-            cancelled: 1 + getLiveStats("POS").cancelled,
-            revenue: 12500000 + getLiveStats("POS").revenue,
-            growth: "+7.8%"
-          },
-          FACEBOOK: {
-            orders: 26 + getLiveStats("FACEBOOK").received,
-            exported: 24 + getLiveStats("FACEBOOK").exported,
-            cancelled: 2 + getLiveStats("FACEBOOK").cancelled,
-            revenue: 8300000 + getLiveStats("FACEBOOK").revenue,
-            growth: "+6.4%"
-          }
+          SHOPEE: { orders: 205, exported: 195, cancelled: 10, revenue: 68400000, growth: "+18.4%" },
+          TIKTOK: { orders: 148, exported: 141, cancelled: 7, revenue: 47200000, growth: "+22.6%" },
+          LAZADA: { orders: 68, exported: 65, cancelled: 3, revenue: 22100000, growth: "+9.5%" },
+          POS: { orders: 38, exported: 37, cancelled: 1, revenue: 12500000, growth: "+7.8%" },
+          FACEBOOK: { orders: 26, exported: 24, cancelled: 2, revenue: 8300000, growth: "+6.4%" }
+        }
+      },
+      "2026-11": {
+        label: "Tháng 11/2026 (đến 22/11)",
+        shortLabel: "Th11/26",
+        startDate: "2026-11-01",
+        endDate: "2026-11-22",
+        received: 524,
+        exported: 498,
+        cancelled: 26,
+        revenue: 176400000,
+        channels: {
+          SHOPEE: { orders: 224, exported: 213, cancelled: 11, revenue: 76500000, growth: "+21.2%" },
+          TIKTOK: { orders: 162, exported: 154, cancelled: 8, revenue: 52800000, growth: "+24.8%" },
+          LAZADA: { orders: 72, exported: 68, cancelled: 4, revenue: 24600000, growth: "+11.3%" },
+          POS: { orders: 40, exported: 39, cancelled: 1, revenue: 13800000, growth: "+8.9%" },
+          FACEBOOK: { orders: 26, exported: 24, cancelled: 2, revenue: 8700000, growth: "+7.5%" }
         }
       }
     };
+
+    Object.keys(baseMonths).forEach((mk) => {
+      const liveM = liveByMonth[mk];
+      if (!liveM) return;
+      const m = baseMonths[mk];
+      m.received += liveM.received;
+      m.exported += liveM.exported;
+      m.cancelled += liveM.cancelled;
+      m.revenue += liveM.revenue;
+      ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"].forEach((chKey) => {
+        if (m.channels[chKey] && liveM.channels[chKey]) {
+          m.channels[chKey].orders += liveM.channels[chKey].received;
+          m.channels[chKey].exported += liveM.channels[chKey].exported;
+          m.channels[chKey].cancelled += liveM.channels[chKey].cancelled;
+          m.channels[chKey].revenue += liveM.channels[chKey].revenue;
+        }
+      });
+    });
+
+    return baseMonths;
   },
 
   // 1. BẢNG TỔNG DOANH THU & DOANH THU LẦN LƯỢT 5 KÊNH BÁN HÀNG (ĐỒNG BỘ THEO BỘ LỌC QUÝ / THÁNG / TUẦN / NGÀY)
@@ -1621,7 +1760,7 @@ handleResetPassword(username) {
       ? [
           { key: "SHOPEE", name: "Shopee", badgeClass: "badge-SHOPEE", dotColor: "#1877FF", silkBorder: "#1877FF" },
           { key: "TIKTOK", name: "TikTok Shop", badgeClass: "badge-TIKTOK", dotColor: "#465AFF", silkBorder: "#465AFF" },
-          { key: "LAZADA", name: "Lazada", badgeClass: "badge-LAZADA", dotColor: "#0F62DB", silkBorder: "#0F62DB" },
+          { key: "LAZADA", name: "Lazada", badgeClass: "badge-LAZADA", dotColor: "#64748B", silkBorder: "#64748B" },
           { key: "FACEBOOK", name: "Facebook", badgeClass: "badge-FACEBOOK", dotColor: "#4BC8E1", silkBorder: "#4BC8E1" },
           { key: "POS", name: "Cửa hàng POS", badgeClass: "badge-POS", dotColor: "#947AEC", silkBorder: "#947AEC" }
         ]
@@ -1722,7 +1861,7 @@ handleResetPassword(username) {
       agg[k] = { orders: 0, exported: 0, cancelled: 0, revenue: 0, growth: "+0.0%" };
     });
 
-    let periodLabel = "Tháng 10/2026";
+    let periodLabel = "Tháng 11/2026 (đến 22/11)";
     let filterDetailText = "";
 
     const addMonthWithRatio = (mKey, ratio, weightFactor = 1) => {
@@ -1746,31 +1885,32 @@ handleResetPassword(username) {
     if (mode === "QUARTER") {
       const qVal = document.getElementById("unifiedSelectQuarter")?.value || "2026-Q4";
       const qMap = {
-        "2026-Q2": { label: "Quý 2/2026 (Tháng 05 – 06/2026)", months: ["2026-05", "2026-06"] },
+        "2026-Q1": { label: "Quý 1/2026 (Tháng 01 – 03/2026)", months: ["2026-01", "2026-02", "2026-03"] },
+        "2026-Q2": { label: "Quý 2/2026 (Tháng 04 – 06/2026)", months: ["2026-04", "2026-05", "2026-06"] },
         "2026-Q3": { label: "Quý 3/2026 (Tháng 07 – 09/2026)", months: ["2026-07", "2026-08", "2026-09"] },
-        "2026-Q4": { label: "Quý 4/2026 (Tháng 10/2026)", months: ["2026-10"] }
+        "2026-Q4": { label: "Quý 4/2026 (Tháng 10 – 22/11/2026)", months: ["2026-10", "2026-11"] }
       };
       const qInfo = qMap[qVal] || qMap["2026-Q4"];
       periodLabel = qInfo.label;
       qInfo.months.forEach((mk) => addMonthWithRatio(mk, 1, 1));
       filterDetailText = `📊 Đang xếp hạng <strong>Theo Quý</strong>: <strong>${periodLabel}</strong>`;
     } else if (mode === "WEEK") {
-      const mKey = document.getElementById("unifiedSelectWeekMonth")?.value || "2026-10";
-      const wKey = document.getElementById("unifiedSelectWeek")?.value || "W4";
-      const mObj = allData[mKey] || allData["2026-10"];
+      const mKey = document.getElementById("unifiedSelectWeekMonth")?.value || "2026-11";
+      const wKey = document.getElementById("unifiedSelectWeek")?.value || "W3";
+      const mObj = allData[mKey] || allData["2026-11"];
       const weekMeta = {
         W1: { label: "Tuần 1 (Ngày 01 – 07)", ratio: 0.23 },
         W2: { label: "Tuần 2 (Ngày 08 – 14)", ratio: 0.25 },
         W3: { label: "Tuần 3 (Ngày 15 – 21)", ratio: 0.24 },
         W4: { label: "Tuần 4 (Ngày 22 – Cuối tháng)", ratio: 0.28 }
       };
-      const wInfo = weekMeta[wKey] || weekMeta.W4;
+      const wInfo = weekMeta[wKey] || weekMeta.W3;
       periodLabel = `${wInfo.label} · ${mObj.label}`;
       addMonthWithRatio(mKey, wInfo.ratio, 1);
       filterDetailText = `🗓️ Đang xếp hạng <strong>Theo Tuần</strong>: <strong>${periodLabel}</strong>`;
     } else if (mode === "DAY") {
-      const startVal = document.getElementById("unifiedFilterStartDate")?.value || "2026-10-01";
-      const endVal = document.getElementById("unifiedFilterEndDate")?.value || "2026-10-31";
+      const startVal = document.getElementById("unifiedFilterStartDate")?.value || "2026-11-01";
+      const endVal = document.getElementById("unifiedFilterEndDate")?.value || "2026-11-22";
       const startDt = new Date(startVal + "T00:00:00");
       const endDt = new Date(endVal + "T23:59:59");
 
@@ -1793,10 +1933,15 @@ handleResetPassword(username) {
       periodLabel = fmtStart === fmtEnd ? `Ngày ${fmtStart}` : `Từ ${fmtStart} đến ${fmtEnd}`;
       filterDetailText = `📆 Đang xếp hạng <strong>Theo Ngày</strong>: <strong>${periodLabel}</strong>`;
     } else {
-      const mKey = document.getElementById("unifiedSelectMonth")?.value || "2026-10";
-      const mObj = allData[mKey] || allData["2026-10"];
-      periodLabel = mObj.label;
-      addMonthWithRatio(mKey, 1, 1);
+      const mKey = document.getElementById("unifiedSelectMonth")?.value || "2026-11";
+      if (mKey === "ALL_2026") {
+        periodLabel = "Tổng hợp 11 Tháng (Th01 – 22/11/2026)";
+        Object.keys(allData).forEach((mk) => addMonthWithRatio(mk, 1, 1));
+      } else {
+        const mObj = allData[mKey] || allData["2026-11"];
+        periodLabel = mObj.label;
+        addMonthWithRatio(mKey, 1, 1);
+      }
       filterDetailText = `📅 Đang xếp hạng <strong>Theo Tháng</strong>: <strong>${periodLabel}</strong>`;
     }
 
@@ -1959,10 +2104,10 @@ handleResetPassword(username) {
             key: "LAZADA",
             name: "Lazada",
             fullName: "Lazada Mall",
-            color: "#0F62DB",
-            silkStops: ["#0F62DB", "#0F62DB", "#0F62DB", "#0F62DB"],
-            silkCss: "#0F62DB",
-            colorName: "Vivo Deep Blue (#0F62DB)",
+            color: "#64748B",
+            silkStops: ["#64748B", "#64748B", "#64748B", "#64748B"],
+            silkCss: "#64748B",
+            colorName: "Vivo Slate (#64748B)",
             badge: "badge-LAZADA"
           },
           POS: {
@@ -2030,7 +2175,7 @@ handleResetPassword(username) {
     };
 
     const orderKeys = ["SHOPEE", "FACEBOOK", "TIKTOK", "LAZADA", "POS"];
-    let periodLabel = "Tháng 10/2026";
+    let periodLabel = "Tháng 11/2026 (đến 22/11)";
     let scaleFactor = 1;
     const aggregated = {};
 
@@ -2053,31 +2198,32 @@ handleResetPassword(username) {
     if (mode === "QUARTER") {
       const qVal = document.getElementById("revDonutQuarterSelect")?.value || "2026-Q4";
       const qMap = {
-        "2026-Q2": { label: "Quý 2/2026 (Tháng 05 – 06/2026)", months: ["2026-05", "2026-06"], factor: 1.95 },
-        "2026-Q3": { label: "Quý 3/2026 (Tháng 07 – 09/2026)", months: ["2026-07", "2026-08", "2026-09"], factor: 2.85 },
-        "2026-Q4": { label: "Quý 4/2026 (Tháng 10/2026)", months: ["2026-10"], factor: 1.0 }
+        "2026-Q1": { label: "Quý 1/2026 (Tháng 01 – 03/2026)", months: ["2026-01", "2026-02", "2026-03"], factor: 2.35 },
+        "2026-Q2": { label: "Quý 2/2026 (Tháng 04 – 06/2026)", months: ["2026-04", "2026-05", "2026-06"], factor: 2.65 },
+        "2026-Q3": { label: "Quý 3/2026 (Tháng 07 – 09/2026)", months: ["2026-07", "2026-08", "2026-09"], factor: 2.95 },
+        "2026-Q4": { label: "Quý 4/2026 (Tháng 10 – 22/11/2026)", months: ["2026-10", "2026-11"], factor: 2.15 }
       };
       const qInfo = qMap[qVal] || qMap["2026-Q4"];
       periodLabel = qInfo.label;
       scaleFactor = qInfo.factor;
       qInfo.months.forEach((mk) => addMonthRatio(mk, 1));
     } else if (mode === "WEEK") {
-      const mKey = document.getElementById("revDonutWeekMonthSelect")?.value || "2026-10";
-      const wKey = document.getElementById("revDonutWeekSelect")?.value || "W4";
-      const mObj = allData[mKey] || allData["2026-10"];
+      const mKey = document.getElementById("revDonutWeekMonthSelect")?.value || "2026-11";
+      const wKey = document.getElementById("revDonutWeekSelect")?.value || "W3";
+      const mObj = allData[mKey] || allData["2026-11"];
       const weekMeta = {
         W1: { label: "Tuần 1 (Ngày 01 – 07)", ratio: 0.23 },
         W2: { label: "Tuần 2 (Ngày 08 – 14)", ratio: 0.25 },
         W3: { label: "Tuần 3 (Ngày 15 – 21)", ratio: 0.24 },
         W4: { label: "Tuần 4 (Ngày 22 – Cuối tháng)", ratio: 0.28 }
       };
-      const wInfo = weekMeta[wKey] || weekMeta.W4;
+      const wInfo = weekMeta[wKey] || weekMeta.W3;
       periodLabel = `${wInfo.label} · ${mObj.label}`;
       scaleFactor = wInfo.ratio;
       addMonthRatio(mKey, wInfo.ratio);
     } else if (mode === "DAY") {
-      const startVal = document.getElementById("revDonutStartDate")?.value || "2026-10-01";
-      const endVal = document.getElementById("revDonutEndDate")?.value || "2026-10-31";
+      const startVal = document.getElementById("revDonutStartDate")?.value || "2026-11-01";
+      const endVal = document.getElementById("revDonutEndDate")?.value || "2026-11-22";
       const startDt = new Date(startVal + "T00:00:00");
       const endDt = new Date(endVal + "T23:59:59");
       let totalRatio = 0;
@@ -2102,13 +2248,17 @@ handleResetPassword(username) {
       const fmtEnd = endVal.split("-").reverse().join("/");
       periodLabel = fmtStart === fmtEnd ? `Ngày ${fmtStart}` : `Từ ${fmtStart} đến ${fmtEnd}`;
     } else {
-      const monthKey = document.getElementById("soldPieMonthSelect")?.value || "2026-10";
-      if (monthKey === "ALL_6M") {
-        periodLabel = "Tổng hợp 6 Tháng (Th5/2026 – Th10/2026)";
-        scaleFactor = 5.2;
+      const monthKey = document.getElementById("soldPieMonthSelect")?.value || "2026-11";
+      if (monthKey === "ALL_2026") {
+        periodLabel = "Tổng hợp 11 Tháng (Th01 – 22/11/2026)";
+        scaleFactor = 8.8;
         Object.keys(allData).forEach((mk) => addMonthRatio(mk, 1));
+      } else if (monthKey === "ALL_6M") {
+        periodLabel = "Tổng hợp 6 Tháng gần nhất (Th06 – 22/11/2026)";
+        scaleFactor = 5.4;
+        ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"].forEach((mk) => addMonthRatio(mk, 1));
       } else {
-        const mObj = allData[monthKey] || allData["2026-10"];
+        const mObj = allData[monthKey] || allData["2026-11"];
         periodLabel = mObj.label;
         scaleFactor = 1.0;
         addMonthRatio(monthKey, 1);
@@ -2425,7 +2575,7 @@ handleResetPassword(username) {
             Kênh đang tách: <strong style="color:${activeItem.color};">${activeItem.name}</strong> (${data.periodLabel})
           </div>
           <div>
-            Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn</strong> · Doanh thu kênh: <strong style="color:${activeItem.color};">${activeItem.revenue.toLocaleString("vi-VN")} VND</strong>
+            Đã bán: <strong>${activeItem.orders} / ${data.totalOrders} đơn</strong> · Doanh thu kênh: <strong style="color:${this.currentTheme === "vivo" ? "#0F172A" : activeItem.color};font-variant-numeric:tabular-nums;">${activeItem.revenue.toLocaleString("vi-VN")} VND</strong>
           </div>
         `;
       }
@@ -2448,7 +2598,7 @@ handleResetPassword(username) {
             📊 Tổng hợp <strong>5 kênh bán hàng</strong> · <strong>${data.periodLabel}</strong>
           </div>
           <div>
-            Tổng đơn đã bán: <strong>${data.totalOrders} đơn</strong> · Tổng doanh thu: <strong style="color:var(--theme-primary, #2563eb);">${data.totalRevenue.toLocaleString("vi-VN")} VND</strong>
+            Tổng đơn đã bán: <strong>${data.totalOrders} đơn</strong> · Tổng doanh thu: <strong style="color:${this.currentTheme === "vivo" ? "#0F172A" : "var(--theme-primary, #2563eb)"};font-variant-numeric:tabular-nums;">${data.totalRevenue.toLocaleString("vi-VN")} VND</strong>
           </div>
         `;
       }
@@ -2473,45 +2623,53 @@ handleResetPassword(username) {
   },
 
   getTopSellingProductsCatalog() {
+    // 100% sản phẩm Thời trang chuẩn 25 mã từ fashion68.js (5 danh mục: Áo, Quần, Váy & Đầm, Giày & Dép, Phụ kiện thời trang)
     const baseItems = [
-      { sku: "SP-AO-POLO-01", name: "Áo Polo Nam Coolmax Thể Thao Cao Cấp", price: 250000, baseSold: 148, topChannel: "SHOPEE" },
-      { sku: "SP-TAI-NGHE-02", name: "Tai Nghe Bluetooth TWS Chống Ồn ANC Pro", price: 450000, baseSold: 132, topChannel: "TIKTOK" },
-      { sku: "SP-BALO-LAP-03", name: "Balo Laptop Chống Nước 15.6 inch Đa Năng", price: 380000, baseSold: 118, topChannel: "SHOPEE" },
-      { sku: "SP-BINH-NHIET-04", name: "Bình Giữ Nhiệt Inox 304 Hiển Thị Nhiệt Độ 800ml", price: 190000, baseSold: 112, topChannel: "LAZADA" },
-      { sku: "SP-BAN-PHIM-05", name: "Bàn Phím Cơ Không Dây RGB Hotswap 3 Mode", price: 680000, baseSold: 96, topChannel: "TIKTOK" },
-      { sku: "SP-CHUOT-GAME-06", name: "Chuột Gaming Không Dây Siêu Nhẹ 26000 DPI", price: 520000, baseSold: 89, topChannel: "SHOPEE" },
-      { sku: "SP-AO-KHOAC-07", name: "Áo Khoác Gió Unisex 2 Lớp Chống Tia UV", price: 320000, baseSold: 84, topChannel: "FACEBOOK" },
-      { sku: "SP-SAC-DU-PHONG-08", name: "Pin Sạc Dự Phòng 20000mAh Sạc Nhanh PD 65W", price: 490000, baseSold: 79, topChannel: "SHOPEE" },
-      { sku: "SP-GIAY-RUN-09", name: "Giày Chạy Bộ Thể Thao Đế Boost Êm Chân", price: 590000, baseSold: 75, topChannel: "POS" },
-      { sku: "SP-LOA-MINI-10", name: "Loa Bluetooth Mini Bass Căng Chống Nước IPX7", price: 360000, baseSold: 71, topChannel: "TIKTOK" },
-      { sku: "SP-QUAN-JOGGER-11", name: "Quần Jogger Kaki Co Giãn 4 Chiều Hàn Quốc", price: 270000, baseSold: 68, topChannel: "SHOPEE" },
-      { sku: "SP-GIA-DO-LAP-12", name: "Giá Đỡ Laptop Hợp Kim Nhôm Xoay 360 Độ", price: 240000, baseSold: 65, topChannel: "LAZADA" },
-      { sku: "SP-TUI-DEO-CHEO-13", name: "Túi Đeo Chéo Canvas Chống Thấm Thời Trang", price: 210000, baseSold: 62, topChannel: "FACEBOOK" },
-      { sku: "SP-DONG-HO-SMART-14", name: "Đồng Hồ Thông Minh Theo Dõi Sức Khỏe AMOLED", price: 890000, baseSold: 59, topChannel: "TIKTOK" },
-      { sku: "SP-CAP-TYPEC-15", name: "Cáp Sạc Nhanh Type-C Bọc Dù Siêu Bền 100W", price: 120000, baseSold: 57, topChannel: "SHOPEE" },
-      { sku: "SP-AO-THUN-OVS-16", name: "Áo Thun Oversize Cotton 100% Định Lượng 250gsm", price: 220000, baseSold: 55, topChannel: "POS" },
-      { sku: "SP-DEN-BAN-LED-17", name: "Đèn Bàn Học LED Chống Cận Cảm Ứng 3 Chế Độ", price: 280000, baseSold: 53, topChannel: "LAZADA" },
-      { sku: "SP-CU-SAC-GAN-18", name: "Củ Sạc Nhanh Công Nghệ GaN 65W 3 Cổng", price: 420000, baseSold: 51, topChannel: "SHOPEE" },
-      { sku: "SP-KINH-MAT-UV-19", name: "Kính Mát Phân Cực Polarized Chống Chói UV400", price: 310000, baseSold: 49, topChannel: "FACEBOOK" },
-      { sku: "SP-LOT-CHUOT-RGB-20", name: "Lót Chuột Gaming Cỡ Lớn Viền LED RGB 80x30cm", price: 185000, baseSold: 47, topChannel: "TIKTOK" }
+      { sku: "SP-AO-POLO-01", name: "Áo Polo Nam Coolmate Pro (Đen - Size L)", price: 250000, baseSold: 158, topChannel: "SHOPEE" },
+      { sku: "SP-AO-THUN-02", name: "Áo Thun Cotton Oversize Unisex (Trắng - Size M)", price: 190000, baseSold: 146, topChannel: "TIKTOK" },
+      { sku: "SP-QUAN-JEANS-06", name: "Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31)", price: 450000, baseSold: 132, topChannel: "SHOPEE" },
+      { sku: "SP-GIAY-SNEAKER-16", name: "Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41)", price: 620000, baseSold: 124, topChannel: "TIKTOK" },
+      { sku: "SP-DAM-MIDI-11", name: "Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S)", price: 550000, baseSold: 118, topChannel: "SHOPEE" },
+      { sku: "SP-QUAN-SHORT-08", name: "Quần Short Thể Thao Vải Gió (Đen - Size L)", price: 180000, baseSold: 112, topChannel: "POS" },
+      { sku: "SP-SET-BLAZER-14", name: "Set Vest Blazer Nữ & Chân Váy (Trắng Kem - Size S)", price: 720000, baseSold: 105, topChannel: "SHOPEE" },
+      { sku: "SP-AO-KHOAC-04", name: "Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL)", price: 420000, baseSold: 99, topChannel: "LAZADA" },
+      { sku: "SP-AO-HOODIE-05", name: "Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L)", price: 390000, baseSold: 94, topChannel: "TIKTOK" },
+      { sku: "SP-DEP-DUC-20", name: "Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41)", price: 150000, baseSold: 91, topChannel: "TIKTOK" },
+      { sku: "SP-CHAN-VAY-12", name: "Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M)", price: 260000, baseSold: 87, topChannel: "SHOPEE" },
+      { sku: "SP-DAM-MAXI-13", name: "Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M)", price: 480000, baseSold: 84, topChannel: "TIKTOK" },
+      { sku: "SP-AO-SOMI-03", name: "Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L)", price: 320000, baseSold: 80, topChannel: "LAZADA" },
+      { sku: "SP-QUAN-KAKI-07", name: "Quần Kaki Chinos Công Sở (Be - Size 30)", price: 380000, baseSold: 77, topChannel: "LAZADA" },
+      { sku: "SP-GIAY-CHAYBO-17", name: "Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42)", price: 750000, baseSold: 74, topChannel: "TIKTOK" },
+      { sku: "SP-TUI-DEO-21", name: "Túi Đeo Chéo Da PU Chống Nước (Đen)", price: 340000, baseSold: 71, topChannel: "FACEBOOK" },
+      { sku: "SP-TAT-CO-25", name: "Set 5 Đôi Tất Cổ Ngắn Khử Mùi Bamboo (Mix Màu)", price: 120000, baseSold: 68, topChannel: "POS" },
+      { sku: "SP-DAM-THUN-15", name: "Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M)", price: 240000, baseSold: 65, topChannel: "FACEBOOK" },
+      { sku: "SP-GIAY-LOAFER-18", name: "Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40)", price: 890000, baseSold: 62, topChannel: "LAZADA" },
+      { sku: "SP-QUAN-TAY-09", name: "Quần Tây Âu Ống Đứng Cao Cấp (Xám Than - Size 31)", price: 490000, baseSold: 59, topChannel: "POS" },
+      { sku: "SP-SANDAL-NU-19", name: "Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37)", price: 390000, baseSold: 56, topChannel: "LAZADA" },
+      { sku: "SP-THAT-LUNG-22", name: "Thắt Lưng Nam Da Thật Khóa Tự Động (Đen)", price: 320000, baseSold: 54, topChannel: "LAZADA" },
+      { sku: "SP-NON-KET-23", name: "Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu)", price: 160000, baseSold: 51, topChannel: "FACEBOOK" },
+      { sku: "SP-QUAN-JOGGER-10", name: "Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M)", price: 290000, baseSold: 49, topChannel: "TIKTOK" },
+      { sku: "SP-KINH-MAT-24", name: "Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)", price: 280000, baseSold: 47, topChannel: "FACEBOOK" }
     ];
 
-    const extraCategories = [
-      { prefix: "SP-SO-MI-LUA", title: "Áo Sơ Mi Lụa Chống Nhăn Công Sở", price: 295000, ch: "POS" },
-      { prefix: "SP-WEBCAM-FHD", title: "Webcam FullHD 1080p Tích Hợp Mic Khử Ồn", price: 460000, ch: "LAZADA" },
-      { prefix: "SP-HUB-TYPEC", title: "Bộ Chuyển Đổi Hub Type-C 8-in-1 HDMI 4K", price: 540000, ch: "SHOPEE" },
-      { prefix: "SP-MU-LUOI-TRAI", title: "Mũ Lưỡi Trai Thêu Nổi Phong Cách Streetwear", price: 165000, ch: "FACEBOOK" },
-      { prefix: "SP-MICRO-LIVE", title: "Micro Thu Âm Không Dây Cài Áo Livestream", price: 480000, ch: "TIKTOK" },
-      { prefix: "SP-VI-DA-NAM", title: "Ví Da Bò Thật Dáng Ngang Khắc Tên Cao Cấp", price: 340000, ch: "POS" }
+    // 25 dòng mở rộng Thời trang thuần (Áo, Quần, Váy & Đầm, Giày & Dép, Phụ kiện thời trang) phục vụ xem Top 50
+    const extraFashionVariants = [
+      { prefix: "SP-AO-LINEN", title: "Áo Sơ Mi Linen Cổ Trụ Thoáng Mát", price: 340000, ch: "SHOPEE" },
+      { prefix: "SP-QUAN-SUONG", title: "Quần Ống Suông Cạp Cao Thanh Lịch", price: 390000, ch: "TIKTOK" },
+      { prefix: "SP-DAM-CONGSO", title: "Đầm Công Sở Chữ A Tay Lỡ Cao Cấp", price: 520000, ch: "SHOPEE" },
+      { prefix: "SP-GIAY-BUPBE", title: "Giày Búp Bê Da Mềm Mũi Vuông Êm Chân", price: 360000, ch: "LAZADA" },
+      { prefix: "SP-TUI-TOTE", title: "Túi Tote Vải Canvas Phối Da Thời Trang", price: 250000, ch: "FACEBOOK" },
+      { prefix: "SP-VI-DA", title: "Ví Da Bò Thật Dáng Ngang Khâu Thủ Công", price: 350000, ch: "POS" }
     ];
 
-    for (let i = 21; i <= 50; i++) {
-      const cat = extraCategories[(i - 21) % extraCategories.length];
+    const sizeLabels = ["Size S", "Size M", "Size L", "Size XL"];
+    for (let i = 26; i <= 50; i++) {
+      const cat = extraFashionVariants[(i - 26) % extraFashionVariants.length];
       baseItems.push({
         sku: `${cat.prefix}-${String(i).padStart(2, "0")}`,
-        name: `${cat.title} (Phiên bản V${(i % 5) + 1})`,
+        name: `${cat.title} (${sizeLabels[i % sizeLabels.length]})`,
         price: cat.price + ((i % 4) * 15000),
-        baseSold: Math.max(12, 46 - (i - 20)),
+        baseSold: Math.max(12, 46 - (i - 25)),
         topChannel: cat.ch
       });
     }
@@ -2643,12 +2801,7 @@ handleResetPassword(username) {
     const totalWaybills = waybillList.length;
 
     // 4. Dữ liệu Khối 4: Vận chuyển đơn
-    if (!this.shipments || this.shipments.length === 0) {
-      if (window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0) {
-        this.shipments = JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA));
-      }
-    }
-    const shipmentsList = this.shipments || [];
+    const shipmentsList = this.syncShipmentsFromEngine();
     const totalShipments = shipmentsList.length;
     const inTransitShipments = shipmentsList.filter(s => s.status === "IN_TRANSIT" || s.status === "PENDING_PICKUP").length;
     const deliveredShipments = shipmentsList.filter(s => s.status === "DELIVERED").length;
@@ -2703,12 +2856,12 @@ handleResetPassword(username) {
     setElText("invKpiAlert", `${alertTotalSkus} mặt hàng`);
     setElText("invKpiAlertSub", `Hết hàng: ${outOfStockSkus} · Sắp hết hàng: ${lowStockSkus}`);
 
-    // Badges số lượng trên Sidebar ODOMS
-    const backorderOrders = orders.filter((o) => o.status === "BACKORDER").length;
-    const allocatedOrders = orders.filter((o) => o.status === "ALLOCATED").length;
-    setElText("badgeShippingCount", inTransitShipments || allocatedOrders);
-    setElText("badgeFifoCount", inTransitShipments || allocatedOrders);
-    setElText("badgeBackorderCount", backorderOrders + outOfStockSkus);
+    // Badges số lượng trên Sidebar ODOMS (đồng bộ 100% với Tổng Quan & chặn dữ liệu tương lai)
+    const activeShippingBadgeCount = this.getUnfinishedValidShipmentsCount();
+    const lowStockBadgeCount = this.getLowStockInventoryItems(inv).length;
+    setElText("badgeShippingCount", activeShippingBadgeCount);
+    setElText("badgeFifoCount", activeShippingBadgeCount);
+    setElText("badgeBackorderCount", lowStockBadgeCount);
   },
 
   renderCharts() {
@@ -2965,6 +3118,7 @@ handleResetPassword(username) {
   renderMonthlyTrendsByFilter() {
     const mode = document.getElementById("monthlyTrendsFilterMode")?.value || "MONTH";
     const allData = typeof this.getMonthlyHistoricalDataset === "function" ? this.getMonthlyHistoricalDataset() : {};
+    const orderedKeys = Object.keys(allData).sort();
 
     let labels = [];
     let fullLabels = [];
@@ -2972,72 +3126,84 @@ handleResetPassword(username) {
     let exportVals = [];
     let subtitleText = "";
 
+    const pushMonthsSeries = (keys) => {
+      keys.forEach((mk) => {
+        const mObj = allData[mk];
+        if (!mObj) return;
+        labels.push(mObj.shortLabel || mk);
+        fullLabels.push(mObj.label || mk);
+        importVals.push(Number(mObj.received || 0));
+        exportVals.push(Number(mObj.exported || 0));
+      });
+    };
+
     if (mode === "QUARTER") {
       const qVal = document.getElementById("monthlyTrendsQuarterSelect")?.value || "2026-Q4";
-      if (qVal === "2026-Q2") {
-        labels = ["Th5/26", "Th6/26"];
-        fullLabels = ["Tháng 05/2026", "Tháng 06/2026"];
-        importVals = [14, 20];
-        exportVals = [4, 9];
-        subtitleText = "Thống kê tiếp nhận và xuất hàng · Quý 2/2026 (Tháng 05 – Tháng 06/2026)";
-      } else if (qVal === "2026-Q3") {
-        labels = ["Th7/26", "Th8/26", "Th9/26"];
-        fullLabels = ["Tháng 07/2026", "Tháng 08/2026", "Tháng 09/2026"];
-        importVals = [18, 25, 21];
-        exportVals = [6, 13, 8];
-        subtitleText = "Thống kê tiếp nhận và xuất hàng · Quý 3/2026 (Tháng 07 – Tháng 09/2026)";
-      } else {
-        labels = ["Th10/26", "Th11/26 (DK)", "Th12/26 (DK)"];
-        fullLabels = ["Tháng 10/2026 (Hiện tại)", "Tháng 11/2026 (Dự kiến)", "Tháng 12/2026 (Dự kiến)"];
-        importVals = [24, 28, 31];
-        exportVals = [11, 14, 16];
-        subtitleText = "Thống kê tiếp nhận và xuất hàng · Quý 4/2026 (Tháng 10/2026)";
-      }
+      const qDefMap = {
+        "2026-Q1": { keys: ["2026-01", "2026-02", "2026-03"], title: "Quý 1/2026 (Tháng 01 – Tháng 03/2026)" },
+        "2026-Q2": { keys: ["2026-04", "2026-05", "2026-06"], title: "Quý 2/2026 (Tháng 04 – Tháng 06/2026)" },
+        "2026-Q3": { keys: ["2026-07", "2026-08", "2026-09"], title: "Quý 3/2026 (Tháng 07 – Tháng 09/2026)" },
+        "2026-Q4": { keys: ["2026-10", "2026-11"], title: "Quý 4/2026 (Tháng 10 – 22/11/2026)" }
+      };
+      const qDef = qDefMap[qVal] || qDefMap["2026-Q4"];
+      pushMonthsSeries(qDef.keys);
+      subtitleText = `Thống kê tiếp nhận và xuất hàng · ${qDef.title}`;
     } else if (mode === "WEEK") {
-      const mKey = document.getElementById("monthlyTrendsWeekMonthSelect")?.value || "2026-10";
-      const wKey = document.getElementById("monthlyTrendsWeekSelect")?.value || "W4";
-      const mNames = {
-        "2026-05": "Tháng 05/2026", "2026-06": "Tháng 06/2026", "2026-07": "Tháng 07/2026",
-        "2026-08": "Tháng 08/2026", "2026-09": "Tháng 09/2026", "2026-10": "Tháng 10/2026"
-      };
+      const mKey = document.getElementById("monthlyTrendsWeekMonthSelect")?.value || "2026-11";
+      const wKey = document.getElementById("monthlyTrendsWeekSelect")?.value || "W3";
+      const mObj = allData[mKey] || allData["2026-11"];
       const wNames = {
-        "W1": "Tuần 1 (Ngày 01 – 07)",
-        "W2": "Tuần 2 (Ngày 08 – 14)",
-        "W3": "Tuần 3 (Ngày 15 – 21)",
-        "W4": "Tuần 4 (Ngày 22 – Cuối tháng)"
+        W1: { label: "Tuần 1 (Ngày 01 – 07)", ratio: 0.23 },
+        W2: { label: "Tuần 2 (Ngày 08 – 14)", ratio: 0.25 },
+        W3: { label: "Tuần 3 (Ngày 15 – 21)", ratio: 0.24 },
+        W4: { label: "Tuần 4 (Ngày 22 – Cuối tháng)", ratio: 0.28 }
       };
+      const wInfo = wNames[wKey] || wNames.W3;
+      const dayWeights = [0.13, 0.15, 0.14, 0.16, 0.17, 0.14, 0.11];
+      const baseRec = Math.max(14, Math.round((mObj ? mObj.received : 350) * wInfo.ratio));
+      const baseExp = Math.max(12, Math.round((mObj ? mObj.exported : 330) * wInfo.ratio));
+
       labels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
       fullLabels = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"];
-
-      const seedOffsets = { W1: [3, 4, 3, 5, 4, 3, 2], W2: [4, 5, 4, 6, 5, 4, 3], W3: [4, 4, 5, 5, 4, 3, 2], W4: [5, 6, 5, 7, 6, 4, 3] };
-      const expOffsets = { W1: [1, 2, 1, 2, 2, 1, 1], W2: [2, 2, 2, 3, 2, 2, 1], W3: [1, 2, 2, 2, 2, 1, 1], W4: [2, 3, 2, 3, 3, 2, 1] };
-      importVals = seedOffsets[wKey] || seedOffsets.W4;
-      exportVals = expOffsets[wKey] || expOffsets.W4;
-      subtitleText = `Thống kê tiếp nhận và xuất hàng · ${wNames[wKey] || wKey} - ${mNames[mKey] || mKey}`;
+      importVals = dayWeights.map((w) => Math.max(1, Math.round(baseRec * w)));
+      exportVals = dayWeights.map((w) => Math.max(1, Math.round(baseExp * w)));
+      subtitleText = `Thống kê tiếp nhận và xuất hàng · ${wInfo.label} - ${mObj ? mObj.label : mKey}`;
     } else if (mode === "DAY") {
-      const sDate = document.getElementById("monthlyTrendsStartDate")?.value || "2026-10-01";
-      const eDate = document.getElementById("monthlyTrendsEndDate")?.value || "2026-10-31";
-      labels = ["01/10", "07/10", "14/10", "21/10", "28/10", "31/10"];
-      fullLabels = ["Ngày 01/10/2026", "Ngày 07/10/2026", "Ngày 14/10/2026", "Ngày 21/10/2026", "Ngày 28/10/2026", "Ngày 31/10/2026"];
-      importVals = [16, 22, 19, 25, 20, 24];
-      exportVals = [6, 10, 7, 12, 9, 11];
-      subtitleText = `Thống kê tiếp nhận và xuất hàng · Từ ${sDate} đến ${eDate}`;
+      const sDate = document.getElementById("monthlyTrendsStartDate")?.value || "2026-11-01";
+      const eDate = document.getElementById("monthlyTrendsEndDate")?.value || "2026-11-22";
+      const sDt = new Date(sDate + "T00:00:00");
+      const eDt = new Date(eDate + "T00:00:00");
+      const pad = (n) => String(n).padStart(2, "0");
+      const totalDays = Math.max(1, Math.round((eDt - sDt) / 86400000));
+      const steps = 6;
+      const patternRec = [18, 24, 21, 28, 25, 31];
+      const patternExp = [16, 22, 19, 26, 23, 29];
+      for (let i = 0; i < steps; i++) {
+        const curDt = new Date(sDt.getTime() + Math.round((totalDays * i) / (steps - 1)) * 86400000);
+        const dm = `${pad(curDt.getDate())}/${pad(curDt.getMonth() + 1)}`;
+        labels.push(dm);
+        fullLabels.push(`Ngày ${dm}/${curDt.getFullYear()}`);
+        importVals.push(patternRec[i]);
+        exportVals.push(patternExp[i]);
+      }
+      subtitleText = `Thống kê tiếp nhận và xuất hàng · Từ ${sDate.split("-").reverse().join("/")} đến ${eDate.split("-").reverse().join("/")}`;
     } else {
       // MONTH
-      const mVal = document.getElementById("monthlyTrendsMonthSelect")?.value || "ALL_6M";
-      if (mVal === "ALL_6M") {
-        labels = ["Th5/26", "Th6/26", "Th7/26", "Th8/26", "Th9/26", "Th10/26"];
-        fullLabels = ["Tháng 05/2026", "Tháng 06/2026", "Tháng 07/2026", "Tháng 08/2026", "Tháng 09/2026", "Tháng 10/2026"];
-        importVals = [14, 20, 18, 25, 21, 24];
-        exportVals = [4, 9, 6, 13, 8, 11];
-        subtitleText = "Thống kê 5 kênh TMĐT (Th5/26 – Th10/26) · Tổng hợp 6 tháng";
+      const mVal = document.getElementById("monthlyTrendsMonthSelect")?.value || "ALL_2026";
+      if (mVal === "ALL_2026") {
+        pushMonthsSeries(orderedKeys);
+        subtitleText = "Thống kê 5 kênh Thời trang (Th01/2026 – 22/11/2026) · Tổng hợp 11 tháng";
+      } else if (mVal === "ALL_6M") {
+        pushMonthsSeries(orderedKeys.slice(-6));
+        subtitleText = "Thống kê 5 kênh Thời trang (Th06/2026 – 22/11/2026) · Tổng hợp 6 tháng gần nhất";
       } else {
-        const mObj = allData[mVal];
+        const mObj = allData[mVal] || allData["2026-11"];
         const mTitle = mObj ? mObj.label : mVal;
+        const ratios = [0.23, 0.25, 0.24, 0.28];
         labels = ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"];
-        fullLabels = [`Tuần 1 (01-07)`, `Tuần 2 (08-14)`, `Tuần 3 (15-21)`, `Tuần 4 (22-cuối)`];
-        importVals = [5, 6, 6, 7];
-        exportVals = [2, 3, 3, 3];
+        fullLabels = ["Tuần 1 (01–07)", "Tuần 2 (08–14)", "Tuần 3 (15–21)", "Tuần 4 (22–cuối)"];
+        importVals = ratios.map((r) => Math.max(1, Math.round((mObj ? mObj.received : 400) * r)));
+        exportVals = ratios.map((r) => Math.max(1, Math.round((mObj ? mObj.exported : 380) * r)));
         subtitleText = `Thống kê tiếp nhận và xuất hàng · Chi tiết các tuần ${mTitle}`;
       }
     }
@@ -3121,9 +3287,10 @@ handleResetPassword(username) {
 
     const xAxisEl = document.getElementById("chartXAxisLabels");
     if (xAxisEl) {
+      const labelFontSize = n > 8 ? 9.5 : 11.5;
       let xMarkup = "";
       for (let i = 0; i < n; i++) {
-        xMarkup += `<text x="${getX(i)}" y="198">${labels[i]}</text>`;
+        xMarkup += `<text x="${getX(i)}" y="198" font-size="${labelFontSize}">${labels[i]}</text>`;
       }
       xAxisEl.innerHTML = xMarkup;
     }
@@ -3453,8 +3620,12 @@ handleResetPassword(username) {
 
   closeStockShortagePopup() {
     if (window.omsEngine && Array.isArray(window.omsEngine.orders)) {
+      const nowMs = Date.now();
       const currentShortageIds = window.omsEngine.orders
-        .filter((o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER")
+        .filter((o) => {
+          const ordTs = typeof this.getOrderTimestampMs === "function" ? this.getOrderTimestampMs(o) : (Number(o.timestampMs) || 0);
+          return o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER" && ordTs <= nowMs;
+        })
         .map((o) => o.orderId);
       const merged = new Set([...(this.dismissedShortageOrderIds || []), ...currentShortageIds]);
       this.dismissedShortageOrderIds = Array.from(merged);
@@ -3469,10 +3640,12 @@ handleResetPassword(username) {
     const popupEl = document.getElementById("stockShortageCornerPopup");
     if (!popupEl || !window.omsEngine) return;
 
+    const nowMs = Date.now();
     const dismissedSet = new Set(this.dismissedShortageOrderIds || []);
-    const shortageOrders = (window.omsEngine.orders || []).filter(
-      (o) => o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER" && !dismissedSet.has(o.orderId)
-    );
+    const shortageOrders = (window.omsEngine.orders || []).filter((o) => {
+      const ordTs = typeof this.getOrderTimestampMs === "function" ? this.getOrderTimestampMs(o) : (Number(o.timestampMs) || 0);
+      return o.platformStatus !== "UNCONFIRMED" && o.status === "BACKORDER" && ordTs <= nowMs && !dismissedSet.has(o.orderId);
+    });
 
     const isRelevantTab = this.currentMenuTab === "ingest" || this.currentMenuTab === "dashboard";
     if (!isRelevantTab || shortageOrders.length === 0) {
@@ -3480,16 +3653,21 @@ handleResetPassword(username) {
       return;
     }
 
+    const effectiveInventory =
+      typeof this.getEffectiveInventoryAtNow === "function"
+        ? this.getEffectiveInventoryAtNow(window.omsEngine.inventory || [])
+        : window.omsEngine.inventory || [];
+
     const groupedBySku = {};
     shortageOrders.forEach((o) => {
       const skuKey = o.sku || "UNKNOWN";
-      const invItem = (window.omsEngine.inventory || []).find((i) => i.sku === skuKey);
+      const invItem = effectiveInventory.find((i) => i.sku === skuKey);
       const prodName = o.productName || (invItem ? invItem.name : skuKey);
       if (!groupedBySku[skuKey]) {
         groupedBySku[skuKey] = {
           productName: prodName,
           totalRequestedQty: 0,
-          availableStock: invItem ? invItem.availableStock : 0
+          availableStock: invItem ? invItem.effectiveAvailableStock ?? invItem.availableStock ?? 0 : 0
         };
       }
       groupedBySku[skuKey].totalRequestedQty += Number(o.quantity || 0);
@@ -3706,8 +3884,8 @@ handleResetPassword(username) {
   // ============================================================================
   waybillHistory: [
     {
-      trackingCode: `VD-ODOMS-${String(new Date().getFullYear()).slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-8801`,
-      orderId: "SP261022001",
+      trackingCode: "VD-SP-261122-8801",
+      orderId: "SP261122001",
       channel: "SHOPEE",
       carrier: "SPX Express",
       customerName: "Nguyễn Văn An",
@@ -3719,7 +3897,7 @@ handleResetPassword(username) {
       batchCode: "LO-2026-A1",
       totalAmount: 0,
       paymentMethod: "Ví ShopeePay",
-      createdAt: `${String(new Date().getDate()).padStart(2, "0")}/${String(new Date().getMonth() + 1).padStart(2, "0")}/${new Date().getFullYear()} 08:30:15`
+      createdAt: "22/11/2026 08:30:15"
     }
   ],
 
@@ -3768,13 +3946,19 @@ handleResetPassword(username) {
       TIKTOK: "J&T Express",
       LAZADA: "Giao Hàng Nhanh (GHN)",
       FACEBOOK: "Giao Hàng Tiết Kiệm (GHTK)",
-      POS: "Viettel Post"
+      POS: "Tại quầy"
     };
+
+    const resolvedCarrier = this.resolveOrderCarrier(ord);
+    const chosenCarrier =
+      resolvedCarrier && resolvedCarrier !== "Chưa gán ĐVVC"
+        ? resolvedCarrier
+        : carrierMap[ord.channel] || "SPX Express";
 
     const randSuffix = Math.floor(1000 + Math.random() * 9000);
     const nowWb = new Date();
     const shortWbDate = `${String(nowWb.getFullYear()).slice(-2)}${String(nowWb.getMonth() + 1).padStart(2, "0")}${String(nowWb.getDate()).padStart(2, "0")}`;
-    const trackingCode = `VD-${ord.channel.slice(0, 2)}-${shortWbDate}-${randSuffix}`;
+    const trackingCode = ord.trackingCode || `VD-${ord.channel.slice(0, 2)}-${shortWbDate}-${randSuffix}`;
 
     const batchText =
       ord.allocatedBatches && ord.allocatedBatches.length > 0
@@ -3784,7 +3968,7 @@ handleResetPassword(username) {
     setVal("wbOrderId", ord.orderId);
     setVal("wbChannel", ord.channel);
     setVal("wbTrackingCode", trackingCode);
-    setVal("wbCarrier", carrierMap[ord.channel] || "SPX Express");
+    this.setWaybillCarrierSelectValue(chosenCarrier);
     setVal("wbCustomerName", ord.customerName);
     setVal("wbCustomerPhone", ord.customerPhone);
     setVal("wbAddress", ord.shippingAddress);
@@ -3901,7 +4085,7 @@ handleResetPassword(username) {
       return isNaN(parsed) ? fallback : parsed;
     };
 
-    const orderId = val("wbOrderId", "SP261022001");
+    const orderId = val("wbOrderId", "SP261122001");
     const matchedOrd = window.omsEngine?.orders?.find((o) => o.orderId === orderId);
     const totalAmount = num("wbTotalAmount", 0);
     const paymentMethod = matchedOrd?.paymentMethod || (totalAmount > 0 ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay");
@@ -4013,11 +4197,41 @@ handleResetPassword(username) {
       } else {
         this.waybillHistory.unshift(record);
       }
+
+      // Đẩy vận đơn vào bảng VanDon & tự động cập nhật ĐVVC thật về đơn hàng tương ứng (DatHang)
+      if (window.omsEngine && typeof window.omsEngine.upsertShipment === "function") {
+        window.omsEngine.upsertShipment({
+          trackingCode: data.trackingCode,
+          orderId: data.orderId,
+          channel: data.channel,
+          carrier: data.carrier,
+          shippingTier: data.channel === "SHOPEE" ? "HOA_TOC" : "NHANH",
+          shippingFee: 0,
+          isFreeship: true,
+          totalCod: data.totalAmount,
+          status: "PENDING_PICKUP",
+          customerName: data.customerName,
+          customerPhone: data.customerPhone,
+          address: data.address,
+          productName: data.productName,
+          quantity: data.quantity,
+          batchCode: data.batchCode,
+          handoverTime: createdAtStr,
+          lastUpdateTime: createdAtStr
+        });
+        this.syncShipmentsFromEngine();
+      }
+
       this.renderWaybillHistoryTable();
+      this.renderShippingTab();
+      this.renderOrdersTable();
+      if (typeof this.renderDashboardP2 === "function") {
+        this.renderDashboardP2();
+      }
       if (window.omsEngine) {
         window.omsEngine.addLog(
           "success",
-          `📦 [TẠO MÃ VẬN ĐƠN & QR] Đã khởi tạo vận đơn ${data.trackingCode} cho đơn ${data.orderId} (${data.channel}) — ${data.quantity} × ${data.sku}`
+          `[TẠO VẬN ĐƠN & CẬP NHẬT ĐVVC] Đã khởi tạo vận đơn ${data.trackingCode} (${data.carrier}) cho đơn ${data.orderId} (${data.channel}) — ${data.quantity} × ${data.sku}.`
         );
         this.renderLogs();
       }
@@ -4421,10 +4635,61 @@ handleResetPassword(username) {
   // ============================================================================
   // PHÂN HỆ VẬN CHUYỂN ĐƠN HÀNG & THEO DÕI HÀNH TRÌNH GOOGLE MAPS
   // ============================================================================
+  setWaybillCarrierSelectValue(carrierName) {
+    const sel = document.getElementById("wbCarrier");
+    if (!sel || !carrierName) return;
+    const raw = String(carrierName).trim();
+    const upper = raw.toUpperCase();
+    const options = Array.from(sel.options || []);
+    let matched = options.find((opt) => opt.value.toUpperCase() === upper);
+    if (!matched) {
+      if (upper.includes("GHN") || upper.includes("GIAO HÀNG NHANH")) {
+        matched = options.find((opt) => opt.value.toUpperCase().includes("GHN"));
+      } else if (upper.includes("GHTK") || upper.includes("TIẾT KIỆM")) {
+        matched = options.find((opt) => opt.value.toUpperCase().includes("GHTK"));
+      } else if (upper.includes("SPX") || upper.includes("SHOPEE")) {
+        matched = options.find((opt) => opt.value.toUpperCase().includes("SPX"));
+      } else if (upper.includes("J&T")) {
+        matched = options.find((opt) => opt.value.toUpperCase().includes("J&T"));
+      } else if (upper.includes("VIETTEL")) {
+        matched = options.find((opt) => opt.value.toUpperCase().includes("VIETTEL"));
+      }
+    }
+    if (matched) {
+      sel.value = matched.value;
+    } else {
+      const opt = document.createElement("option");
+      opt.value = raw;
+      opt.textContent = raw;
+      sel.appendChild(opt);
+      sel.value = raw;
+    }
+  },
+
+  syncShipmentsFromEngine() {
+    if (window.omsEngine && Array.isArray(window.omsEngine.shipments)) {
+      this.shipments = window.omsEngine.shipments;
+    } else if (!Array.isArray(this.shipments)) {
+      this.shipments =
+        window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0
+          ? JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA))
+          : [];
+    }
+    return this.shipments;
+  },
+
+  resolveOrderCarrier(ord) {
+    const list = this.syncShipmentsFromEngine();
+    if (window.omsEngine && typeof window.omsEngine.resolveOrderCarrier === "function") {
+      return window.omsEngine.resolveOrderCarrier(ord, list);
+    }
+    const ch = String(ord?.channel || "").toUpperCase();
+    if (ord?.carrier && ord.carrier !== "Chưa gán ĐVVC") return ord.carrier;
+    return ch === "POS" ? "Tại quầy" : "Chưa gán ĐVVC";
+  },
+
   initShipping() {
-    this.shipments = (window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0)
-      ? JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA))
-      : [];
+    this.syncShipmentsFromEngine();
     this.shippingCarrierFilter = "ALL";
     this.shippingStatusFilter = "ALL";
     this.shippingSearchQuery = "";
@@ -4438,16 +4703,19 @@ handleResetPassword(username) {
   },
 
   renderShippingTab() {
+    const list = this.syncShipmentsFromEngine();
+
+    const setEl = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.innerText = val;
+    };
+
+    const activeUnfinishedTotal = this.getUnfinishedValidShipmentsCount();
+    setEl("badgeShippingCount", activeUnfinishedTotal);
+    setEl("badgeFifoCount", activeUnfinishedTotal);
+
     const tbody = document.getElementById("shippingTableBody");
     if (!tbody) return;
-
-    if (!this.shipments || this.shipments.length === 0) {
-      if (window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0) {
-        this.shipments = JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA));
-      }
-    }
-
-    const list = this.shipments || [];
 
     // Cập nhật 4 thẻ KPI Vận chuyển
     const pendingCount = list.filter(s => s.status === "PENDING_PICKUP").length;
@@ -4455,34 +4723,29 @@ handleResetPassword(username) {
     const deliveredCount = list.filter(s => s.status === "DELIVERED").length;
     const failedCount = list.filter(s => s.status === "FAILED_RETURNING").length;
 
-    const setEl = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) el.innerText = val;
-    };
-
     setEl("shippingKpiPending", pendingCount);
     setEl("shippingKpiInTransit", inTransitCount);
     setEl("shippingKpiDelivered", deliveredCount);
     setEl("shippingKpiFailed", failedCount);
 
-    const activeTotal = pendingCount + inTransitCount;
-    setEl("badgeShippingCount", activeTotal);
-    setEl("badgeFifoCount", activeTotal);
-
     // Lọc theo bộ lọc
+    const carrierFilter = this.shippingCarrierFilter || "ALL";
+    const statusFilter = this.shippingStatusFilter || "ALL";
+    const searchQuery = String(this.shippingSearchQuery || "").trim().toLowerCase();
     const filtered = list.filter(s => {
-      if (this.shippingCarrierFilter !== "ALL" && !s.carrier.toLowerCase().includes(this.shippingCarrierFilter.toLowerCase())) {
+      if (carrierFilter !== "ALL" && !String(s.carrier || "").toLowerCase().includes(carrierFilter.toLowerCase())) {
         return false;
       }
-      if (this.shippingStatusFilter !== "ALL" && s.status !== this.shippingStatusFilter) {
+      if (statusFilter !== "ALL" && s.status !== statusFilter) {
         return false;
       }
-      if (this.shippingSearchQuery) {
-        const q = this.shippingSearchQuery;
-        const matchCode = s.trackingCode.toLowerCase().includes(q);
-        const matchOrder = s.orderId.toLowerCase().includes(q);
-        const matchCust = s.receiver.name.toLowerCase().includes(q) || s.receiver.phone.includes(q);
-        const matchAddr = s.receiver.address.toLowerCase().includes(q);
+      if (searchQuery) {
+        const q = searchQuery;
+        const matchCode = String(s.trackingCode || "").toLowerCase().includes(q);
+        const matchOrder = String(s.orderId || "").toLowerCase().includes(q);
+        const matchCust =
+          String(s.receiver?.name || "").toLowerCase().includes(q) || String(s.receiver?.phone || "").includes(q);
+        const matchAddr = String(s.receiver?.address || "").toLowerCase().includes(q);
         if (!matchCode && !matchOrder && !matchCust && !matchAddr) return false;
       }
       return true;
@@ -4698,13 +4961,72 @@ handleResetPassword(username) {
   },
 
   // ============================================================================
-  // ĐỒNG BỘ ĐÁM MÂY GOOGLE SHEETS & LOCALSTORAGE (CloudSyncAdapter UI)
+  // KẾT NỐI & ĐỒNG BỘ SỔ DỮ LIỆU GOOGLE SHEETS (6 TRANG TÍNH)
   // ============================================================================
+  ensureFlatSettingsStyles() {
+    if (document.getElementById("odomsFlatSettingsStyle")) return;
+    const styleEl = document.createElement("style");
+    styleEl.id = "odomsFlatSettingsStyle";
+    styleEl.textContent = `
+      section.oms-view-section[data-views="settings"] .wms-card,
+      section.oms-view-section[data-views="settings"] .settings-flat-card,
+      #cloudSyncConfigBox,
+      #cloudSyncConfigBox .form-control,
+      #cloudSyncConfigBox .btn,
+      #cloudSyncConfigBox .status-badge,
+      #cloudSyncFeedbackMsg {
+        border-radius: 0px !important;
+        box-shadow: none !important;
+        background-image: none !important;
+      }
+      section.oms-view-section[data-views="settings"] .settings-flat-card,
+      #cloudSyncConfigBox {
+        font-variant-numeric: tabular-nums;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
+      }
+      section.oms-view-section[data-views="settings"] .settings-flat-card:hover,
+      #cloudSyncConfigBox:hover {
+        background-color: var(--theme-table-row-hover) !important;
+        border-color: var(--theme-sidebar-active-bg, var(--theme-primary)) !important;
+      }
+      [data-theme="vivo"] section.oms-view-section[data-views="settings"] .settings-flat-card:hover,
+      [data-theme="vivo"] #cloudSyncConfigBox:hover {
+        background-color: #EEF5FF !important;
+        border-color: #1877FF !important;
+      }
+      #cloudLastSyncLabel {
+        font-variant-numeric: tabular-nums;
+      }
+    `;
+    document.head.appendChild(styleEl);
+  },
+
   initCloudSyncPanel() {
+    this.ensureFlatSettingsStyles();
+
     if (window.cloudSync) {
+      // Bảo vệ chống đẩy ngược mảng đơn rỗng lên Google Sheets khi người dùng đăng nhập trước khi PULL_ALL hoàn tất
+      if (!window.cloudSync._bootPushGuardInstalled) {
+        window.cloudSync._bootPushGuardInstalled = true;
+        window.cloudSync._initialPullSettled = false;
+        const origSchedulePush = window.cloudSync.scheduleCloudPush.bind(window.cloudSync);
+        window.cloudSync.scheduleCloudPush = (reason = "AUTO_SYNC") => {
+          const ordersEmpty = !window.omsEngine || !Array.isArray(window.omsEngine.orders) || window.omsEngine.orders.length === 0;
+          if (!window.cloudSync._initialPullSettled && ordersEmpty && (reason === "AUDIT_LOGS_SYNC" || reason === "USERS_RBAC_SYNC")) {
+            window.cloudSync.saveLocalStateSnapshot();
+            return;
+          }
+          return origSchedulePush(reason);
+        };
+      }
       window.cloudSync.restoreLocalStateSnapshot();
+      this.syncShipmentsFromEngine();
       if (window.cloudSync.endpointUrl && window.cloudSync.autoSync) {
-        window.cloudSync.pullStateFromCloud(true);
+        Promise.resolve(window.cloudSync.pullStateFromCloud(true)).finally(() => {
+          window.cloudSync._initialPullSettled = true;
+        });
+      } else {
+        window.cloudSync._initialPullSettled = true;
       }
     }
 
@@ -4712,24 +5034,25 @@ handleResetPassword(username) {
     if (settingsSection && !document.getElementById("cloudSyncConfigBox")) {
       const box = document.createElement("div");
       box.id = "cloudSyncConfigBox";
+      box.className = "settings-flat-card";
       box.style.cssText =
-        "margin-top:16px;padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;";
+        "margin-top:16px;padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;";
 
       const cfg = window.cloudSync ? window.cloudSync : { endpointUrl: "", autoSync: true, lastSyncTime: "Chưa đồng bộ" };
 
       box.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
           <div>
-            <h4 style="margin:0;display:flex;align-items:center;gap:8px;">
-              <span>☁️ 3. Đồng bộ Đám mây Google Sheets & LocalStorage (CloudSyncAdapter)</span>
-              <span id="cloudSyncStatusBadge" class="status-badge st-ALLOCATED" style="font-size:11px;">● LocalStorage Sẵn sàng</span>
+            <h4 style="margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span>5. Kết nối &amp; Đồng bộ Sổ dữ liệu Google Sheets (6 trang tính)</span>
+              <span id="cloudSyncStatusBadge" class="status-badge st-ALLOCATED" style="font-size:11px;border-radius:0px;">● Đang lưu trên máy này</span>
             </h4>
             <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;">
-              Chạy song song: Lưu tức thì vào <code>LocalStorage</code> (0ms) + Đồng bộ ngầm 5 bảng (<code>DatHang</code>, <code>TonKho</code>, <code>LuuKho</code>, <code>NhanSu</code>, <code>NhatKy</code>) lên Google Sheets qua <code>ODOMS_Backend_API.gs</code>.
+              Dữ liệu vận hành được lưu tức thì trên thiết bị đang dùng và tự động đồng bộ 2 chiều với Sổ Google Sheets gồm 6 trang tính: <strong>Đặt hàng</strong>, <strong>Tồn kho</strong>, <strong>Lưu kho (Lô hàng)</strong>, <strong>Vận đơn</strong>, <strong>Nhân sự</strong> và <strong>Nhật ký</strong>.
             </p>
           </div>
-          <div id="cloudLastSyncLabel" style="font-size:11.5px;font-weight:700;color:var(--text-muted);">
-            Lần đồng bộ cuối: ${cfg.lastSyncTime || "Chưa đồng bộ"}
+          <div id="cloudLastSyncLabel" style="font-size:11.5px;font-weight:700;color:var(--text-muted);font-variant-numeric:tabular-nums;">
+            Cập nhật gần nhất: ${cfg.lastSyncTime || "Chưa đồng bộ"}
           </div>
         </div>
 
@@ -4738,29 +5061,30 @@ handleResetPassword(username) {
             type="url"
             id="cloudEndpointUrlInput"
             class="form-control"
-            placeholder="Dán link Google Apps Script Web App URL (https://script.google.com/macros/s/.../exec)"
+            style="border-radius:0px;box-shadow:none;"
+            placeholder="Dán đường dẫn kết nối Sổ dữ liệu Google Sheets của cửa hàng tại đây"
             value="${cfg.endpointUrl || ""}"
           />
-          <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.handleSaveCloudConfig()">
-            💾 Lưu cấu hình Cloud
+          <button type="button" class="btn btn-primary btn-sm" style="border-radius:0px;box-shadow:none;" onclick="AppUI.handleSaveCloudConfig()">
+            Lưu liên kết Google Sheets
           </button>
         </div>
 
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
           <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;cursor:pointer;">
             <input type="checkbox" id="cloudAutoSyncCheckbox" ${cfg.autoSync !== false ? "checked" : ""} onchange="AppUI.handleSaveCloudConfig(true)" />
-            <span>Tự động đẩy ngầm lên Google Sheets khi phát sinh đơn hàng / tồn kho / nhân sự mới</span>
+            <span>Tự động cập nhật sang Google Sheets mỗi khi phát sinh đơn hàng, tồn kho, vận đơn hoặc nhân sự mới</span>
           </label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.handleManualCloudPush()">
-              ☁️ Đồng bộ lên Google Sheets ngay
+            <button type="button" class="btn btn-primary btn-sm" style="border-radius:0px;box-shadow:none;" onclick="AppUI.handleManualCloudPush()">
+              Gửi dữ liệu lên Google Sheets
             </button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.handleManualCloudPull()">
-              📥 Tải dữ liệu từ Google Sheets về
+            <button type="button" class="btn btn-outline btn-sm" style="border-radius:0px;box-shadow:none;" onclick="AppUI.handleManualCloudPull()">
+              Tải dữ liệu mới nhất từ Google Sheets
             </button>
           </div>
         </div>
-        <div id="cloudSyncFeedbackMsg" class="hidden" style="margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+        <div id="cloudSyncFeedbackMsg" class="hidden" style="margin-top:10px;padding:8px 12px;border-radius:0px;box-shadow:none;font-size:12px;font-weight:600;"></div>
       `;
 
       settingsSection.appendChild(box);
@@ -4774,7 +5098,7 @@ handleResetPassword(username) {
     const lastSyncEl = document.getElementById("cloudLastSyncLabel");
 
     if (lastSyncEl) {
-      lastSyncEl.innerText = `Lần đồng bộ cuối: ${window.cloudSync.lastSyncTime || "Chưa đồng bộ"}`;
+      lastSyncEl.innerText = `Cập nhật gần nhất: ${window.cloudSync.lastSyncTime || "Chưa đồng bộ"}`;
     }
     if (!badgeEl) return;
 
@@ -4783,24 +5107,24 @@ handleResetPassword(username) {
       badgeEl.className = "status-badge";
       badgeEl.style.background = "#fef3c7";
       badgeEl.style.color = "#b45309";
-      badgeEl.innerText = "⏳ Đang đồng bộ Cloud...";
+      badgeEl.innerText = "⏳ Đang đồng bộ sổ Google Sheets...";
     } else if (status === "CLOUD_CONNECTED") {
       badgeEl.className = "status-badge st-ALLOCATED";
       badgeEl.style.background = "";
       badgeEl.style.color = "";
-      badgeEl.innerText = "☁️ Đã đồng bộ Google Sheets";
+      badgeEl.innerText = "✓ Đã đồng bộ 6 trang tính Google Sheets";
     } else if (status === "CLOUD_ERROR") {
       badgeEl.className = "status-badge st-INVALID";
       badgeEl.style.background = "";
       badgeEl.style.color = "";
-      badgeEl.innerText = "⚠️ Lưu dự phòng LocalStorage";
+      badgeEl.innerText = "⚠ Tạm lưu trên máy (chưa kết nối được Google Sheets)";
     } else {
       badgeEl.className = "status-badge st-ALLOCATED";
       badgeEl.style.background = "";
       badgeEl.style.color = "";
       badgeEl.innerText = window.cloudSync.endpointUrl
-        ? "☁️ Cloud Sẵn sàng"
-        : "💾 LocalStorage Sẵn sàng";
+        ? "● Sẵn sàng kết nối Google Sheets"
+        : "● Đang lưu trên máy này";
     }
   },
 
@@ -4808,6 +5132,8 @@ handleResetPassword(username) {
     const msgEl = document.getElementById("cloudSyncFeedbackMsg");
     if (!msgEl) return;
     msgEl.classList.remove("hidden");
+    msgEl.style.borderRadius = "0px";
+    msgEl.style.boxShadow = "none";
     msgEl.style.background = isSuccess ? "#dcfce7" : "#fef2f2";
     msgEl.style.color = isSuccess ? "#15803d" : "#dc2626";
     msgEl.style.border = isSuccess ? "1px solid #86efac" : "1px solid #fecaca";
@@ -4829,8 +5155,8 @@ handleResetPassword(username) {
     if (!silent) {
       this.showCloudFeedback(
         endpointUrl
-          ? "Đã lưu đường dẫn Google Apps Script Web App URL! Hệ thống đã sẵn sàng đồng bộ 2 chiều với Google Sheets."
-          : "Đã lưu chế độ đồng bộ cục bộ (LocalStorage).",
+          ? "Đã lưu đường dẫn kết nối Sổ Google Sheets. Hệ thống sẵn sàng đồng bộ 2 chiều đủ 6 trang tính."
+          : "Đã chuyển sang chế độ chỉ lưu dữ liệu trực tiếp trên máy này.",
         true
       );
     }
@@ -4848,12 +5174,13 @@ handleResetPassword(username) {
     if (!window.cloudSync) return;
     this.handleSaveCloudConfig(true);
     const res = await window.cloudSync.pullStateFromCloud(false);
+    this.syncShipmentsFromEngine();
     this.showCloudFeedback(res.message, res.success);
     this.renderAll();
   },
 
   openWaybillFromShipping(trackingCode) {
-    const s = (this.shipments || []).find(item => item.trackingCode === trackingCode);
+    const s = (this.syncShipmentsFromEngine() || []).find(item => item.trackingCode === trackingCode);
     if (!s) return;
 
     this.switchSidebarTab("qr_api");
@@ -4866,7 +5193,7 @@ handleResetPassword(username) {
     setVal("wbOrderId", s.orderId);
     setVal("wbChannel", s.channel);
     setVal("wbTrackingCode", s.trackingCode);
-    setVal("wbCarrier", s.carrier);
+    this.setWaybillCarrierSelectValue(s.carrier);
     setVal("wbCustomerName", s.receiver.name);
     setVal("wbCustomerPhone", s.receiver.phone);
     setVal("wbAddress", s.receiver.address);
@@ -4875,6 +5202,1064 @@ handleResetPassword(username) {
 
     this.generateWaybillAndQR(false);
     this.printWaybillQrTicket();
+  },
+
+  // ============================================================================
+  // GIAO DIỆN THẺ TỔNG QUAN MỚI (7 KPI · LƯỚI 3 CỘT · BẢNG 9 CỘT)
+  // ============================================================================
+  dashUrgentSortDesc: true,
+  dashUrgentSortMode: "PRIORITY_DATE", // PRIORITY_DATE | DATE_ONLY
+  dashUrgentPage: 1,
+  dashUrgentPageSize: 8,
+  dashSelectedOrderIds: new Set(),
+
+  parseVnDateTimeMs(rawStr) {
+    const str = String(rawStr || "").trim();
+    if (!str) return null;
+
+    // 1. DD/MM/YYYY [HH:mm[:ss]] hoặc DD-MM-YYYY
+    const dmy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (dmy) {
+      const dt = new Date(
+        Number(dmy[3]),
+        Number(dmy[2]) - 1,
+        Number(dmy[1]),
+        Number(dmy[4] || 0),
+        Number(dmy[5] || 0),
+        Number(dmy[6] || 0)
+      );
+      return isNaN(dt.getTime()) ? null : dt.getTime();
+    }
+
+    // 2. YYYY-MM-DD[T ]HH:mm[:ss]
+    const ymd = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (ymd && !str.endsWith("Z")) {
+      const dt = new Date(
+        Number(ymd[1]),
+        Number(ymd[2]) - 1,
+        Number(ymd[3]),
+        Number(ymd[4] || 0),
+        Number(ymd[5] || 0),
+        Number(ymd[6] || 0)
+      );
+      return isNaN(dt.getTime()) ? null : dt.getTime();
+    }
+
+    const parsed = new Date(str);
+    return isNaN(parsed.getTime()) ? null : parsed.getTime();
+  },
+
+  getOrderTimestampMs(ord) {
+    if (!ord) return 0;
+    const direct = Number(ord.timestampMs);
+    if (Number.isFinite(direct) && direct > 0) return direct;
+    const parsed = this.parseVnDateTimeMs(ord.orderTime);
+    return parsed !== null ? parsed : 0;
+  },
+
+  getShipmentTimestampMs(sh) {
+    if (!sh) return null;
+    const ts = this.parseVnDateTimeMs(sh.handoverTime || sh.lastUpdateTime || "");
+    return ts !== null ? ts : null;
+  },
+
+  getEffectiveInventoryAtNow(inventoryInput) {
+    const inventory = Array.isArray(inventoryInput)
+      ? inventoryInput
+      : window.omsEngine && Array.isArray(window.omsEngine.inventory)
+      ? window.omsEngine.inventory
+      : [];
+    const allOrders = window.omsEngine && Array.isArray(window.omsEngine.orders) ? window.omsEngine.orders : [];
+    const nowMs = Date.now();
+
+    // Tính phần giữ chỗ thuộc các đơn ở tương lai (> Date.now()) để loại trừ ở tầng hiển thị (không sửa omsEngine)
+    const futureReservedBySku = {};
+    allOrders.forEach((ord) => {
+      if (!ord) return;
+      if (ord.status === "ALLOCATED" && ord.platformStatus !== "CANCELLED") {
+        const ordTs = this.getOrderTimestampMs(ord);
+        if (ordTs > nowMs) {
+          const skuKey = String(ord.sku || "").trim();
+          if (skuKey) {
+            futureReservedBySku[skuKey] = (futureReservedBySku[skuKey] || 0) + (Number(ord.quantity) || 0);
+          }
+        }
+      }
+    });
+
+    return inventory.map((item) => {
+      const physical = Math.max(0, Number(item.physicalStock ?? item.stock) || 0);
+      const rawReserved =
+        item.reservedStock !== undefined && item.reservedStock !== null
+          ? Math.max(0, Number(item.reservedStock) || 0)
+          : Math.max(0, physical - (Number(item.availableStock) || 0));
+      const futureRes = futureReservedBySku[String(item.sku || "").trim()] || 0;
+      const effectiveReserved = Math.max(0, rawReserved - futureRes);
+      const effectiveAvailable = Math.min(physical, Math.max(0, physical - effectiveReserved));
+      return {
+        ...item,
+        effectivePhysicalStock: physical,
+        effectiveReservedStock: effectiveReserved,
+        effectiveAvailableStock: effectiveAvailable
+      };
+    });
+  },
+
+  getSkuAvailableStock(item) {
+    if (!item) return 0;
+    if (item.effectiveAvailableStock !== undefined && item.effectiveAvailableStock !== null) {
+      return Math.max(0, Number(item.effectiveAvailableStock) || 0);
+    }
+    if (item.availableStock !== undefined && item.availableStock !== null) {
+      return Math.max(0, Number(item.availableStock) || 0);
+    }
+    const physical = Math.max(0, Number(item.physicalStock ?? item.stock) || 0);
+    const reserved = Math.max(0, Number(item.reservedStock) || 0);
+    return Math.max(0, physical - reserved);
+  },
+
+  getLowStockInventoryItems(inventoryInput) {
+    const effInv = this.getEffectiveInventoryAtNow(inventoryInput);
+    return effInv
+      .filter((item) => this.getSkuAvailableStock(item) <= 5)
+      .sort((a, b) => {
+        const diff = this.getSkuAvailableStock(a) - this.getSkuAvailableStock(b);
+        if (diff !== 0) return diff;
+        return String(a.sku || "").localeCompare(String(b.sku || ""));
+      });
+  },
+
+  getValidOrdersUpToNow() {
+    const allOrders = window.omsEngine && Array.isArray(window.omsEngine.orders) ? window.omsEngine.orders : [];
+    const nowMs = Date.now();
+    return allOrders.filter((ord) => {
+      const ordTs = this.getOrderTimestampMs(ord);
+      return ordTs <= nowMs;
+    });
+  },
+
+  getValidShipmentsUpToNow(allowedOrders = null) {
+    const allShipments = this.syncShipmentsFromEngine();
+    const nowMs = Date.now();
+    const ordersRef = Array.isArray(allowedOrders) ? allowedOrders : this.getValidOrdersUpToNow();
+    const allowedOrderIds = new Set(ordersRef.map((o) => String(o.orderId || "").trim()).filter(Boolean));
+    const hasEngineOrders = window.omsEngine && Array.isArray(window.omsEngine.orders) && window.omsEngine.orders.length > 0;
+
+    return allShipments.filter((sh) => {
+      if (!sh) return false;
+      const shTs = this.getShipmentTimestampMs(sh);
+      if (shTs !== null && shTs > nowMs) return false;
+      const ordId = String(sh.orderId || "").trim();
+      if (ordId && (Array.isArray(allowedOrders) || hasEngineOrders)) {
+        if (!allowedOrderIds.has(ordId)) return false;
+      }
+      return true;
+    });
+  },
+
+  getUnfinishedValidShipmentsCount(allowedOrders = null) {
+    const validShipments = this.getValidShipmentsUpToNow(allowedOrders);
+    return validShipments.filter(
+      (s) => s.status === "PENDING_PICKUP" || s.status === "IN_TRANSIT" || s.status === "FAILED_RETURNING"
+    ).length;
+  },
+
+  getShipmentByOrderMap(shipmentsList) {
+    const map = new Map();
+    (Array.isArray(shipmentsList) ? shipmentsList : []).forEach((s) => {
+      if (s && s.orderId) {
+        map.set(String(s.orderId).trim(), s);
+      }
+    });
+    return map;
+  },
+
+  resolveOrderDisplayStatus(ord, matchedShipment) {
+    if (!ord) {
+      return { code: "UNKNOWN", label: "Không xác định", badgeClass: "st-BACKORDER" };
+    }
+    if (ord.status === "CANCELLED" || ord.status === "INVALID" || ord.platformStatus === "CANCELLED") {
+      return { code: "CANCELLED", label: "Đã hủy", badgeClass: "st-CANCELLED" };
+    }
+    if (ord.status === "BACKORDER") {
+      return { code: "BACKORDER", label: "Thiếu tồn", badgeClass: "st-BACKORDER" };
+    }
+    if (ord.platformStatus === "UNCONFIRMED" || ord.status === "PENDING") {
+      return { code: "UNCONFIRMED", label: "Chờ xác nhận", badgeClass: "st-BACKORDER" };
+    }
+    if (matchedShipment && matchedShipment.status) {
+      const st = String(matchedShipment.status).toUpperCase();
+      if (st === "PENDING_PICKUP") return { code: "PENDING_PICKUP", label: "Chờ lấy hàng", badgeClass: "st-PENDING_PICKUP" };
+      if (st === "IN_TRANSIT") return { code: "IN_TRANSIT", label: "Đang giao", badgeClass: "st-IN_TRANSIT" };
+      if (st === "DELIVERED") return { code: "DELIVERED", label: "Giao thành công", badgeClass: "st-DELIVERED" };
+      if (st === "FAILED_RETURNING") return { code: "FAILED_RETURNING", label: "Giao thất bại", badgeClass: "st-FAILED_RETURNING" };
+    }
+    const carrier = this.resolveOrderCarrier(ord);
+    const chUpper = String(ord.channel || "").toUpperCase();
+    if (chUpper === "POS" || carrier === "Tại quầy") {
+      return { code: "POS_COMPLETED", label: "Hoàn tất tại quầy", badgeClass: "st-ALLOCATED" };
+    }
+    if (carrier === "Chưa gán ĐVVC") {
+      return { code: "NO_CARRIER", label: "Chờ tạo vận đơn", badgeClass: "st-BACKORDER" };
+    }
+    return { code: "ALLOCATED_READY", label: "Đã giữ hàng / Xuất kho", badgeClass: "st-ALLOCATED" };
+  },
+
+  classifyDashOrderBucket(ord, matchedShipment) {
+    // Phân nhóm loại trừ lẫn nhau 100% -> KPI2 + KPI3 + KPI4 + KPI5(Hủy+Lỗi giao) === KPI1
+    if (ord.status === "CANCELLED" || ord.status === "INVALID" || ord.platformStatus === "CANCELLED") {
+      return { group: "CANCEL_RETURN", sub: "CANCELLED" };
+    }
+    if (matchedShipment && matchedShipment.status === "FAILED_RETURNING") {
+      return { group: "CANCEL_RETURN", sub: "FAILED_RETURN" };
+    }
+    if (ord.platformStatus === "UNCONFIRMED" || ord.status === "PENDING") {
+      return { group: "PENDING", sub: "UNCONFIRMED" };
+    }
+    if (ord.status === "BACKORDER") {
+      return { group: "PENDING", sub: "BACKORDER" };
+    }
+    if (matchedShipment && (matchedShipment.status === "IN_TRANSIT" || matchedShipment.status === "PENDING_PICKUP")) {
+      return { group: "SHIPPING", sub: matchedShipment.status };
+    }
+    const carrier = this.resolveOrderCarrier(ord);
+    if (!matchedShipment && carrier === "Chưa gán ĐVVC") {
+      return { group: "PENDING", sub: "NO_CARRIER" };
+    }
+    return { group: "COMPLETED", sub: matchedShipment && matchedShipment.status === "DELIVERED" ? "DELIVERED" : "ALLOCATED" };
+  },
+
+  getUrgentPriority(ord, matchedShipment) {
+    const st = this.resolveOrderDisplayStatus(ord, matchedShipment).code;
+    if (st === "BACKORDER") return 1;
+    if (st === "FAILED_RETURNING") return 2;
+    if (st === "UNCONFIRMED") return 3;
+    if (st === "NO_CARRIER") return 4;
+    if (st === "PENDING_PICKUP") return 5;
+    return 99;
+  },
+
+  isUrgentOrder(ord, matchedShipment) {
+    return this.getUrgentPriority(ord, matchedShipment) <= 5;
+  },
+
+  getFilteredDashOrders() {
+    const allOrders = window.omsEngine && Array.isArray(window.omsEngine.orders) ? window.omsEngine.orders : [];
+    const branchEl = document.getElementById("dashBranchFilter");
+    const dateEl = document.getElementById("dashDateFilter");
+    const branchVal = branchEl ? branchEl.value : "ALL";
+    const dateVal = dateEl ? dateEl.value : "ALL";
+
+    const nowMs = Date.now();
+    const now = new Date(nowMs);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const sevenDaysAgo = startOfToday - 6 * 86400000;
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+
+    return allOrders.filter((ord) => {
+      if (!ord) return false;
+      const ordTs = this.getOrderTimestampMs(ord);
+
+      // Chặn tuyệt đối dữ liệu tương lai ở MỌI chế độ thời gian (kể cả "Tất cả thời gian")
+      if (ordTs > nowMs) return false;
+
+      if (branchVal !== "ALL") {
+        const w = String(ord.warehouse || ord.branch || "KHO_BINH_PHU").toUpperCase();
+        if (branchVal === "KHO_BINH_PHU" && (w.includes("Q7") || w.includes("HN") || w.includes("HANOI"))) return false;
+        if (branchVal === "KHO_Q7" && !w.includes("Q7")) return false;
+        if (branchVal === "KHO_HN" && !w.includes("HN") && !w.includes("HANOI")) return false;
+      }
+
+      if (dateVal === "TODAY" && ordTs < startOfToday) return false;
+      if (dateVal === "7D" && ordTs < sevenDaysAgo) return false;
+      if (dateVal === "MONTH" && ordTs < startOfMonth) return false;
+
+      return true;
+    });
+  },
+
+  renderDashboardP2() {
+    this.syncShipmentsFromEngine();
+    const orders = this.getFilteredDashOrders();
+    const effectiveInventory = this.getEffectiveInventoryAtNow();
+    const validShipments = this.getValidShipmentsUpToNow(orders);
+
+    const syncHintEl = document.getElementById("dashSyncTimestamp");
+    if (syncHintEl && window.cloudSync) {
+      syncHintEl.innerText = `Cập nhật gần nhất: ${window.cloudSync.lastSyncTime || "Sổ Google Sheets"}`;
+    }
+
+    // Giữ đồng bộ 2 Badge Sidebar khi lọc / vẽ lại Tổng Quan
+    const badgeBackorder = document.getElementById("badgeBackorderCount");
+    if (badgeBackorder) {
+      badgeBackorder.innerText = String(this.getLowStockInventoryItems(effectiveInventory).length);
+    }
+    const badgeShipping = document.getElementById("badgeShippingCount");
+    if (badgeShipping) {
+      badgeShipping.innerText = String(this.getUnfinishedValidShipmentsCount());
+    }
+
+    this.renderDash7KpiStrip(orders, effectiveInventory, validShipments);
+    this.renderComboTrendChart(orders);
+    this.renderChannelStackedBar(orders);
+    this.renderUrgentAlertsAndReturns(orders, effectiveInventory, validShipments);
+    this.renderUrgentOrdersTable(orders, validShipments);
+  },
+
+  renderDash7KpiStrip(orders, effectiveInventory, validShipments) {
+    const shipmentsList = Array.isArray(validShipments) ? validShipments : this.getValidShipmentsUpToNow(orders);
+    const shMap = this.getShipmentByOrderMap(shipmentsList);
+    const inv = Array.isArray(effectiveInventory) ? effectiveInventory : this.getEffectiveInventoryAtNow();
+
+    const total = orders.length;
+    let unconfirmedCount = 0;
+    let backorderCount = 0;
+    let noCarrierCount = 0;
+    let inTransitCount = 0;
+    let pendingPickupCount = 0;
+    let completedCount = 0;
+    let cancelledCount = 0;
+    let failedReturnCount = 0;
+
+    orders.forEach((ord) => {
+      const sh = shMap.get(String(ord.orderId || "").trim()) || null;
+      const bucket = this.classifyDashOrderBucket(ord, sh);
+      if (bucket.group === "PENDING") {
+        if (bucket.sub === "UNCONFIRMED") unconfirmedCount++;
+        else if (bucket.sub === "BACKORDER") backorderCount++;
+        else noCarrierCount++;
+      } else if (bucket.group === "SHIPPING") {
+        if (bucket.sub === "IN_TRANSIT") inTransitCount++;
+        else pendingPickupCount++;
+      } else if (bucket.group === "COMPLETED") {
+        completedCount++;
+      } else if (bucket.group === "CANCEL_RETURN") {
+        if (bucket.sub === "CANCELLED") cancelledCount++;
+        else failedReturnCount++;
+      }
+    });
+
+    const pendingTotal = unconfirmedCount + backorderCount + noCarrierCount;
+    const shippingTotal = inTransitCount + pendingPickupCount;
+
+    const validOrders = orders.filter(
+      (o) => o.status !== "CANCELLED" && o.status !== "INVALID" && o.platformStatus !== "CANCELLED"
+    );
+    const estRevenue = validOrders.reduce((sum, o) => sum + (Number(o.quantity) || 1) * (Number(o.unitPrice) || 0), 0);
+
+    const totalPhysical = inv.reduce((sum, item) => sum + (Number(item.effectivePhysicalStock ?? item.physicalStock) || 0), 0);
+    const totalReserved = inv.reduce((sum, item) => sum + (Number(item.effectiveReservedStock ?? item.reservedStock) || 0), 0);
+    const availStock = inv.reduce((sum, item) => sum + this.getSkuAvailableStock(item), 0);
+
+    const setTxt = (id, txt) => {
+      const el = document.getElementById(id);
+      if (el) el.innerText = txt;
+    };
+    const setHtml = (id, html) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    };
+
+    setTxt("dashKpiTotalOrders", total.toLocaleString("vi-VN"));
+    setTxt("dashKpiTotalOrdersSub", total > 0 ? `Dữ liệu thực tế (${validOrders.length} hợp lệ)` : "Chưa có đơn hàng trong kỳ");
+
+    setTxt("dashKpiPending", pendingTotal.toLocaleString("vi-VN"));
+    setHtml(
+      "dashKpiPendingSub",
+      `<span class="dash-kpi-chip">Chờ xác nhận: <b>${unconfirmedCount}</b></span> · <span class="dash-kpi-chip">Thiếu tồn: <b>${backorderCount}</b></span><br><span class="dash-kpi-chip">Chờ tạo vận đơn: <b>${noCarrierCount}</b></span>`
+    );
+
+    setTxt("dashKpiShipping", shippingTotal.toLocaleString("vi-VN"));
+    setTxt("dashKpiShippingSub", `Có ${failedReturnCount} đơn cần chú ý`);
+
+    setTxt("dashKpiCompleted", completedCount.toLocaleString("vi-VN"));
+    const completeRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+    setTxt("dashKpiCompletedSub", `Tỷ lệ hoàn tất: ${completeRate}%`);
+
+    setHtml("dashKpiCancelReturn", `${cancelledCount} / <span class="text-danger">${failedReturnCount}</span>`);
+    setTxt("dashKpiCancelReturnSub", `Hủy: ${cancelledCount} · Hoàn/Lỗi giao: ${failedReturnCount}`);
+
+    let revFormatted = "0 VND";
+    if (estRevenue >= 1e9) {
+      revFormatted = `${(estRevenue / 1e9).toFixed(2)} Tỷ VND`;
+    } else if (estRevenue >= 1e6) {
+      revFormatted = `${(estRevenue / 1e6).toFixed(2)} Tr VND`;
+    } else if (estRevenue > 0) {
+      revFormatted = `${estRevenue.toLocaleString("vi-VN")} VND`;
+    }
+    setTxt("dashKpiEstRevenue", revFormatted);
+    setTxt("dashKpiEstRevenueSub", `Trên ${validOrders.length} đơn hợp lệ`);
+
+    setTxt("dashKpiAvailableStock", availStock.toLocaleString("vi-VN"));
+    setTxt("dashKpiAvailableStockSub", `${inv.length} mã hàng (${totalPhysical} tồn − ${totalReserved} giữ chỗ)`);
+  },
+
+  renderComboTrendChart(orders) {
+    const svg = document.getElementById("dashComboTrendSvg");
+    if (!svg) return;
+
+    const plotLeft = 36;
+    const plotRight = 442;
+    const plotTop = 26;
+    const plotBottom = 198;
+    const plotH = plotBottom - plotTop;
+
+    // Trạng thái trống (0 đơn hàng): hiển thị gọn gàng, tuyệt đối không NaN/Infinity
+    if (!Array.isArray(orders) || orders.length === 0) {
+      svg.innerHTML = `
+        <text x="4" y="13" text-anchor="start" font-size="9.5" font-weight="700" fill="currentColor" opacity="0.75">Số đơn</text>
+        <text x="${plotRight + 22}" y="13" text-anchor="end" font-size="9.5" font-weight="700" fill="#d97706">Đơn vị: Triệu VND</text>
+        <rect x="${plotLeft}" y="${plotTop}" width="${plotRight - plotLeft}" height="${plotH}" rx="0" fill="none" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 4" />
+        <line x1="${plotLeft}" y1="${plotBottom}" x2="${plotRight}" y2="${plotBottom}" stroke="#94a3b8" stroke-width="1" />
+        <text x="${plotLeft - 6}" y="${plotBottom + 4}" text-anchor="end" font-size="10" fill="currentColor" opacity="0.65">0</text>
+        <text x="${plotRight + 6}" y="${plotBottom + 4}" text-anchor="start" font-size="10" fill="#d97706" font-weight="700">0</text>
+        <text x="${(plotLeft + plotRight) / 2}" y="${plotTop + plotH / 2 - 4}" text-anchor="middle" font-size="12" font-weight="700" fill="currentColor" opacity="0.65">Chưa có đơn hàng trong khoảng thời gian đang chọn</text>
+        <text x="${(plotLeft + plotRight) / 2}" y="${plotTop + plotH / 2 + 14}" text-anchor="middle" font-size="10.5" fill="currentColor" opacity="0.5">Hãy chọn "Tất cả thời gian" hoặc kỳ khác để xem xu hướng</text>
+      `;
+      return;
+    }
+
+    const dateEl = document.getElementById("dashDateFilter");
+    const dateVal = dateEl ? dateEl.value : "ALL";
+    const pad2 = (n) => String(n).padStart(2, "0");
+
+    // Xác định tập các tháng phát sinh trong orders để quyết định gom theo Tháng hay theo Ngày
+    const monthSet = new Set();
+    const orderEntries = orders.map((ord) => {
+      const ts = this.getOrderTimestampMs(ord);
+      const dt = new Date(ts);
+      const yyyy = dt.getFullYear();
+      const mm = dt.getMonth() + 1;
+      const dd = dt.getDate();
+      const mKey = `${yyyy}-${pad2(mm)}`;
+      const dKey = `${yyyy}-${pad2(mm)}-${pad2(dd)}`;
+      monthSet.add(mKey);
+      return { ord, ts, yyyy, mm, dd, mKey, dKey };
+    });
+
+    const useMonthlyMode = dateVal === "ALL" && monthSet.size >= 2;
+    const bucketMap = new Map();
+
+    if (useMonthlyMode) {
+      // Tạo chuỗi liên tục từ tháng sớm nhất đến tháng muộn nhất (VD: Th01 -> Th11/2026)
+      const sortedMonths = Array.from(monthSet).sort();
+      const [startY, startM] = sortedMonths[0].split("-").map(Number);
+      const [endY, endM] = sortedMonths[sortedMonths.length - 1].split("-").map(Number);
+      let cy = startY;
+      let cm = startM;
+      while (cy < endY || (cy === endY && cm <= endM)) {
+        const key = `${cy}-${pad2(cm)}`;
+        bucketMap.set(key, {
+          key,
+          label: `Th${pad2(cm)}`,
+          fullLabel: `Tháng ${pad2(cm)}/${cy}`,
+          received: 0,
+          exported: 0,
+          revenue: 0,
+          ts: new Date(cy, cm - 1, 1, 0, 0, 0, 0).getTime()
+        });
+        cm++;
+        if (cm > 12) {
+          cm = 1;
+          cy++;
+        }
+      }
+    }
+
+    orderEntries.forEach(({ ord, yyyy, mm, dd, mKey, dKey }) => {
+      const key = useMonthlyMode ? mKey : dKey;
+      if (!bucketMap.has(key)) {
+        bucketMap.set(key, {
+          key,
+          label: useMonthlyMode ? `Th${pad2(mm)}` : `${pad2(dd)}/${pad2(mm)}`,
+          fullLabel: useMonthlyMode ? `Tháng ${pad2(mm)}/${yyyy}` : `${pad2(dd)}/${pad2(mm)}/${yyyy}`,
+          received: 0,
+          exported: 0,
+          revenue: 0,
+          ts: useMonthlyMode
+            ? new Date(yyyy, mm - 1, 1, 0, 0, 0, 0).getTime()
+            : new Date(yyyy, mm - 1, dd, 0, 0, 0, 0).getTime()
+        });
+      }
+      const b = bucketMap.get(key);
+      b.received += 1;
+      const isCancelled = ord.status === "CANCELLED" || ord.status === "INVALID" || ord.platformStatus === "CANCELLED";
+      if (!isCancelled) {
+        // Đường doanh thu màu cam tính trên đơn hợp lệ (không hủy) -> khớp 100% KPI 6
+        b.revenue += (Number(ord.quantity) || 1) * (Number(ord.unitPrice) || 0);
+        if (ord.status === "ALLOCATED") {
+          b.exported += 1;
+        }
+      }
+    });
+
+    const points = Array.from(bucketMap.values()).sort((a, b) => a.ts - b.ts);
+
+    // Làm tròn mốc trục chia hết cho 4 để lưới hiển thị chính xác tuyệt đối, không lệch thị giác
+    const rawMaxOrders = Math.max(1, ...points.map((p) => Math.max(p.received, p.exported)));
+    const niceMaxOrders = Math.max(4, Math.ceil(rawMaxOrders / 4) * 4);
+
+    const rawMaxRev = Math.max(400000, ...points.map((p) => p.revenue));
+    const revStepCandidates = [100000, 200000, 250000, 500000, 1000000, 1500000, 2000000, 2500000, 5000000, 6000000, 10000000];
+    let revStep = revStepCandidates.find((step) => step * 4 >= rawMaxRev);
+    if (!revStep) {
+      revStep = Math.ceil(rawMaxRev / 4 / 1000000) * 1000000;
+    }
+    const niceMaxRev = revStep * 4;
+
+    const formatRevAxis = (val) => {
+      if (val <= 0) return "0";
+      const mil = val / 1e6;
+      return Number.isInteger(mil) ? mil.toFixed(0) : mil.toFixed(1);
+    };
+
+    let gridHtml = "";
+    for (let i = 0; i <= 4; i++) {
+      const y = Number((plotTop + (plotH * i) / 4).toFixed(2));
+      const oVal = Math.round(niceMaxOrders * (1 - i / 4));
+      const rVal = formatRevAxis(niceMaxRev * (1 - i / 4));
+      gridHtml += `<line x1="${plotLeft}" y1="${y}" x2="${plotRight}" y2="${y}" stroke="#cbd5e1" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.7" />`;
+      gridHtml += `<text x="${plotLeft - 6}" y="${y + 4}" text-anchor="end" font-size="10" fill="currentColor" opacity="0.7">${oVal}</text>`;
+      gridHtml += `<text x="${plotRight + 6}" y="${y + 4}" text-anchor="start" font-size="10" fill="#d97706" font-weight="700">${rVal}</text>`;
+    }
+
+    const slotW = (plotRight - plotLeft) / points.length;
+    const isSinglePoint = points.length === 1;
+    const barW = isSinglePoint ? 30 : Math.min(16, Math.max(6, Math.floor(slotW * 0.28)));
+    const barGap = isSinglePoint ? 6 : 2;
+    const labelFontSize = points.length >= 10 ? 9.5 : 10.5;
+
+    let barsHtml = "";
+    const lineCoords = [];
+
+    points.forEach((p, idx) => {
+      const cx = Number((plotLeft + slotW * idx + slotW / 2).toFixed(2));
+      const hRec = (p.received / niceMaxOrders) * plotH;
+      const hExp = (p.exported / niceMaxOrders) * plotH;
+      const yRec = Number((plotBottom - hRec).toFixed(2));
+      const yExp = Number((plotBottom - hExp).toFixed(2));
+      const barRecH = p.received > 0 ? Math.max(2, Number(hRec.toFixed(2))) : 0;
+      const barExpH = p.exported > 0 ? Math.max(2, Number(hExp.toFixed(2))) : 0;
+
+      if (barRecH > 0) {
+        barsHtml += `<rect x="${(cx - barW - barGap / 2).toFixed(2)}" y="${yRec}" width="${barW}" height="${barRecH}" rx="0" fill="#2563eb"><title>${p.fullLabel} · Tiếp nhận: ${p.received} đơn</title></rect>`;
+      }
+      if (barExpH > 0) {
+        barsHtml += `<rect x="${(cx + barGap / 2).toFixed(2)}" y="${yExp}" width="${barW}" height="${barExpH}" rx="0" fill="#f97316"><title>${p.fullLabel} · Xuất đơn: ${p.exported} đơn</title></rect>`;
+      }
+
+      if (isSinglePoint) {
+        barsHtml += `<text x="${(cx - barW / 2 - barGap / 2).toFixed(2)}" y="${Math.max(plotTop + 10, yRec - 5)}" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">${p.received}</text>`;
+        barsHtml += `<text x="${(cx + barW / 2 + barGap / 2).toFixed(2)}" y="${Math.max(plotTop + 10, yExp - 5)}" text-anchor="middle" font-size="10" font-weight="700" fill="#ea580c">${p.exported}</text>`;
+      }
+
+      barsHtml += `<text x="${cx}" y="${plotBottom + 16}" text-anchor="middle" font-size="${labelFontSize}" font-weight="700" fill="currentColor" opacity="0.8">${p.label}</text>`;
+
+      const yRev = Number((plotBottom - (p.revenue / niceMaxRev) * plotH).toFixed(2));
+      lineCoords.push({
+        x: cx,
+        y: yRev,
+        rev: p.revenue,
+        received: p.received,
+        exported: p.exported,
+        label: p.label,
+        fullLabel: p.fullLabel
+      });
+    });
+
+    const polylineStr = lineCoords.map((c) => `${c.x},${c.y}`).join(" ");
+    const dotsHtml = lineCoords
+      .map((c) => {
+        const revMilNum = (c.rev / 1e6).toFixed(2);
+        const singleBadge = isSinglePoint
+          ? `<text x="${c.x}" y="${Math.max(plotTop - 6, c.y - 10)}" text-anchor="middle" font-size="10.5" font-weight="800" fill="#b45309">Doanh thu: ${revMilNum} Tr VND</text>`
+          : "";
+        return `${singleBadge}<circle cx="${c.x}" cy="${c.y}" r="${isSinglePoint ? 5 : 3.8}" fill="#ffffff" stroke="#d97706" stroke-width="2.2" data-label="${c.label}" data-revenue="${c.rev}" data-received="${c.received}" data-exported="${c.exported}"><title>${c.fullLabel} · Doanh thu: ${c.rev.toLocaleString("vi-VN")} (${revMilNum} Tr)</title></circle>`;
+      })
+      .join("");
+
+    svg.innerHTML = `
+      <text x="4" y="13" text-anchor="start" font-size="9.5" font-weight="700" fill="currentColor" opacity="0.75">Số đơn</text>
+      <text x="${plotRight + 22}" y="13" text-anchor="end" font-size="9.5" font-weight="700" fill="#d97706">Đơn vị: Triệu VND</text>
+      ${gridHtml}
+      <line x1="${plotLeft}" y1="${plotBottom}" x2="${plotRight}" y2="${plotBottom}" stroke="#94a3b8" stroke-width="1" />
+      ${barsHtml}
+      ${lineCoords.length > 1 ? `<polyline fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter" points="${polylineStr}" />` : ""}
+      ${dotsHtml}
+    `;
+  },
+
+  renderChannelStackedBar(orders) {
+    const container = document.getElementById("dash5ChannelStackedChart");
+    if (!container) return;
+
+    const channels = [
+      { key: "SHOPEE", label: "Shopee" },
+      { key: "TIKTOK", label: "TikTok" },
+      { key: "LAZADA", label: "Lazada" },
+      { key: "POS", label: "POS" },
+      { key: "FACEBOOK", label: "Facebook" }
+    ];
+
+    const listAll = Array.isArray(orders) ? orders : [];
+    const stats = channels.map((ch) => {
+      const list = listAll.filter((o) => String(o.channel || "").toUpperCase().includes(ch.key));
+      const cancelled = list.filter(
+        (o) => o.status === "CANCELLED" || o.status === "INVALID" || o.platformStatus === "CANCELLED"
+      ).length;
+      const allocated = list.filter((o) => o.status === "ALLOCATED" && o.platformStatus !== "CANCELLED").length;
+      const pendingOrShortage = Math.max(0, list.length - allocated - cancelled);
+      return {
+        label: ch.label,
+        total: list.length,
+        pendingOrShortage,
+        allocated,
+        cancelled
+      };
+    });
+
+    const maxTotal = Math.max(1, ...stats.map((s) => s.total));
+
+    container.innerHTML = stats
+      .map((s) => {
+        const pendH = s.total > 0 ? Math.round((s.pendingOrShortage / maxTotal) * 100) : 0;
+        const allocH = s.total > 0 ? Math.round((s.allocated / maxTotal) * 100) : 0;
+        const canH = s.total > 0 ? Math.round((s.cancelled / maxTotal) * 100) : 0;
+        return `
+          <div class="dash-stacked-col-item" title="${s.label}: Tổng ${s.total} đơn (Chờ duyệt / Thiếu tồn: ${s.pendingOrShortage}, Đã giữ hàng / Xuất kho: ${s.allocated}, Hủy đơn: ${s.cancelled})">
+            <div class="dash-stacked-total-lbl">${s.total}</div>
+            <div class="dash-stacked-bar-track">
+              <div class="dash-stacked-seg seg-received" style="height:${pendH}%;"></div>
+              <div class="dash-stacked-seg seg-exported" style="height:${allocH}%;"></div>
+              <div class="dash-stacked-seg seg-cancelled" style="height:${canH}%;"></div>
+            </div>
+            <div class="dash-stacked-ch-name">${s.label}</div>
+          </div>
+        `;
+      })
+      .join("");
+  },
+
+  openShippingTabFiltered(statusCode) {
+    this.shippingStatusFilter = statusCode || "ALL";
+    const statusSelect = document.getElementById("shippingStatusFilter");
+    if (statusSelect) statusSelect.value = this.shippingStatusFilter;
+    this.switchSidebarTab("shipping");
+  },
+
+  renderUrgentAlertsAndReturns(orders, effectiveInventory, validShipments) {
+    const alertsBox = document.getElementById("dashUrgentAlertsBox");
+    const returnBox = document.getElementById("dashReturnCancelStatsBox");
+
+    const lowStockSkus = this.getLowStockInventoryItems(effectiveInventory);
+    const shipmentsList = Array.isArray(validShipments) ? validShipments : this.getValidShipmentsUpToNow(orders);
+
+    // Đồng bộ trạng thái thực tế từ bảng VanDon (thay thế hoàn toàn s.isLate & DELIVERY_FAILED không tồn tại)
+    const failedShipments = shipmentsList.filter((s) => s.status === "FAILED_RETURNING").length;
+    const pendingPickupShipments = shipmentsList.filter((s) => s.status === "PENDING_PICKUP").length;
+    const backorderCount = orders.filter((o) => o.status === "BACKORDER").length;
+    const attentionWaitingCount = pendingPickupShipments + backorderCount;
+
+    if (alertsBox) {
+      const skuRowsHtml =
+        lowStockSkus.length > 0
+          ? `<div class="dash-alert-sku-list">` +
+            lowStockSkus
+              .map((item) => {
+                const free = this.getSkuAvailableStock(item);
+                return `
+                  <div class="dash-alert-sku-row">
+                    <span><b>${item.sku}</b> (Còn: ${free})</span>
+                    <button type="button" class="dash-btn-nhap-mini" onclick="AppUI.quickImportFromDashAlert('${item.sku}')">Nhập</button>
+                  </div>
+                `;
+              })
+              .join("") +
+            `</div>`
+          : `<div class="dash-alert-sku-empty">Tất cả mặt hàng đều đủ tồn kho an toàn (&gt; 5).</div>`;
+
+      alertsBox.innerHTML = `
+        <div class="dash-alert-pill warn">
+          <div class="dash-alert-pill-top">
+            <span>⚠️ <b>${lowStockSkus.length}</b> sản phẩm sắp hết hàng</span>
+            <button type="button" class="dash-btn-nhap-mini" onclick="AppUI.switchSidebarTab('inventory')">Vào Kho</button>
+          </div>
+          ${skuRowsHtml}
+        </div>
+        <div class="dash-alert-pill danger" style="cursor:pointer;" onclick="AppUI.openShippingTabFiltered('FAILED_RETURNING')" title="Xem danh sách vận đơn giao thất bại chờ xử lý">
+          <div class="dash-alert-pill-top">
+            <span>✖ <b>${failedShipments}</b> đơn giao thất bại chờ xử lý</span>
+          </div>
+        </div>
+        <div class="dash-alert-pill danger" style="cursor:pointer;" onclick="AppUI.filterDashUrgentByStatus('URGENT')" title="Chờ lấy hàng (${pendingPickupShipments}) · Thiếu tồn kho (${backorderCount})">
+          <div class="dash-alert-pill-top">
+            <span>❗ <b>${attentionWaitingCount}</b> đơn chờ lấy hàng / thiếu tồn chờ xử lý</span>
+          </div>
+        </div>
+      `;
+    }
+
+    if (returnBox) {
+      const total = orders.length;
+      const cancelled = orders.filter(
+        (o) => o.status === "CANCELLED" || o.status === "INVALID" || o.platformStatus === "CANCELLED"
+      ).length;
+      const totalIssue = cancelled + failedShipments;
+      const rate = total > 0 ? ((totalIssue / total) * 100).toFixed(1) : "0.0";
+
+      returnBox.innerHTML = `
+        <div class="dash-return-stats-title">
+          <span>Thống kê hoàn / hủy đơn</span>
+          <span style="color:#dc2626;">${rate}% (${totalIssue}/${total})</span>
+        </div>
+        <div class="dash-return-progress-bar">
+          <div class="dash-return-progress-fill" style="width:${Math.min(100, Number(rate))}%;"></div>
+        </div>
+        <div style="color:var(--text-muted);font-size:11px;">
+          Hủy: ${cancelled} · Hoàn/Lỗi giao: ${failedShipments} · Nguyên nhân: Khách đổi ý · Thiếu hàng trong kho
+        </div>
+      `;
+    }
+  },
+
+  getUrgentOrdersFilteredList(ordersInput, shipmentsInput) {
+    const baseOrders = Array.isArray(ordersInput) ? [...ordersInput] : [...this.getFilteredDashOrders()];
+    const validShipments = Array.isArray(shipmentsInput) ? shipmentsInput : this.getValidShipmentsUpToNow(baseOrders);
+    const shMap = this.getShipmentByOrderMap(validShipments);
+
+    const chVal = document.getElementById("dashFilterChannel")?.value || "ALL";
+    const carrierVal = String(document.getElementById("dashFilterCarrier")?.value || "ALL").toUpperCase();
+    const statusVal = document.getElementById("dashFilterStatus")?.value || "URGENT";
+    const qVal = String(document.getElementById("dashFilterSearch")?.value || "").trim().toLowerCase();
+
+    const filtered = baseOrders.filter((ord) => {
+      const sh = shMap.get(String(ord.orderId || "").trim()) || null;
+      const carrier = this.resolveOrderCarrier(ord);
+      const bucket = this.classifyDashOrderBucket(ord, sh);
+
+      if (chVal !== "ALL" && !String(ord.channel || "").toUpperCase().includes(chVal)) return false;
+      if (carrierVal !== "ALL" && !String(carrier).toUpperCase().includes(carrierVal)) return false;
+
+      if (statusVal === "URGENT") {
+        if (!this.isUrgentOrder(ord, sh)) return false;
+      } else if (statusVal === "PENDING") {
+        if (bucket.group !== "PENDING") return false;
+      } else if (statusVal === "FAILED_RETURN") {
+        if (!(sh && sh.status === "FAILED_RETURNING")) return false;
+      } else if (statusVal === "COMPLETED" || statusVal === "ALLOCATED") {
+        if (bucket.group !== "COMPLETED") return false;
+      } else if (statusVal === "CANCEL_RETURN") {
+        if (bucket.group !== "CANCEL_RETURN") return false;
+      } else if (statusVal === "CANCELLED") {
+        if (bucket.sub !== "CANCELLED") return false;
+      }
+
+      if (qVal) {
+        const hay = `${ord.orderId} ${ord.customerName} ${ord.sku} ${ord.productName} ${carrier}`.toLowerCase();
+        if (!hay.includes(qVal)) return false;
+      }
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      const shA = shMap.get(String(a.orderId || "").trim()) || null;
+      const shB = shMap.get(String(b.orderId || "").trim()) || null;
+      if (statusVal === "URGENT" && this.dashUrgentSortMode === "PRIORITY_DATE") {
+        const prioDiff = this.getUrgentPriority(a, shA) - this.getUrgentPriority(b, shB);
+        if (prioDiff !== 0) return prioDiff;
+      }
+      const tsA = this.getOrderTimestampMs(a);
+      const tsB = this.getOrderTimestampMs(b);
+      return this.dashUrgentSortDesc ? tsB - tsA : tsA - tsB;
+    });
+
+    return { filtered, baseOrders, shMap };
+  },
+
+  syncDashSelectAllCheckbox(visibleItems) {
+    const selectAllEl = document.getElementById("dashSelectAllUrgent");
+    if (!selectAllEl) return;
+    const list = Array.isArray(visibleItems) ? visibleItems : [];
+    if (list.length === 0) {
+      selectAllEl.checked = false;
+      selectAllEl.indeterminate = false;
+      return;
+    }
+    const selectedVisibleCount = list.filter((o) => this.dashSelectedOrderIds.has(o.orderId)).length;
+    selectAllEl.checked = selectedVisibleCount === list.length;
+    selectAllEl.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < list.length;
+  },
+
+  renderUrgentOrdersTable(ordersInput, shipmentsInput) {
+    const tbody = document.getElementById("dashUrgentOrdersBody");
+    if (!tbody) return;
+
+    const { filtered, baseOrders, shMap } = this.getUrgentOrdersFilteredList(ordersInput, shipmentsInput);
+
+    // Cập nhật số đếm trên 2 nút chuyển nhanh đầu bảng
+    const urgentTotalCount = baseOrders.filter((o) => this.isUrgentOrder(o, shMap.get(String(o.orderId || "").trim()) || null)).length;
+    const statusVal = document.getElementById("dashFilterStatus")?.value || "URGENT";
+    const quickUrgentBtn = document.getElementById("dashQuickUrgentBtn");
+    const quickAllBtn = document.getElementById("dashQuickAllBtn");
+    if (quickUrgentBtn) {
+      quickUrgentBtn.innerText = `Cần xử lý gấp (${urgentTotalCount})`;
+      quickUrgentBtn.classList.toggle("active", statusVal === "URGENT");
+    }
+    if (quickAllBtn) {
+      quickAllBtn.innerText = `Tất cả đơn (${baseOrders.length})`;
+      quickAllBtn.classList.toggle("active", statusVal === "ALL");
+    }
+
+    // Dọn các mã đơn đã không còn nằm trong danh sách lọc hiện tại khỏi bộ chọn
+    const filteredIds = new Set(filtered.map((o) => o.orderId));
+    Array.from(this.dashSelectedOrderIds).forEach((id) => {
+      if (!filteredIds.has(id)) this.dashSelectedOrderIds.delete(id);
+    });
+
+    // Phân trang gọn gàng
+    const pageSize = Math.max(1, Number(this.dashUrgentPageSize) || 8);
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (this.dashUrgentPage > totalPages) this.dashUrgentPage = totalPages;
+    if (this.dashUrgentPage < 1) this.dashUrgentPage = 1;
+
+    const startIdx = (this.dashUrgentPage - 1) * pageSize;
+    const pageItems = filtered.slice(startIdx, startIdx + pageSize);
+
+    this.syncDashSelectAllCheckbox(pageItems);
+
+    const pagEl = document.getElementById("dashUrgentPagination");
+    if (pagEl) {
+      if (filtered.length === 0) {
+        pagEl.innerHTML = `<span class="dash-pagination-info">Hiển thị 0 / 0 đơn hàng</span>`;
+      } else {
+        const showFrom = startIdx + 1;
+        const showTo = Math.min(filtered.length, startIdx + pageItems.length);
+        let pageBtns = "";
+        if (totalPages > 1) {
+          pageBtns += `<button type="button" class="dash-page-btn" ${this.dashUrgentPage <= 1 ? "disabled" : ""} onclick="AppUI.setDashUrgentPage(${this.dashUrgentPage - 1})">Trước</button>`;
+          for (let p = 1; p <= totalPages; p++) {
+            pageBtns += `<button type="button" class="dash-page-btn ${p === this.dashUrgentPage ? "active" : ""}" onclick="AppUI.setDashUrgentPage(${p})">${p}</button>`;
+          }
+          pageBtns += `<button type="button" class="dash-page-btn" ${this.dashUrgentPage >= totalPages ? "disabled" : ""} onclick="AppUI.setDashUrgentPage(${this.dashUrgentPage + 1})">Sau</button>`;
+        }
+        pagEl.innerHTML = `
+          <span class="dash-pagination-info">Hiển thị ${showFrom}–${showTo} / ${filtered.length} đơn hàng</span>
+          ${pageBtns ? `<div class="dash-pagination-btns">${pageBtns}</div>` : ""}
+        `;
+      }
+    }
+
+    if (pageItems.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted);">
+            Chưa có đơn hàng nào phù hợp khoảng thời gian hoặc bộ lọc đang chọn.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const channelBadgeMap = {
+      SHOPEE: { name: "Shopee", color: "#ee4d2d" },
+      TIKTOK: { name: "TikTok", color: "#111827" },
+      LAZADA: { name: "Lazada", color: "#0f146d" },
+      POS: { name: "POS", color: "#059669" },
+      FACEBOOK: { name: "Facebook", color: "#1877f2" }
+    };
+
+    tbody.innerHTML = pageItems
+      .map((ord) => {
+        const chKey = Object.keys(channelBadgeMap).find((k) => String(ord.channel || "").toUpperCase().includes(k)) || "POS";
+        const chInfo = channelBadgeMap[chKey];
+        const totalMoney = (Number(ord.quantity) || 1) * (Number(ord.unitPrice) || 0);
+        const dateShort = String(ord.orderTime || "").split(" ")[0] || "—";
+        const carrier = this.resolveOrderCarrier(ord);
+        const matchedSh = shMap.get(String(ord.orderId || "").trim()) || null;
+        const stInfo = this.resolveOrderDisplayStatus(ord, matchedSh);
+        const isChecked = this.dashSelectedOrderIds.has(ord.orderId);
+
+        // Nút "Duyệt" chỉ hiện cho đơn đang Chờ xác nhận; ẩn nút "Hủy" cho đơn Đã hủy / Giao thành công / Hoàn tất tại quầy
+        const canApprove = stInfo.code === "UNCONFIRMED";
+        const canCancel = stInfo.code !== "CANCELLED" && stInfo.code !== "DELIVERED" && stInfo.code !== "POS_COMPLETED";
+
+        const approveBtnHtml = canApprove
+          ? `<button type="button" class="dash-act-btn approve" onclick="AppUI.approveUrgentOrder('${ord.orderId}')">Duyệt</button>`
+          : "";
+        const printBtnHtml = `<button type="button" class="dash-act-btn print" onclick="AppUI.printUrgentOrderBill('${ord.orderId}')">In phiếu</button>`;
+        const cancelBtnHtml = canCancel
+          ? `<button type="button" class="dash-act-btn cancel" onclick="AppUI.cancelUrgentOrder('${ord.orderId}')">Hủy</button>`
+          : "";
+
+        return `
+          <tr>
+            <td style="text-align:center;">
+              <input type="checkbox" ${isChecked ? "checked" : ""} onchange="AppUI.toggleUrgentOrderCheck('${ord.orderId}', this.checked)" />
+            </td>
+            <td class="dash-col-orderid" style="font-weight:700;color:var(--accent-primary, #2563eb);">#${ord.orderId}</td>
+            <td class="dash-col-customer">${ord.customerName || "Khách lẻ"}</td>
+            <td class="dash-col-channel"><span style="font-weight:700;color:${chInfo.color};">${chInfo.name}</span></td>
+            <td class="dash-col-date">${dateShort}</td>
+            <td class="dash-col-carrier">${carrier}</td>
+            <td class="dash-col-money">${totalMoney.toLocaleString("vi-VN")} VND</td>
+            <td class="dash-col-status"><span class="status-badge ${stInfo.badgeClass}">${stInfo.label}</span></td>
+            <td class="dash-col-actions">
+              <div class="dash-action-btn-group">
+                ${approveBtnHtml}
+                ${printBtnHtml}
+                ${cancelBtnHtml}
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  },
+
+  onDashUrgentFilterChange() {
+    this.dashUrgentPage = 1;
+    const statusVal = document.getElementById("dashFilterStatus")?.value || "URGENT";
+    if (statusVal === "URGENT") {
+      this.dashUrgentSortMode = "PRIORITY_DATE";
+    }
+    this.renderUrgentOrdersTable();
+  },
+
+  setDashUrgentQuickMode(mode) {
+    const sel = document.getElementById("dashFilterStatus");
+    if (sel) sel.value = mode;
+    this.dashUrgentPage = 1;
+    this.dashUrgentSortMode = mode === "URGENT" ? "PRIORITY_DATE" : "DATE_ONLY";
+    this.renderUrgentOrdersTable();
+  },
+
+  setDashUrgentPage(pageNum) {
+    this.dashUrgentPage = Math.max(1, Number(pageNum) || 1);
+    this.renderUrgentOrdersTable();
+  },
+
+  toggleDashAdvancedFilter() {
+    const bar = document.getElementById("dashAdvancedFilterBar");
+    if (bar) bar.classList.toggle("hidden");
+  },
+
+  filterDashUrgentByStatus(status) {
+    const bar = document.getElementById("dashAdvancedFilterBar");
+    const sel = document.getElementById("dashFilterStatus");
+    if (bar) bar.classList.remove("hidden");
+    if (sel) sel.value = status;
+    this.dashUrgentPage = 1;
+    this.dashUrgentSortMode = status === "URGENT" ? "PRIORITY_DATE" : "DATE_ONLY";
+    this.renderUrgentOrdersTable();
+  },
+
+  toggleUrgentOrderSort() {
+    this.dashUrgentSortDesc = !this.dashUrgentSortDesc;
+    this.dashUrgentSortMode = "DATE_ONLY";
+    this.dashUrgentPage = 1;
+    const arrow = document.getElementById("dashSortArrow");
+    if (arrow) arrow.innerText = this.dashUrgentSortDesc ? "↓" : "↑";
+    this.renderUrgentOrdersTable();
+  },
+
+  toggleSelectAllUrgentOrders(checked) {
+    const { filtered } = this.getUrgentOrdersFilteredList();
+    const pageSize = Math.max(1, Number(this.dashUrgentPageSize) || 8);
+    const startIdx = (this.dashUrgentPage - 1) * pageSize;
+    const pageItems = filtered.slice(startIdx, startIdx + pageSize);
+
+    if (checked) {
+      pageItems.forEach((o) => this.dashSelectedOrderIds.add(o.orderId));
+    } else {
+      pageItems.forEach((o) => this.dashSelectedOrderIds.delete(o.orderId));
+    }
+    this.renderUrgentOrdersTable();
+  },
+
+  toggleUrgentOrderCheck(orderId, checked) {
+    if (checked) this.dashSelectedOrderIds.add(orderId);
+    else this.dashSelectedOrderIds.delete(orderId);
+    const { filtered } = this.getUrgentOrdersFilteredList();
+    const pageSize = Math.max(1, Number(this.dashUrgentPageSize) || 8);
+    const startIdx = (this.dashUrgentPage - 1) * pageSize;
+    this.syncDashSelectAllCheckbox(filtered.slice(startIdx, startIdx + pageSize));
+  },
+
+  approveUrgentOrder(orderId) {
+    if (!window.omsEngine) return;
+    const ord = window.omsEngine.orders.find((o) => o.orderId === orderId);
+    if (!ord) return;
+    ord.platformStatus = "CONFIRMED";
+    window.omsEngine.recalculateAllAllocations();
+    window.omsEngine.addLog("info", `✅ [TỔNG QUAN] Đã duyệt nhanh đơn hàng #${orderId}.`);
+    if (window.cloudSync) window.cloudSync.scheduleCloudPush("DASH_APPROVE_ORDER");
+    this.renderAll();
+  },
+
+  batchApproveUrgentOrders() {
+    if (!window.omsEngine) return;
+    if (this.dashSelectedOrderIds.size === 0) {
+      alert("Vui lòng tích chọn ít nhất 1 đơn hàng để xử lý hàng loạt.");
+      return;
+    }
+    let count = 0;
+    this.dashSelectedOrderIds.forEach((id) => {
+      const ord = window.omsEngine.orders.find((o) => o.orderId === id);
+      if (ord && ord.platformStatus !== "CANCELLED") {
+        ord.platformStatus = "CONFIRMED";
+        count++;
+      }
+    });
+    this.dashSelectedOrderIds.clear();
+    const selectAllEl = document.getElementById("dashSelectAllUrgent");
+    if (selectAllEl) {
+      selectAllEl.checked = false;
+      selectAllEl.indeterminate = false;
+    }
+    window.omsEngine.recalculateAllAllocations();
+    window.omsEngine.addLog("info", `✅ [XỬ LÝ HÀNG LOẠT] Đã duyệt ${count} đơn hàng được chọn từ Tổng quan.`);
+    if (window.cloudSync) window.cloudSync.scheduleCloudPush("DASH_BATCH_APPROVE");
+    this.renderAll();
+  },
+
+  printUrgentOrderBill(orderId) {
+    if (!window.omsEngine) return;
+    const ord = window.omsEngine.orders.find((o) => o.orderId === orderId);
+    if (!ord) return;
+    this.switchSidebarTab("qr_api");
+    const setVal = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v;
+    };
+    setVal("wbOrderId", ord.orderId);
+    setVal("wbChannel", ord.channel);
+    setVal("wbCustomerName", ord.customerName || "");
+    setVal("wbCustomerPhone", ord.customerPhone || "");
+    setVal("wbAddress", ord.shippingAddress || "");
+    setVal("wbTotalAmount", ((Number(ord.quantity) || 1) * (Number(ord.unitPrice) || 0)).toString());
+    this.generateWaybillAndQR(true);
+  },
+
+  cancelUrgentOrder(orderId) {
+    if (!window.omsEngine) return;
+    const ord = window.omsEngine.orders.find((o) => o.orderId === orderId);
+    if (!ord) return;
+    ord.platformStatus = "CANCELLED";
+    ord.status = "CANCELLED";
+    window.omsEngine.recalculateAllAllocations();
+    window.omsEngine.addLog("warn", `🚫 [TỔNG QUAN] Đã hủy đơn hàng #${orderId} và hoàn trả tồn kho sẵn sàng bán.`);
+    if (window.cloudSync) window.cloudSync.scheduleCloudPush("DASH_CANCEL_ORDER");
+    this.renderAll();
+  },
+
+  quickImportFromDashAlert(sku) {
+    this.switchSidebarTab("inventory");
+    const searchEl = document.getElementById("invSearchInput");
+    if (searchEl) {
+      searchEl.value = sku;
+      this.invSearchQuery = sku;
+      this.renderInventoryTable();
+    }
   },
 
 };

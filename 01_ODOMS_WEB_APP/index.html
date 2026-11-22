@@ -133,7 +133,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 Kho
               </span>
-              <span id="badgeBackorderCount" class="menu-badge red" title="Số đơn thiếu tồn cần nhập bù">0</span>
+              <span id="badgeBackorderCount" class="menu-badge red" title="Số mặt hàng tồn thấp (≤ 5) cần nhập bổ sung">0</span>
             </button>
           </li>
           <li>
@@ -158,7 +158,22 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 Vận chuyển đơn
               </span>
-              <span id="badgeShippingCount" class="menu-badge orange">0</span>
+              <span id="badgeShippingCount" class="menu-badge orange" title="Số vận đơn chưa hoàn tất cần theo dõi">0</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Nhóm 1.5: DOANH THU & PHÂN TÍCH -->
+      <div class="sidebar-nav-section">
+        <div class="sidebar-group-label">DOANH THU & PHÂN TÍCH</div>
+        <ul class="sidebar-menu-list">
+          <li>
+            <button class="sidebar-menu-item" data-tab="revenue_analytics" onclick="AppUI.switchSidebarTab('revenue_analytics')">
+              <span class="menu-item-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                Doanh thu
+              </span>
             </button>
           </li>
         </ul>
@@ -172,7 +187,7 @@
             <button class="sidebar-menu-item" data-tab="staff" data-admin-only="true" onclick="AppUI.switchSidebarTab('staff')">
               <span class="menu-item-left">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Nhân sự (Thêm User)
+                Nhân sự
               </span>
             </button>
           </li>
@@ -232,7 +247,7 @@
         <div class="topbar-actions">
           <span class="topbar-live-pill" data-action-views="dashboard">
             <span class="banner-dot" style="width:7px;height:7px;"></span>
-            Live Analytics
+            Dữ liệu trực tuyến
           </span>
           <button class="btn btn-primary hidden" data-action-views="ingest shipping fifo backorder qr_api" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
             📥 Đồng bộ đơn 5 kênh
@@ -252,8 +267,101 @@
 
       <!-- NỘI DUNG CUỘN CHÍNH -->
       <div class="wms-content-container">
-        <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI CHIẾN LƯỢC (Hiển thị ở Dashboard, FIFO, Backorder, Kho, Gom đơn) -->
-        <section class="oms-view-section" data-views="dashboard fifo backorder inventory ingest">
+        <!-- 2.0. HÀNG 1 DASHBOARD P2: THANH LỌC KHO/NGÀY & 7 THẺ CHỈ SỐ KPI -->
+        <section class="oms-view-section" data-views="dashboard">
+          <div class="dash-filter-bar">
+            <div class="dash-filter-left">
+              <span class="dash-filter-label">Bộ Chi nhánh/Kho</span>
+              <select id="dashBranchFilter" class="dash-filter-select" onchange="AppUI.renderDashboardP2()">
+                <option value="ALL" selected>Tất cả kho hàng</option>
+                <option value="KHO_BINH_PHU">Kho Phường Bình Phú</option>
+                <option value="KHO_Q7">Kho Quận 7 - HCM</option>
+                <option value="KHO_HN">Kho Hà Nội</option>
+              </select>
+              <select id="dashDateFilter" class="dash-filter-select" onchange="AppUI.renderDashboardP2()">
+                <option value="ALL" selected>Tất cả thời gian (Google Sheets)</option>
+                <option value="TODAY">Hôm nay</option>
+                <option value="7D">7 ngày qua</option>
+                <option value="MONTH">Tháng này</option>
+              </select>
+            </div>
+            <div class="dash-filter-right">
+              <span id="dashSyncTimestamp" class="dash-sync-hint">Đồng bộ thực tế từ Google Sheets</span>
+              <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.handleManualCloudPull()" title="Kéo lại dữ liệu mới nhất từ Google Sheets">
+                ☁️ Đồng bộ ngay
+              </button>
+            </div>
+          </div>
+
+          <div class="dash-7kpi-grid">
+            <!-- 1. Tổng đơn hàng -->
+            <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('ingest')" title="Xem tất cả đơn hàng các kênh">
+              <div class="dash-7kpi-title">Tổng đơn hàng</div>
+              <div class="dash-7kpi-main">
+                <span id="dashKpiTotalOrders" class="dash-7kpi-num green">0</span>
+                <span id="dashKpiTotalOrdersDelta" class="dash-7kpi-badge green">Trực tiếp</span>
+              </div>
+              <div id="dashKpiTotalOrdersSub" class="dash-7kpi-sub green">Đang đồng bộ dữ liệu...</div>
+            </div>
+
+            <!-- 2. Chờ xử lý -->
+            <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.filterDashUrgentByStatus('PENDING')" title="Lọc các đơn chờ xử lý">
+              <div class="dash-7kpi-title">Chờ xử lý</div>
+              <div class="dash-7kpi-main">
+                <span id="dashKpiPending" class="dash-7kpi-num">0</span>
+              </div>
+              <div id="dashKpiPendingSub" class="dash-7kpi-sub">Chờ xác nhận: 0<br>Thiếu tồn / chờ vận đơn: 0</div>
+            </div>
+
+            <!-- 3. Đang giao -->
+            <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('shipping')" title="Xem chi tiết vận chuyển đơn">
+              <div class="dash-7kpi-title">Đang giao</div>
+              <div class="dash-7kpi-main">
+                <span id="dashKpiShipping" class="dash-7kpi-num">0</span>
+              </div>
+              <div id="dashKpiShippingSub" class="dash-7kpi-sub red">Có 0 đơn cần chú ý</div>
+            </div>
+
+            <!-- 4. Đã hoàn thành -->
+            <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.filterDashUrgentByStatus('COMPLETED')" title="Lọc đơn đã hoàn thành / xuất kho">
+              <div class="dash-7kpi-title">Đã hoàn thành</div>
+              <div class="dash-7kpi-main">
+                <span id="dashKpiCompleted" class="dash-7kpi-num">0</span>
+              </div>
+              <div id="dashKpiCompletedSub" class="dash-7kpi-sub">Tỷ lệ hoàn tất: 0%</div>
+            </div>
+
+            <!-- 5. Hủy / Trả hàng -->
+            <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.filterDashUrgentByStatus('CANCEL_RETURN')" title="Lọc đơn hủy / hoàn trả - lỗi giao">
+              <div class="dash-7kpi-title">Hủy / Trả hàng</div>
+              <div class="dash-7kpi-main">
+                <span id="dashKpiCancelReturn" class="dash-7kpi-num">0 / <span class="text-danger">0</span></span>
+              </div>
+              <div id="dashKpiCancelReturnSub" class="dash-7kpi-sub">Hủy: 0 · Hoàn/Lỗi giao: 0</div>
+            </div>
+
+            <!-- 6. Doanh thu tạm tính -->
+            <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('revenue_analytics')" title="Xem chi tiết Doanh thu &amp; Phân tích">
+              <div class="dash-7kpi-title">Doanh thu tạm tính</div>
+              <div class="dash-7kpi-main">
+                <span id="dashKpiEstRevenue" class="dash-7kpi-num blue">0 đ</span>
+              </div>
+              <div id="dashKpiEstRevenueSub" class="dash-7kpi-sub">Tính trên đơn hợp lệ</div>
+            </div>
+
+            <!-- 7. Tồn kho khả dụng -->
+            <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('inventory')" title="Xem chi tiết tồn kho sẵn sàng bán">
+              <div class="dash-7kpi-title">Tồn kho khả dụng</div>
+              <div class="dash-7kpi-main">
+                <span id="dashKpiAvailableStock" class="dash-7kpi-num">0</span>
+              </div>
+              <div id="dashKpiAvailableStockSub" class="dash-7kpi-sub">sản phẩm sẵn sàng bán</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI CHIẾN LƯỢC (Hiển thị ở FIFO, Backorder, Kho, Gom đơn) -->
+        <section class="oms-view-section hidden" data-views="fifo backorder inventory ingest">
           <div class="kpi-cards-grid">
             <!-- Khối 1: Kho hàng / Tổng Quan (Liên kết động giữa Kho và Tổng Quan) -->
             <div id="kpiFirstCard" class="wms-kpi-card kpi-card-interactive" onclick="AppUI.onFirstKpiCardClick()" title="Bấm để vào xem Kho hàng">
@@ -277,7 +385,7 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
                 </div>
               </div>
-              <div id="kpiOrdersTotal" class="kpi-card-number">11 đơn</div>
+              <div id="kpiOrdersTotal" class="kpi-card-number" style="font-variant-numeric:tabular-nums;">0 đơn</div>
               <div id="kpiOrdersSub" class="kpi-card-sub blue" style="color:#2563eb;">
                 Đã xác nhận: 8 · Chờ xác nhận: 2 · Đã hủy: 1
               </div>
@@ -374,8 +482,158 @@
           </div>
         </section>
 
-        <!-- 3. KHỐI BIỂU ĐỒ THỐNG KÊ, DOANH THU & XẾP HẠNG KÊNH BÁN HÀNG -->
+        <!-- 3.0. HÀNG 2 & HÀNG 3 DASHBOARD P2: LƯỚI 3 CỘT & BẢNG ĐƠN HÀNG CẦN XỬ LÝ GẤP (9 CỘT) -->
         <section class="oms-view-section" data-views="dashboard">
+          <!-- HÀNG 2: LƯỚI 3 CỘT (XU HƯỚNG ĐƠN & DOANH THU | CỘT CHỒNG 5 KÊNH | CẢNH BÁO GẤP & HOÀN/HỦY) -->
+          <div class="dash-middle-3col-grid">
+            <!-- Cột Trái: Xu hướng Đơn hàng & Doanh thu -->
+            <div class="wms-card dash-panel-card">
+              <div class="dash-panel-header">
+                <div class="dash-panel-title">Xu hướng Đơn hàng &amp; Doanh thu</div>
+                <div class="dash-combo-legend">
+                  <span><i class="legend-dot blue"></i>Tiếp nhận</span>
+                  <span><i class="legend-dot orange"></i>Xuất đơn</span>
+                  <span><i class="legend-line amber"></i>Doanh thu</span>
+                </div>
+              </div>
+              <div class="dash-combo-svg-wrap">
+                <svg id="dashComboTrendSvg" viewBox="0 0 480 240" class="dash-combo-svg">
+                  <!-- Vẽ tự động bởi AppUI.renderComboTrendChart() -->
+                </svg>
+              </div>
+            </div>
+
+            <!-- Cột Giữa: Tình trạng đơn trên Kênh Bán Hàng (Biểu đồ cột chồng 5 kênh) -->
+            <div class="wms-card dash-panel-card">
+              <div class="dash-panel-header">
+                <div class="dash-panel-title">Tình trạng đơn trên Kênh Bán Hàng</div>
+              </div>
+              <div class="dash-stacked-legend">
+                <span><i class="legend-dot" style="background:#1e40af;"></i>Chờ duyệt / Thiếu tồn</span>
+                <span><i class="legend-dot" style="background:#38bdf8;"></i>Đã giữ hàng / Xuất kho</span>
+                <span><i class="legend-dot" style="background:#f43f5e;"></i>Hủy đơn</span>
+              </div>
+              <div id="dash5ChannelStackedChart" class="dash-stacked-chart-stage">
+                <!-- Vẽ tự động bởi AppUI.renderChannelStackedBar() -->
+              </div>
+            </div>
+
+            <!-- Cột Phải: Hoạt động & Vấn đề cần xử lý gấp + Thống kê hoàn/hủy đơn -->
+            <div class="wms-card dash-panel-card">
+              <div class="dash-panel-header">
+                <div class="dash-panel-title">Hoạt động &amp; Vấn đề cần xử lý gấp</div>
+              </div>
+              <div id="dashUrgentAlertsBox" class="dash-urgent-alerts-stack">
+                <!-- Render tự động bởi AppUI.renderUrgentAlertsAndReturns() -->
+              </div>
+              <div id="dashReturnCancelStatsBox" class="dash-return-stats-box">
+                <!-- Thống kê hoàn / hủy đơn dưới cảnh báo -->
+              </div>
+            </div>
+          </div>
+
+          <!-- HÀNG 3: BẢNG ĐƠN HÀNG CẦN XỬ LÝ GẤP (MỚI NHẤT) — BỐ CỤC 9 CỘT -->
+          <div class="wms-card dash-urgent-orders-card">
+            <div class="dash-table-header-row">
+              <div class="dash-table-title-group">
+                <div class="dash-panel-title">Đơn hàng cần xử lý gấp (Mới nhất)</div>
+                <div class="dash-quick-filter-pills">
+                  <button type="button" id="dashQuickUrgentBtn" class="dash-quick-pill active" onclick="AppUI.setDashUrgentQuickMode('URGENT')">
+                    Cần xử lý gấp (0)
+                  </button>
+                  <button type="button" id="dashQuickAllBtn" class="dash-quick-pill" onclick="AppUI.setDashUrgentQuickMode('ALL')">
+                    Tất cả đơn (0)
+                  </button>
+                </div>
+              </div>
+              <div class="dash-table-toolbar">
+                <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.toggleDashAdvancedFilter()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  Bộ lọc nâng cao
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="window.ExcelHandler.exportContextReport()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Xuất báo cáo Excel
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.batchApproveUrgentOrders()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                  Xử lý hàng loạt
+                </button>
+              </div>
+            </div>
+
+            <!-- Thanh bộ lọc nâng cao (Ẩn/hiện khi bấm Bộ lọc nâng cao) -->
+            <div id="dashAdvancedFilterBar" class="dash-advanced-filter-bar hidden">
+              <div class="dash-adv-filter-item">
+                <label>Kênh bán:</label>
+                <select id="dashFilterChannel" class="form-control form-control-sm" onchange="AppUI.onDashUrgentFilterChange()">
+                  <option value="ALL">Tất cả 5 kênh</option>
+                  <option value="SHOPEE">Shopee</option>
+                  <option value="TIKTOK">TikTok Shop</option>
+                  <option value="LAZADA">Lazada</option>
+                  <option value="POS">Cửa hàng POS</option>
+                  <option value="FACEBOOK">Facebook</option>
+                </select>
+              </div>
+              <div class="dash-adv-filter-item">
+                <label>ĐVVC:</label>
+                <select id="dashFilterCarrier" class="form-control form-control-sm" onchange="AppUI.onDashUrgentFilterChange()">
+                  <option value="ALL">Tất cả ĐVVC</option>
+                  <option value="SPX">SPX Express</option>
+                  <option value="J&T">J&amp;T Express</option>
+                  <option value="GHN">GHN (Giao Hàng Nhanh)</option>
+                  <option value="GHTK">GHTK (Giao Hàng Tiết Kiệm)</option>
+                  <option value="VIETTEL POST">Viettel Post</option>
+                  <option value="TẠI QUẦY">Tại quầy</option>
+                  <option value="CHƯA GÁN ĐVVC">Chưa gán ĐVVC</option>
+                </select>
+              </div>
+              <div class="dash-adv-filter-item">
+                <label>Trạng thái:</label>
+                <select id="dashFilterStatus" class="form-control form-control-sm" onchange="AppUI.onDashUrgentFilterChange()">
+                  <option value="URGENT" selected>Cần xử lý gấp (Ưu tiên)</option>
+                  <option value="ALL">Tất cả trạng thái</option>
+                  <option value="PENDING">Chờ xác nhận / Thiếu tồn / Chờ ĐVVC</option>
+                  <option value="FAILED_RETURN">Giao thất bại / Chờ chuyển hoàn</option>
+                  <option value="COMPLETED">Đã hoàn thành / Xuất kho</option>
+                  <option value="CANCEL_RETURN">Hủy đơn / Hoàn - Lỗi giao</option>
+                  <option value="CANCELLED">Đã hủy</option>
+                </select>
+              </div>
+              <div class="dash-adv-filter-item" style="flex:1;min-width:180px;">
+                <label>Tìm nhanh:</label>
+                <input type="text" id="dashFilterSearch" class="form-control form-control-sm" placeholder="Mã đơn, khách hàng, mã hàng..." oninput="AppUI.onDashUrgentFilterChange()" />
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table id="dashUrgentOrdersTable" class="wms-table dash-9col-table">
+                <thead>
+                  <tr>
+                    <th style="width:36px;text-align:center;">
+                      <input type="checkbox" id="dashSelectAllUrgent" onchange="AppUI.toggleSelectAllUrgentOrders(this.checked)" title="Chọn tất cả đơn hiển thị" />
+                    </th>
+                    <th>Mã đơn</th>
+                    <th>Khách hàng</th>
+                    <th>Kênh bán</th>
+                    <th style="cursor:pointer;" onclick="AppUI.toggleUrgentOrderSort()" title="Sắp xếp theo ngày đặt hàng">Ngày đặt <span id="dashSortArrow">↓</span></th>
+                    <th>ĐVVC</th>
+                    <th style="text-align:right;">Tổng tiền</th>
+                    <th style="text-align:center;">Trạng thái</th>
+                    <th style="text-align:center;min-width:160px;">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody id="dashUrgentOrdersBody">
+                  <!-- Render tự động bởi AppUI.renderUrgentOrdersTable() -->
+                </tbody>
+              </table>
+            </div>
+            <div id="dashUrgentPagination" class="dash-pagination-bar"></div>
+          </div>
+        </section>
+
+        <!-- 3. PHÂN HỆ DOANH THU & PHÂN TÍCH (Chuyển từ Tổng quan sang mục Doanh thu & Phân tích -> Doanh thu) -->
+        <section class="oms-view-section hidden" data-views="revenue_analytics">
           <!-- KHỐI HỢP NHẤT 1: TỔNG DOANH THU 5 KÊNH · BIỂU ĐỒ DONUT SILK TÁCH RỜI & SẢN PHẨM BÁN CHẠY (TOP 10 / TOP 50) -->
           <div class="wms-card sold-pie-card-full" style="margin-bottom: 18px; padding: 18px 20px;">
             <div class="wms-card-header" style="margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
@@ -412,57 +670,68 @@
               <!-- 1. Theo Tháng -->
               <div id="revDonutMonthGroup" class="filter-group-item">
                 <label>Chọn Tháng:</label>
-                <select id="soldPieMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
-                  <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
+                <select id="soldPieMonthSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                  <option value="2026-11" selected>Tháng 11/2026 (đến 22/11)</option>
+                  <option value="2026-10">Tháng 10/2026</option>
                   <option value="2026-09">Tháng 09/2026</option>
                   <option value="2026-08">Tháng 08/2026</option>
                   <option value="2026-07">Tháng 07/2026</option>
                   <option value="2026-06">Tháng 06/2026</option>
                   <option value="2026-05">Tháng 05/2026</option>
-                  <option value="ALL_6M">Tổng hợp 6 Tháng (Th5 – Th10/2026)</option>
+                  <option value="2026-04">Tháng 04/2026</option>
+                  <option value="2026-03">Tháng 03/2026</option>
+                  <option value="2026-02">Tháng 02/2026</option>
+                  <option value="2026-01">Tháng 01/2026</option>
+                  <option value="ALL_2026">Tổng hợp 11 Tháng (Th01 – 22/11/2026)</option>
                 </select>
               </div>
 
               <!-- 2. Theo Quý -->
               <div id="revDonutQuarterGroup" class="filter-group-item hidden">
                 <label>Chọn Quý:</label>
-                <select id="revDonutQuarterSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
-                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10/2026)</option>
+                <select id="revDonutQuarterSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10 – 22/11/2026)</option>
                   <option value="2026-Q3">Quý 3/2026 (Tháng 07 – Tháng 09/2026)</option>
-                  <option value="2026-Q2">Quý 2/2026 (Tháng 05 – Tháng 06/2026)</option>
+                  <option value="2026-Q2">Quý 2/2026 (Tháng 04 – Tháng 06/2026)</option>
+                  <option value="2026-Q1">Quý 1/2026 (Tháng 01 – Tháng 03/2026)</option>
                 </select>
               </div>
 
               <!-- 3. Theo Tuần -->
               <div id="revDonutWeekMonthGroup" class="filter-group-item hidden">
                 <label>Tháng của Tuần:</label>
-                <select id="revDonutWeekMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
-                  <option value="2026-10" selected>Tháng 10/2026</option>
+                <select id="revDonutWeekMonthSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                  <option value="2026-11" selected>Tháng 11/2026</option>
+                  <option value="2026-10">Tháng 10/2026</option>
                   <option value="2026-09">Tháng 09/2026</option>
                   <option value="2026-08">Tháng 08/2026</option>
                   <option value="2026-07">Tháng 07/2026</option>
                   <option value="2026-06">Tháng 06/2026</option>
                   <option value="2026-05">Tháng 05/2026</option>
+                  <option value="2026-04">Tháng 04/2026</option>
+                  <option value="2026-03">Tháng 03/2026</option>
+                  <option value="2026-02">Tháng 02/2026</option>
+                  <option value="2026-01">Tháng 01/2026</option>
                 </select>
               </div>
               <div id="revDonutWeekGroup" class="filter-group-item hidden">
                 <label>Chọn Tuần:</label>
-                <select id="revDonutWeekSelect" class="form-control form-control-sm" onchange="AppUI.renderFiveChannelSoldPieChart()">
+                <select id="revDonutWeekSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderFiveChannelSoldPieChart()">
                   <option value="W1">Tuần 1 (Ngày 01 – 07)</option>
                   <option value="W2">Tuần 2 (Ngày 08 – 14)</option>
-                  <option value="W3">Tuần 3 (Ngày 15 – 21)</option>
-                  <option value="W4" selected>Tuần 4 (Ngày 22 – Cuối tháng)</option>
+                  <option value="W3" selected>Tuần 3 (Ngày 15 – 21)</option>
+                  <option value="W4">Tuần 4 (Ngày 22 – Cuối tháng)</option>
                 </select>
               </div>
 
               <!-- 4. Theo Ngày -->
               <div id="revDonutDayStartGroup" class="filter-group-item hidden">
                 <label>Từ ngày:</label>
-                <input type="date" id="revDonutStartDate" class="form-control form-control-sm" value="2026-10-01" onchange="AppUI.renderFiveChannelSoldPieChart()" />
+                <input type="date" id="revDonutStartDate" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" min="2026-01-01" max="2026-11-22" value="2026-11-01" onchange="AppUI.renderFiveChannelSoldPieChart()" />
               </div>
               <div id="revDonutDayEndGroup" class="filter-group-item hidden">
                 <label>Đến ngày:</label>
-                <input type="date" id="revDonutEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderFiveChannelSoldPieChart()" />
+                <input type="date" id="revDonutEndDate" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" min="2026-01-01" max="2026-11-22" value="2026-11-22" onchange="AppUI.renderFiveChannelSoldPieChart()" />
               </div>
             </div>
 
@@ -503,7 +772,7 @@
                   <div>
                     <div class="top-products-title">Xếp Hạng Sản Phẩm Bán Chạy</div>
                     <div id="topProductsSubtitle" class="top-products-subtitle">
-                      Top 10 sản phẩm bán chạy nhất · Tháng 10/2026.
+                      Top 10 sản phẩm Thời trang bán chạy nhất · Tháng 11/2026.
                     </div>
                   </div>
                   <div class="top-products-toggle-group">
@@ -545,56 +814,68 @@
               <!-- 1. Theo Tháng -->
               <div id="unifiedFilterMonthGroup" class="filter-group-item">
                 <label>Chọn Tháng:</label>
-                <select id="unifiedSelectMonth" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
-                  <option value="2026-10" selected>Tháng 10/2026 (Hiện tại)</option>
+                <select id="unifiedSelectMonth" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                  <option value="2026-11" selected>Tháng 11/2026 (đến 22/11)</option>
+                  <option value="2026-10">Tháng 10/2026</option>
                   <option value="2026-09">Tháng 09/2026</option>
                   <option value="2026-08">Tháng 08/2026</option>
                   <option value="2026-07">Tháng 07/2026</option>
                   <option value="2026-06">Tháng 06/2026</option>
                   <option value="2026-05">Tháng 05/2026</option>
+                  <option value="2026-04">Tháng 04/2026</option>
+                  <option value="2026-03">Tháng 03/2026</option>
+                  <option value="2026-02">Tháng 02/2026</option>
+                  <option value="2026-01">Tháng 01/2026</option>
+                  <option value="ALL_2026">Tổng hợp 11 Tháng (Th01 – 22/11/2026)</option>
                 </select>
               </div>
 
               <!-- 2. Theo Quý -->
               <div id="unifiedFilterQuarterGroup" class="filter-group-item hidden">
                 <label>Chọn Quý:</label>
-                <select id="unifiedSelectQuarter" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
-                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10/2026)</option>
+                <select id="unifiedSelectQuarter" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10 – 22/11/2026)</option>
                   <option value="2026-Q3">Quý 3/2026 (Tháng 07 – Tháng 09/2026)</option>
-                  <option value="2026-Q2">Quý 2/2026 (Tháng 05 – Tháng 06/2026)</option>
+                  <option value="2026-Q2">Quý 2/2026 (Tháng 04 – Tháng 06/2026)</option>
+                  <option value="2026-Q1">Quý 1/2026 (Tháng 01 – Tháng 03/2026)</option>
                 </select>
               </div>
 
               <!-- 3. Theo Tuần -->
               <div id="unifiedFilterWeekMonthGroup" class="filter-group-item hidden">
                 <label>Tháng của Tuần:</label>
-                <select id="unifiedSelectWeekMonth" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
-                  <option value="2026-10" selected>Tháng 10/2026</option>
+                <select id="unifiedSelectWeekMonth" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                  <option value="2026-11" selected>Tháng 11/2026</option>
+                  <option value="2026-10">Tháng 10/2026</option>
                   <option value="2026-09">Tháng 09/2026</option>
                   <option value="2026-08">Tháng 08/2026</option>
                   <option value="2026-07">Tháng 07/2026</option>
                   <option value="2026-06">Tháng 06/2026</option>
                   <option value="2026-05">Tháng 05/2026</option>
+                  <option value="2026-04">Tháng 04/2026</option>
+                  <option value="2026-03">Tháng 03/2026</option>
+                  <option value="2026-02">Tháng 02/2026</option>
+                  <option value="2026-01">Tháng 01/2026</option>
                 </select>
               </div>
               <div id="unifiedFilterWeekGroup" class="filter-group-item hidden">
                 <label>Chọn Tuần:</label>
-                <select id="unifiedSelectWeek" class="form-control form-control-sm" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
+                <select id="unifiedSelectWeek" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()">
                   <option value="W1">Tuần 1 (Ngày 01 – 07)</option>
                   <option value="W2">Tuần 2 (Ngày 08 – 14)</option>
-                  <option value="W3">Tuần 3 (Ngày 15 – 21)</option>
-                  <option value="W4" selected>Tuần 4 (Ngày 22 – Cuối tháng)</option>
+                  <option value="W3" selected>Tuần 3 (Ngày 15 – 21)</option>
+                  <option value="W4">Tuần 4 (Ngày 22 – Cuối tháng)</option>
                 </select>
               </div>
 
               <!-- 4. Theo Ngày -->
               <div id="unifiedFilterDayStartGroup" class="filter-group-item hidden">
                 <label>Từ ngày:</label>
-                <input type="date" id="unifiedFilterStartDate" class="form-control form-control-sm" value="2026-10-01" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
+                <input type="date" id="unifiedFilterStartDate" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" min="2026-01-01" max="2026-11-22" value="2026-11-01" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
               </div>
               <div id="unifiedFilterDayEndGroup" class="filter-group-item hidden">
                 <label>Đến ngày:</label>
-                <input type="date" id="unifiedFilterEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
+                <input type="date" id="unifiedFilterEndDate" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" min="2026-01-01" max="2026-11-22" value="2026-11-22" onchange="AppUI.renderUnifiedTop3ChannelRankingChart()" />
               </div>
             </div>
 
@@ -619,7 +900,7 @@
                   <span>Tiếp nhận và Xuất hàng</span>
                 </div>
                 <div id="monthlyTrendsSubtitle" class="wms-card-subtitle">
-                  Thống kê 5 kênh TMĐT (Th5/26 – Th10/26) · Tổng hợp 6 tháng
+                  Thống kê 5 kênh Thời trang (Th01/2026 – 22/11/2026) · Tổng hợp 11 tháng
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -654,57 +935,68 @@
               <!-- 1. Theo Tháng -->
               <div id="monthlyTrendsMonthGroup" class="filter-group-item">
                 <label>Chọn Tháng:</label>
-                <select id="monthlyTrendsMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderMonthlyTrendsByFilter()">
-                  <option value="ALL_6M" selected>Tổng hợp 6 Tháng (Th5 – Th10/2026)</option>
-                  <option value="2026-10">Tháng 10/2026 (Hiện tại)</option>
+                <select id="monthlyTrendsMonthSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderMonthlyTrendsByFilter()">
+                  <option value="ALL_2026" selected>Tổng hợp 11 Tháng (Th01 – 22/11/2026)</option>
+                  <option value="2026-11">Tháng 11/2026 (đến 22/11)</option>
+                  <option value="2026-10">Tháng 10/2026</option>
                   <option value="2026-09">Tháng 09/2026</option>
                   <option value="2026-08">Tháng 08/2026</option>
                   <option value="2026-07">Tháng 07/2026</option>
                   <option value="2026-06">Tháng 06/2026</option>
                   <option value="2026-05">Tháng 05/2026</option>
+                  <option value="2026-04">Tháng 04/2026</option>
+                  <option value="2026-03">Tháng 03/2026</option>
+                  <option value="2026-02">Tháng 02/2026</option>
+                  <option value="2026-01">Tháng 01/2026</option>
                 </select>
               </div>
 
               <!-- 2. Theo Quý -->
               <div id="monthlyTrendsQuarterGroup" class="filter-group-item hidden">
                 <label>Chọn Quý:</label>
-                <select id="monthlyTrendsQuarterSelect" class="form-control form-control-sm" onchange="AppUI.renderMonthlyTrendsByFilter()">
-                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10/2026)</option>
+                <select id="monthlyTrendsQuarterSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderMonthlyTrendsByFilter()">
+                  <option value="2026-Q4" selected>Quý 4/2026 (Tháng 10 – 22/11/2026)</option>
                   <option value="2026-Q3">Quý 3/2026 (Tháng 07 – Tháng 09/2026)</option>
-                  <option value="2026-Q2">Quý 2/2026 (Tháng 05 – Tháng 06/2026)</option>
+                  <option value="2026-Q2">Quý 2/2026 (Tháng 04 – Tháng 06/2026)</option>
+                  <option value="2026-Q1">Quý 1/2026 (Tháng 01 – Tháng 03/2026)</option>
                 </select>
               </div>
 
               <!-- 3. Theo Tuần -->
               <div id="monthlyTrendsWeekMonthGroup" class="filter-group-item hidden">
                 <label>Tháng của Tuần:</label>
-                <select id="monthlyTrendsWeekMonthSelect" class="form-control form-control-sm" onchange="AppUI.renderMonthlyTrendsByFilter()">
-                  <option value="2026-10" selected>Tháng 10/2026</option>
+                <select id="monthlyTrendsWeekMonthSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderMonthlyTrendsByFilter()">
+                  <option value="2026-11" selected>Tháng 11/2026</option>
+                  <option value="2026-10">Tháng 10/2026</option>
                   <option value="2026-09">Tháng 09/2026</option>
                   <option value="2026-08">Tháng 08/2026</option>
                   <option value="2026-07">Tháng 07/2026</option>
                   <option value="2026-06">Tháng 06/2026</option>
                   <option value="2026-05">Tháng 05/2026</option>
+                  <option value="2026-04">Tháng 04/2026</option>
+                  <option value="2026-03">Tháng 03/2026</option>
+                  <option value="2026-02">Tháng 02/2026</option>
+                  <option value="2026-01">Tháng 01/2026</option>
                 </select>
               </div>
               <div id="monthlyTrendsWeekGroup" class="filter-group-item hidden">
                 <label>Chọn Tuần:</label>
-                <select id="monthlyTrendsWeekSelect" class="form-control form-control-sm" onchange="AppUI.renderMonthlyTrendsByFilter()">
+                <select id="monthlyTrendsWeekSelect" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" onchange="AppUI.renderMonthlyTrendsByFilter()">
                   <option value="W1">Tuần 1 (Ngày 01 – 07)</option>
                   <option value="W2">Tuần 2 (Ngày 08 – 14)</option>
-                  <option value="W3">Tuần 3 (Ngày 15 – 21)</option>
-                  <option value="W4" selected>Tuần 4 (Ngày 22 – Cuối tháng)</option>
+                  <option value="W3" selected>Tuần 3 (Ngày 15 – 21)</option>
+                  <option value="W4">Tuần 4 (Ngày 22 – Cuối tháng)</option>
                 </select>
               </div>
 
               <!-- 4. Theo Ngày -->
               <div id="monthlyTrendsDayStartGroup" class="filter-group-item hidden">
                 <label>Từ ngày:</label>
-                <input type="date" id="monthlyTrendsStartDate" class="form-control form-control-sm" value="2026-10-01" onchange="AppUI.renderMonthlyTrendsByFilter()" />
+                <input type="date" id="monthlyTrendsStartDate" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" min="2026-01-01" max="2026-11-22" value="2026-11-01" onchange="AppUI.renderMonthlyTrendsByFilter()" />
               </div>
               <div id="monthlyTrendsDayEndGroup" class="filter-group-item hidden">
                 <label>Đến ngày:</label>
-                <input type="date" id="monthlyTrendsEndDate" class="form-control form-control-sm" value="2026-10-31" onchange="AppUI.renderMonthlyTrendsByFilter()" />
+                <input type="date" id="monthlyTrendsEndDate" class="form-control form-control-sm" style="border-radius:0px;box-shadow:none;font-variant-numeric:tabular-nums;" min="2026-01-01" max="2026-11-22" value="2026-11-22" onchange="AppUI.renderMonthlyTrendsByFilter()" />
               </div>
             </div>
 
@@ -887,12 +1179,42 @@
                 </div>
                 <div>
                   <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Sản phẩm đặt mua</label>
-                  <select id="simSku" class="form-control">
-                    <option value="SP-AO-POLO-01">SP-AO-POLO-01 - Áo Polo Nam</option>
-                    <option value="SP-TAI-NGHE-02">SP-TAI-NGHE-02 - Tai nghe TWS</option>
-                    <option value="SP-BALO-LAP-03">SP-BALO-LAP-03 - Balo Laptop</option>
-                    <option value="SP-BINH-NHIET-04">SP-BINH-NHIET-04 - Bình Giữ Nhiệt</option>
-                    <option value="SP-BAN-PHIM-05">SP-BAN-PHIM-05 - Bàn Phím Cơ</option>
+                  <select id="simSku" class="form-control" style="border-radius:0px;box-shadow:none;">
+                    <optgroup label="Áo (5 mã)">
+                      <option value="SP-AO-POLO-01">SP-AO-POLO-01 — Áo Polo Nam Coolmate Pro (Đen - Size L)</option>
+                      <option value="SP-AO-THUN-02">SP-AO-THUN-02 — Áo Thun Cotton Oversize Unisex (Trắng - Size M)</option>
+                      <option value="SP-AO-SOMI-03">SP-AO-SOMI-03 — Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L)</option>
+                      <option value="SP-AO-KHOAC-04">SP-AO-KHOAC-04 — Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL)</option>
+                      <option value="SP-AO-HOODIE-05">SP-AO-HOODIE-05 — Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L)</option>
+                    </optgroup>
+                    <optgroup label="Quần (5 mã)">
+                      <option value="SP-QUAN-JEANS-06">SP-QUAN-JEANS-06 — Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31)</option>
+                      <option value="SP-QUAN-KAKI-07">SP-QUAN-KAKI-07 — Quần Kaki Chinos Công Sở (Be - Size 30)</option>
+                      <option value="SP-QUAN-SHORT-08">SP-QUAN-SHORT-08 — Quần Short Thể Thao Vải Gió (Đen - Size L)</option>
+                      <option value="SP-QUAN-TAY-09">SP-QUAN-TAY-09 — Quần Tây Âu Ống Đứng Cao Cấp (Xám Than - Size 31)</option>
+                      <option value="SP-QUAN-JOGGER-10">SP-QUAN-JOGGER-10 — Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M)</option>
+                    </optgroup>
+                    <optgroup label="Váy &amp; Đầm (5 mã)">
+                      <option value="SP-DAM-MIDI-11">SP-DAM-MIDI-11 — Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S)</option>
+                      <option value="SP-CHAN-VAY-12">SP-CHAN-VAY-12 — Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M)</option>
+                      <option value="SP-DAM-MAXI-13">SP-DAM-MAXI-13 — Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M)</option>
+                      <option value="SP-SET-BLAZER-14">SP-SET-BLAZER-14 — Set Vest Blazer Nữ &amp; Chân Váy (Trắng Kem - Size S)</option>
+                      <option value="SP-DAM-THUN-15">SP-DAM-THUN-15 — Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M)</option>
+                    </optgroup>
+                    <optgroup label="Giày &amp; Dép (5 mã)">
+                      <option value="SP-GIAY-SNEAKER-16">SP-GIAY-SNEAKER-16 — Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41)</option>
+                      <option value="SP-GIAY-CHAYBO-17">SP-GIAY-CHAYBO-17 — Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42)</option>
+                      <option value="SP-GIAY-LOAFER-18">SP-GIAY-LOAFER-18 — Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40)</option>
+                      <option value="SP-SANDAL-NU-19">SP-SANDAL-NU-19 — Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37)</option>
+                      <option value="SP-DEP-DUC-20">SP-DEP-DUC-20 — Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41)</option>
+                    </optgroup>
+                    <optgroup label="Phụ kiện thời trang (5 mã)">
+                      <option value="SP-TUI-DEO-21">SP-TUI-DEO-21 — Túi Đeo Chéo Da PU Chống Nước (Đen)</option>
+                      <option value="SP-THAT-LUNG-22">SP-THAT-LUNG-22 — Thắt Lưng Nam Da Thật Khóa Tự Động (Đen)</option>
+                      <option value="SP-NON-KET-23">SP-NON-KET-23 — Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu)</option>
+                      <option value="SP-KINH-MAT-24">SP-KINH-MAT-24 — Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)</option>
+                      <option value="SP-TAT-CO-25">SP-TAT-CO-25 — Set 5 Đôi Tất Cổ Ngắn Khử Mùi Bamboo (Mix Màu)</option>
+                    </optgroup>
                   </select>
                 </div>
               </div>
@@ -1147,12 +1469,13 @@
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <div style="display:flex;align-items:center;gap:6px;">
                   <label for="invCategoryFilter" style="font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap;">Danh mục:</label>
-                  <select id="invCategoryFilter" class="form-control" style="width:auto;font-weight:600;" onchange="AppUI.onInventoryFilterChange()">
-                    <option value="ALL">Tất cả</option>
-                    <option value="Thời trang">Thời trang</option>
-                    <option value="Phụ kiện số">Phụ kiện số</option>
-                    <option value="Túi & Balo">Túi &amp; Balo</option>
-                    <option value="Gia dụng">Gia dụng</option>
+                  <select id="invCategoryFilter" class="form-control" style="width:auto;font-weight:600;border-radius:0px;box-shadow:none;" onchange="AppUI.onInventoryFilterChange()">
+                    <option value="ALL">Tất cả (5 danh mục)</option>
+                    <option value="Áo">Áo</option>
+                    <option value="Quần">Quần</option>
+                    <option value="Váy & Đầm">Váy &amp; Đầm</option>
+                    <option value="Giày & Dép">Giày &amp; Dép</option>
+                    <option value="Phụ kiện thời trang">Phụ kiện thời trang</option>
                   </select>
                 </div>
 
@@ -1242,7 +1565,7 @@
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <div>
                     <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã đơn hàng (*)</label>
-                    <input type="text" id="wbOrderId" class="form-control" placeholder="VD: SP261022001" value="SP261022001" />
+                    <input type="text" id="wbOrderId" class="form-control" placeholder="VD: SP261122001" value="SP261122001" />
                   </div>
                   <div>
                     <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Kênh bán hàng (*)</label>
@@ -1578,44 +1901,44 @@
         </section>
 
         <section class="oms-view-section hidden" data-views="settings">
-          <div class="wms-card">
+          <div class="wms-card" style="border-radius:0px;box-shadow:none;">
             <div class="wms-card-header">
               <div>
                 <div class="wms-card-title">Cài đặt Chủ đề & Tham số Hệ thống ODOMS</div>
-                <div class="wms-card-subtitle">Điều chỉnh chủ đề màu sắc cho giao diện thực hiện các chức năng</div>
+                <div class="wms-card-subtitle">Điều chỉnh chủ đề màu sắc, quy tắc vận hành và đồng bộ Sổ dữ liệu Google Sheets</div>
               </div>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-              <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;grid-column:span 2;">
+              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;grid-column:span 2;">
                 <h4 style="margin-bottom:8px;">1. Chủ đề</h4>
                 <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:10px;">
                   Nhấp chọn một chủ đề bên dưới để đổi màu giao diện thực hiện các chức năng ngay lập tức:
                 </p>
                 <div id="settingsThemePickerBar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
               </div>
-              <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;">
+              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;">
                 <h4 style="margin-bottom:8px;">2. Nguyên tắc giữ hàng mặc định</h4>
                 <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
                   Hệ thống ưu tiên giữ hàng cho đơn đặt trước theo thời gian đặt hàng và xuất kho ưu tiên các lô có hạn sử dụng gần nhất.
                 </p>
-                <button class="btn btn-outline btn-sm" onclick="AppUI.resetAll()">🔄 Đặt lại dữ liệu đơn & tồn kho về ban đầu</button>
+                <button class="btn btn-outline btn-sm" style="border-radius:0px;box-shadow:none;" onclick="AppUI.resetAll()">Đặt lại dữ liệu đơn & tồn kho về ban đầu</button>
               </div>
-              <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;">
+              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;">
                 <h4 style="margin-bottom:8px;">3. Quản trị Danh sách Tài khoản</h4>
                 <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
                   Khôi phục danh sách người dùng về cấu hình tài khoản phân quyền mặc định của hệ thống ODOMS.
                 </p>
-                <button class="btn btn-danger-outline btn-sm" onclick="window.userAuth.resetUsersToDefault(); AppUI.renderStaffManagement(); AppUI.renderLoginQuickAccounts(); alert('Đã khôi phục danh sách tài khoản về mặc định!');">
+                <button class="btn btn-danger-outline btn-sm" style="border-radius:0px;box-shadow:none;" onclick="window.userAuth.resetUsersToDefault(); AppUI.renderStaffManagement(); AppUI.renderLoginQuickAccounts(); alert('Đã khôi phục danh sách tài khoản về mặc định!');">
                   Khôi phục tài khoản mặc định
                 </button>
               </div>
-              <div style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:10px;grid-column:span 2;">
+              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;grid-column:span 2;">
                 <h4 style="margin-bottom:8px;">4. Cài đặt chạy mô phỏng</h4>
                 <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
                   Tự động chạy kịch bản tiếp nhận đơn hàng tuần tự từ 5 kênh bán để kiểm tra quy trình xác nhận và giữ hàng.
                 </p>
-                <button id="btnRunDemo" class="btn btn-warning btn-sm" onclick="AppUI.runStepByStepFifoDemo()">
+                <button id="btnRunDemo" class="btn btn-warning btn-sm" style="border-radius:0px;box-shadow:none;" onclick="AppUI.runStepByStepFifoDemo()">
                   Chạy mô phỏng
                 </button>
               </div>

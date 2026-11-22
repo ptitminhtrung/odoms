@@ -491,6 +491,7 @@ class OMSEngine {
   constructor() {
     this.inventory = [];
     this.orders = [];
+    this.shipments = [];
     this.logs = [];
     this.channels = JSON.parse(JSON.stringify(window.CHANNELS_CONFIG));
     this.allocationMode = "FIFO_TIME"; // FIFO_TIME (Ai tới trước ưu tiên trước) | CHANNEL_PRIORITY
@@ -504,12 +505,256 @@ class OMSEngine {
     }
     this.inventory = JSON.parse(JSON.stringify(window.INITIAL_INVENTORY));
     this.orders = [];
+    this.shipments =
+      window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0
+        ? JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA)).map((s) => this.normalizeShipmentPhones(s))
+        : [];
     this.logs = [];
     this.channels = JSON.parse(JSON.stringify(window.CHANNELS_CONFIG));
+    const skuCount = this.inventory.length;
+    const totalPhysical = this.inventory.reduce((sum, item) => sum + Number(item.physicalStock || 0), 0);
     this.addLog(
       "info",
-      "Khởi tạo Hệ thống ODOMS - Hệ thống quản lý đơn hàng đa kênh thông minh. Tồn kho sẵn sàng với 5 mã SKU (59 sản phẩm vật lý)."
+      `Khởi tạo Hệ thống ODOMS - Hệ thống quản lý đơn hàng đa kênh thông minh. Tồn kho sẵn sàng với ${skuCount} mã sản phẩm Thời trang (${totalPhysical} sản phẩm vật lý).`
     );
+  }
+
+  // Chuẩn hóa số điện thoại Việt Nam dạng chuỗi văn bản: giữ nguyên số 0 ở đầu, tự động bù "0" nếu bị cắt còn 9 chữ số (bắt đầu bằng 3, 5, 7, 8, 9)
+  normalizePhoneVN(rawVal) {
+    if (rawVal === null || rawVal === undefined) return "";
+    const str = String(rawVal).trim();
+    if (!str) return "";
+    const upper = str.toUpperCase();
+    if (upper === "N/A" || upper === "NULL" || upper === "UNDEFINED") return "";
+    const cleaned = str.replace(/^'+/, "").trim();
+    const digits = cleaned.replace(/\D/g, "");
+    if (!digits) return cleaned;
+    if (digits.length === 11 && digits.startsWith("84") && /^[35789]/.test(digits.charAt(2))) {
+      return "0" + digits.slice(2);
+    }
+    if (digits.length === 9 && /^[35789]/.test(digits.charAt(0))) {
+      return "0" + digits;
+    }
+    if (digits.length === 10 && digits.startsWith("2")) {
+      return "0" + digits;
+    }
+    if (digits.length === 10 && digits.startsWith("0")) {
+      return digits;
+    }
+    if (
+      (digits.length === 11 && digits.startsWith("02")) ||
+      ((digits.length === 8 || digits.length === 10) && (digits.startsWith("1800") || digits.startsWith("1900")))
+    ) {
+      return digits;
+    }
+    return cleaned;
+  }
+
+  normalizeShipmentPhones(shipment) {
+    if (!shipment || typeof shipment !== "object") return shipment;
+    if (shipment.sender && typeof shipment.sender === "object") {
+      shipment.sender.phone = this.normalizePhoneVN(shipment.sender.phone);
+    }
+    if (shipment.receiver && typeof shipment.receiver === "object") {
+      shipment.receiver.phone = this.normalizePhoneVN(shipment.receiver.phone);
+    }
+    if (shipment.receiverPhone !== undefined) {
+      shipment.receiverPhone = this.normalizePhoneVN(shipment.receiverPhone);
+    }
+    if (shipment.shipperPhone !== undefined) {
+      shipment.shipperPhone = this.normalizePhoneVN(shipment.shipperPhone);
+    }
+    return shipment;
+  }
+
+  isAssignedCarrierValue(val) {
+    const s = String(val || "").trim();
+    if (!s) return false;
+    const lower = s.toLowerCase();
+    return (
+      lower !== "chưa gán đvvc" &&
+      lower !== "chua gan dvvc" &&
+      lower !== "n/a" &&
+      lower !== "null" &&
+      lower !== "undefined" &&
+      s !== "-" &&
+      s !== "—"
+    );
+  }
+
+  // Cơ chế xác định ĐVVC chuẩn nghiệp vụ 3 tầng:
+  // Tầng 1: Đối chiếu vận đơn thực tế trong bảng VanDon (shipments)
+  // Tầng 2: Đọc trực tiếp từ trường ĐVVC gốc của Sàn TMĐT / tệp Excel / DatHang
+  // Tầng 3: Đơn POS -> "Tại quầy"; Đơn Facebook / ngoài sàn chưa có vận đơn -> "Chưa gán ĐVVC"
+  resolveOrderCarrier(ord, shipmentsList = null) {
+    const order = ord || {};
+    const list = Array.isArray(shipmentsList) ? shipmentsList : Array.isArray(this.shipments) ? this.shipments : [];
+    const orderId = String(order.orderId || "").trim();
+    const trackingCode = String(order.trackingCode || "").trim();
+    const channelUpper = String(order.channel || "").trim().toUpperCase();
+
+    const matchedShipment = list.find(
+      (s) =>
+        s &&
+        ((orderId && String(s.orderId || "").trim() === orderId) ||
+          (trackingCode && String(s.trackingCode || "").trim() === trackingCode))
+    );
+    if (matchedShipment && this.isAssignedCarrierValue(matchedShipment.carrier)) {
+      return String(matchedShipment.carrier).trim();
+    }
+
+    if (this.isAssignedCarrierValue(order.carrier)) {
+      return String(order.carrier).trim();
+    }
+
+    if (channelUpper === "POS" || channelUpper.includes("POS")) {
+      return "Tại quầy";
+    }
+    return "Chưa gán ĐVVC";
+  }
+
+  syncOrderCarriersFromShipments() {
+    if (!Array.isArray(this.orders)) return;
+    const list = Array.isArray(this.shipments) ? this.shipments : [];
+    this.orders.forEach((ord) => {
+      if (!ord) return;
+      const ordId = String(ord.orderId || "").trim();
+      const trk = String(ord.trackingCode || "").trim();
+      const matched = list.find(
+        (s) =>
+          s &&
+          ((ordId && String(s.orderId || "").trim() === ordId) ||
+            (trk && String(s.trackingCode || "").trim() === trk))
+      );
+      if (matched && matched.trackingCode && !ord.trackingCode) {
+        ord.trackingCode = String(matched.trackingCode).trim();
+      }
+      ord.carrier = this.resolveOrderCarrier(ord, list);
+    });
+  }
+
+  getShippingTierLabel(tierCode) {
+    const t = String(tierCode || "TIEU_CHUAN").toUpperCase();
+    if (t === "HOA_TOC") return "⚡ Hỏa Tốc (2H)";
+    if (t === "NHANH") return "🚀 Giao Nhanh (24H)";
+    return "📦 Tiêu Chuẩn";
+  }
+
+  getShipmentStatusLabel(statusCode) {
+    const st = String(statusCode || "PENDING_PICKUP").toUpperCase();
+    if (st === "IN_TRANSIT") return "🚚 Đang giao hàng";
+    if (st === "DELIVERED") return "✅ Giao thành công";
+    if (st === "FAILED_RETURNING") return "❌ Giao thất bại / Chờ chuyển hoàn";
+    return "⏳ Chờ lấy hàng";
+  }
+
+  upsertShipment(shipmentData, options = {}) {
+    if (!shipmentData) return null;
+    if (!Array.isArray(this.shipments)) this.shipments = [];
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const nowStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const timeOnly = nowStr.split(" ")[1];
+
+    const trackingCode = String(shipmentData.trackingCode || "").trim();
+    const orderId = String(shipmentData.orderId || "").trim();
+    const channel = String(shipmentData.channel || "SHOPEE").trim().toUpperCase();
+    const carrier = String(shipmentData.carrier || "").trim() || (channel === "POS" ? "Tại quầy" : "Chưa gán ĐVVC");
+    const tierCode = String(shipmentData.shippingTier || "NHANH").trim().toUpperCase();
+    const statusCode = String(shipmentData.status || "PENDING_PICKUP").trim().toUpperCase();
+    const shippingFee = Number(shipmentData.shippingFee || 0);
+    const isFreeship = shipmentData.isFreeship !== undefined ? Boolean(shipmentData.isFreeship) : shippingFee === 0;
+    const warehouseCfg = window.ODOMS_WAREHOUSE_CONFIG || {
+      shortName: "ODOMS Store — Kho Phường Bình Phú",
+      hotline: "028.7777.6868",
+      address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+    };
+
+    const existingIdx = this.shipments.findIndex(
+      (s) =>
+        (trackingCode && String(s.trackingCode || "").trim() === trackingCode) ||
+        (orderId && String(s.orderId || "").trim() === orderId)
+    );
+    const prev = existingIdx >= 0 ? this.shipments[existingIdx] : null;
+
+    const receiverObj = shipmentData.receiver || {
+      name: shipmentData.customerName || prev?.receiver?.name || "Khách hàng",
+      phone: shipmentData.customerPhone || prev?.receiver?.phone || "N/A",
+      address: shipmentData.address || shipmentData.shippingAddress || prev?.receiver?.address || "N/A"
+    };
+
+    const defaultTimeline = [
+      {
+        time: timeOnly,
+        title: "Khởi tạo vận đơn & Đóng gói",
+        desc: `Đã tạo mã vận đơn ${trackingCode} và bàn giao đơn vị vận chuyển ${carrier}.`,
+        location: "Kho ODOMS Phường Bình Phú"
+      }
+    ];
+
+    const record = {
+      trackingCode: trackingCode || prev?.trackingCode || `VD-${channel.slice(0, 2)}-${Date.now()}`,
+      orderId: orderId || prev?.orderId || "",
+      channel,
+      carrier,
+      shippingTier: tierCode,
+      shippingTierLabel: shipmentData.shippingTierLabel || this.getShippingTierLabel(tierCode),
+      shippingFee,
+      isFreeship,
+      totalCod: Number(shipmentData.totalCod !== undefined ? shipmentData.totalCod : shipmentData.totalAmount || prev?.totalCod || 0),
+      status: prev ? (shipmentData.status || prev.status) : statusCode,
+      statusLabel: shipmentData.statusLabel || this.getShipmentStatusLabel(prev ? (shipmentData.status || prev.status) : statusCode),
+      sender: shipmentData.sender || prev?.sender || {
+        name: "ODOMS Store — Kho Phường Bình Phú",
+        phone: this.normalizePhoneVN(warehouseCfg.hotline || "02877776868"),
+        address: warehouseCfg.address || "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+      },
+      receiver: {
+        name: String(receiverObj.name || "").trim(),
+        phone: this.normalizePhoneVN(receiverObj.phone || ""),
+        address: String(receiverObj.address || "").trim()
+      },
+      itemsSummary:
+        shipmentData.itemsSummary ||
+        (shipmentData.productName ? `${shipmentData.productName} × ${shipmentData.quantity || 1}` : prev?.itemsSummary || ""),
+      batchCode: String(shipmentData.batchCode || prev?.batchCode || "LO-2026-A1").trim(),
+      handoverTime: shipmentData.handoverTime || prev?.handoverTime || nowStr,
+      lastUpdateTime: shipmentData.lastUpdateTime || nowStr,
+      currentLocation:
+        shipmentData.currentLocation ||
+        prev?.currentLocation ||
+        `Đã tạo vận đơn (${carrier}) — Chờ bưu tá tới lấy tại 186 An Dương Vương, Phường Bình Phú, TP.HCM`,
+      shipperName: shipmentData.shipperName || prev?.shipperName || `Đang điều phối bưu tá ${carrier}`,
+      shipperPhone: this.normalizePhoneVN(shipmentData.shipperPhone || prev?.shipperPhone || "02877776868"),
+      progressPercent: Number(shipmentData.progressPercent !== undefined ? shipmentData.progressPercent : prev?.progressPercent || 20),
+      timeline: Array.isArray(shipmentData.timeline) && shipmentData.timeline.length > 0 ? shipmentData.timeline : prev?.timeline || defaultTimeline
+    };
+
+    if (existingIdx >= 0) {
+      this.shipments[existingIdx] = record;
+    } else {
+      this.shipments.unshift(record);
+    }
+
+    // Tự động cập nhật ngay ĐVVC thật & Mã vận đơn vào đơn hàng tương ứng trong DatHang
+    if (record.orderId && Array.isArray(this.orders)) {
+      const matchedOrder = this.orders.find((o) => String(o.orderId || "").trim() === record.orderId);
+      if (matchedOrder) {
+        matchedOrder.trackingCode = record.trackingCode;
+        if (this.isAssignedCarrierValue(record.carrier)) {
+          matchedOrder.carrier = record.carrier;
+        }
+      }
+    }
+
+    this.syncOrderCarriersFromShipments();
+
+    if (!options.silentPush && window.cloudSync && !window.cloudSync.isPulling) {
+      window.cloudSync.scheduleCloudPush("SHIPMENT_SYNC");
+    }
+
+    return record;
   }
 
   addLog(type, message) {
@@ -636,9 +881,10 @@ class OMSEngine {
       "Người Mua", "Recipient", "customerName", "Ten_Khach", "Khách hàng", "customer_name"
     ]);
 
-    const customerPhone = getField([
-      "Số điện thoại", "Phone", "customerPhone", "SDT", "SĐT", "phone"
+    const rawCustomerPhone = getField([
+      "Số điện thoại", "Phone", "customerPhone", "SDT", "SĐT", "phone", "SoDienThoai"
     ]);
+    const customerPhone = this.normalizePhoneVN(rawCustomerPhone);
 
     const shippingAddress = getField([
       "Địa chỉ nhận hàng", "Shipping Address", "shippingAddress", "Dia_Chi", "Địa chỉ", "address"
@@ -669,9 +915,14 @@ class OMSEngine {
     ) {
       platformStatus = "CONFIRMED";
     } else if (!rawStatus) {
-      if (orderId === "FB261022402") {
+      if (orderId === "FB261122405" || orderId === "FB261022402") {
         platformStatus = "CANCELLED";
-      } else if (orderId === "SP261022003" || orderId === "TT261022103") {
+      } else if (
+        orderId === "SP261122008" ||
+        orderId === "TT261120107" ||
+        orderId === "SP261022003" ||
+        orderId === "TT261022103"
+      ) {
         platformStatus = "UNCONFIRMED";
       } else {
         platformStatus = "CONFIRMED";
@@ -688,17 +939,57 @@ class OMSEngine {
       if (channelRaw === "POS") {
         paymentMethod = "Tiền mặt tại quầy";
       } else if (channelRaw === "SHOPEE") {
-        paymentMethod = orderId === "SP261022002" ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay";
+        paymentMethod = orderId === "SP260115002" || orderId === "SP261022002" ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay";
       } else if (channelRaw === "TIKTOK") {
-        paymentMethod = orderId === "TT261022102" ? "Ví ZaloPay" : "COD (Thanh toán khi nhận hàng)";
+        paymentMethod = orderId === "TT260214102" || orderId === "TT261022102" ? "Ví ZaloPay" : "COD (Thanh toán khi nhận hàng)";
       } else if (channelRaw === "LAZADA") {
-        paymentMethod = orderId === "LZ261022201" ? "Thẻ Visa / Mastercard" : "COD (Thanh toán khi nhận hàng)";
+        paymentMethod = orderId === "LZ261122201" || orderId === "LZ261022201" ? "Thẻ Visa / Mastercard" : "COD (Thanh toán khi nhận hàng)";
       } else if (channelRaw === "FACEBOOK") {
-        paymentMethod = orderId === "FB261022401" ? "Chuyển khoản VietQR" : "COD (Thu hộ khi giao)";
+        paymentMethod = orderId === "FB260225401" || orderId === "FB261022401" ? "Chuyển khoản VietQR" : "COD (Thu hộ khi giao)";
       } else {
         paymentMethod = "COD (Thanh toán khi nhận hàng)";
       }
     }
+
+    const rawCarrier = getField([
+      "Đơn vị vận chuyển",
+      "ĐVVC",
+      "DonViVanChuyen",
+      "Don_Vi_Van_Chuyen",
+      "Shipping Provider",
+      "shippingProvider",
+      "Shipping Carrier",
+      "shippingCarrier",
+      "Carrier",
+      "carrier",
+      "Logistics",
+      "Shipping_Provider",
+      "Nhà vận chuyển",
+      "Đơn vị giao hàng"
+    ]);
+
+    let trackingCode = getField([
+      "Mã vận đơn",
+      "MaVanDon",
+      "Tracking Code",
+      "trackingCode",
+      "tracking_code",
+      "Waybill"
+    ]);
+
+    if (!trackingCode && orderId && Array.isArray(this.shipments)) {
+      const matchedSh = this.shipments.find((s) => s && String(s.orderId || "").trim() === orderId);
+      if (matchedSh && matchedSh.trackingCode) {
+        trackingCode = String(matchedSh.trackingCode).trim();
+      }
+    }
+
+    const resolvedCarrier = this.resolveOrderCarrier({
+      orderId,
+      channel: channelRaw || "UNKNOWN",
+      carrier: rawCarrier,
+      trackingCode
+    });
 
     return {
       orderId,
@@ -714,6 +1005,8 @@ class OMSEngine {
       customerName: customerName || "Khách hàng Đa kênh",
       customerPhone: customerPhone || "N/A",
       shippingAddress: shippingAddress || "N/A",
+      carrier: resolvedCarrier,
+      trackingCode: trackingCode || "",
       sourceMethod: String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "WEBHOOK_API" : "EXCEL_IMPORT", // EXCEL_IMPORT hoặc WEBHOOK_API
       status: "PENDING", // PENDING | ALLOCATED | BACKORDER | INVALID
       validationErrors: [],
@@ -724,7 +1017,7 @@ class OMSEngine {
         {
           step: "Bước 1: Tiếp nhận đơn hàng từ kênh bán",
           time: orderTime,
-          detail: `Tiếp nhận qua [${String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "Đồng bộ trực tiếp từ kênh bán" : "Nhập từ File Excel"}]. Ghi nhận nguồn đơn từ kênh [${(window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[channelRaw] && window.CHANNELS_CONFIG[channelRaw].shortName) || channelRaw || "Chưa xác định"}].`
+          detail: `Tiếp nhận qua [${String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "Đồng bộ trực tiếp từ kênh bán" : "Nhập từ File Excel"}]. Ghi nhận nguồn đơn từ kênh [${(window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[channelRaw] && window.CHANNELS_CONFIG[channelRaw].shortName) || channelRaw || "Chưa xác định"}] · ĐVVC: [${resolvedCarrier}].`
         }
       ]
     };
@@ -976,6 +1269,7 @@ class OMSEngine {
       }
     }
 
+    this.syncOrderCarriersFromShipments();
     this.broadcastInventorySync();
     if (window.cloudSync && !window.cloudSync.isPulling) {
       window.cloudSync.scheduleCloudPush("ALLOCATION_SYNC");
@@ -1096,9 +1390,10 @@ class OMSEngine {
 
 window.userAuth = new UserAuthManager();
 window.omsEngine = new OMSEngine();
+window.normalizePhoneVN = (val) => window.omsEngine.normalizePhoneVN(val);
 
 // ============================================================================
-// BỘ ĐỒNG BỘ DỮ LIỆU ĐÁM MÂY & ĐA THIẾT BỊ (CloudSyncAdapter — Hybrid LocalStorage + Google Sheets)
+// BỘ ĐỒNG BỘ DỮ LIỆU 2 CHIỀU GIỮA THIẾT BỊ & SỔ GOOGLE SHEETS (6 TRANG TÍNH)
 // ============================================================================
 class CloudSyncAdapter {
   constructor() {
@@ -1112,10 +1407,20 @@ class CloudSyncAdapter {
     this.endpointUrl = savedCfg.endpointUrl || this.DEFAULT_ENDPOINT_URL;
     this.secretToken = savedCfg.secretToken || "ODOMS_SECURE_TOKEN_2026";
     this.autoSync = savedCfg.autoSync !== false;
-    this.lastSyncTime = savedCfg.lastSyncTime || "Chưa đồng bộ";
+    this.lastSyncTime = this.sanitizeLastSyncLabel(savedCfg.lastSyncTime || "Chưa đồng bộ");
     this.syncStatus = this.endpointUrl ? "CLOUD_READY" : "LOCAL_READY";
 
     this.initCrossTabSync();
+  }
+
+  sanitizeLastSyncLabel(rawLabel) {
+    const s = String(rawLabel || "Chưa đồng bộ");
+    return s
+      .replace(/\(LocalStorage\)/gi, "(Lưu trên máy)")
+      .replace(/\(Local\)/gi, "(Lưu trên máy)")
+      .replace(/\(Lưu dự phòng Local\)/gi, "(Tạm lưu trên máy)")
+      .replace(/\(Tải từ Cloud\)/gi, "(Đã tải từ Google Sheets)")
+      .replace(/\(Google Sheets\)/gi, "(Đã gửi Google Sheets)");
   }
 
   formatNow() {
@@ -1157,7 +1462,7 @@ class CloudSyncAdapter {
       this.autoSync = Boolean(partial.autoSync);
     }
     if (partial.lastSyncTime !== undefined) {
-      this.lastSyncTime = partial.lastSyncTime;
+      this.lastSyncTime = this.sanitizeLastSyncLabel(partial.lastSyncTime);
     }
 
     try {
@@ -1176,24 +1481,28 @@ class CloudSyncAdapter {
     this.notifyUI();
   }
 
-  // 1. Lưu tức thì trạng thái OMSEngine vào LocalStorage (Zero-latency 0ms)
+  // 1. Lưu tức thì toàn bộ 6 bảng dữ liệu vào bộ nhớ trình duyệt trên máy
   saveLocalStateSnapshot() {
     if (!window.omsEngine) return;
     try {
+      if (typeof window.omsEngine.syncOrderCarriersFromShipments === "function") {
+        window.omsEngine.syncOrderCarriersFromShipments();
+      }
       const snapshot = {
         updatedAt: this.formatNow(),
         allocationMode: window.omsEngine.allocationMode,
         initialInventory: window.INITIAL_INVENTORY,
         inventory: window.omsEngine.inventory,
-        orders: window.omsEngine.orders
+        orders: window.omsEngine.orders,
+        shipments: Array.isArray(window.omsEngine.shipments) ? window.omsEngine.shipments : []
       };
       localStorage.setItem(this.STORAGE_ENGINE_STATE_KEY, JSON.stringify(snapshot));
     } catch (e) {
-      console.warn("Không thể lưu snapshot LocalStorage:", e);
+      console.warn("Không thể lưu dữ liệu tạm trên thiết bị:", e);
     }
   }
 
-  // 2. Khôi phục trạng thái OMSEngine từ LocalStorage khi mở lại trang hoặc đồng bộ giữa các Tab
+  // 2. Khôi phục toàn bộ dữ liệu (bao gồm bảng Vận đơn) từ bộ nhớ thiết bị
   restoreLocalStateSnapshot() {
     if (!window.omsEngine) return false;
     try {
@@ -1207,6 +1516,12 @@ class CloudSyncAdapter {
       if (Array.isArray(parsed.initialInventory) && parsed.initialInventory.length > 0) {
         window.INITIAL_INVENTORY = parsed.initialInventory;
       }
+      if (Array.isArray(parsed.shipments)) {
+        window.omsEngine.shipments = parsed.shipments.map((s) => window.omsEngine.normalizeShipmentPhones(s));
+        if (window.AppUI) {
+          window.AppUI.shipments = window.omsEngine.shipments;
+        }
+      }
       window.omsEngine.allocationMode = parsed.allocationMode || "FIFO_TIME";
       window.omsEngine.inventory = parsed.inventory;
       window.omsEngine.orders = parsed.orders.map((ord) => {
@@ -1215,8 +1530,14 @@ class CloudSyncAdapter {
           ord.orderTime = pt.formatted;
           ord.timestampMs = pt.timestampMs;
         }
+        if (ord && ord.customerPhone !== undefined && typeof window.omsEngine.normalizePhoneVN === "function") {
+          ord.customerPhone = window.omsEngine.normalizePhoneVN(ord.customerPhone);
+        }
         return ord;
       });
+      if (typeof window.omsEngine.syncOrderCarriersFromShipments === "function") {
+        window.omsEngine.syncOrderCarriersFromShipments();
+      }
       this.isPulling = false;
       return true;
     } catch (e) {
@@ -1225,10 +1546,10 @@ class CloudSyncAdapter {
     }
   }
 
-  // 3. Đặt lịch đẩy ngầm lên Google Sheets (Non-blocking Debounced Push)
+  // 3. Đặt lịch tự động cập nhật sang Google Sheets
   scheduleCloudPush(reason = "AUTO_SYNC") {
     this.saveLocalStateSnapshot();
-    this.saveConfig({ lastSyncTime: `${this.formatNow()} (Local)` });
+    this.saveConfig({ lastSyncTime: `${this.formatNow()} (Lưu trên máy)` });
 
     if (!this.autoSync || !this.endpointUrl) {
       this.syncStatus = "LOCAL_READY";
@@ -1244,36 +1565,53 @@ class CloudSyncAdapter {
     }, 350);
   }
 
-  // 4. Đẩy toàn bộ 5 bảng (Orders, Inventory_ATP, Batches, Users_RBAC, AuditLogs) lên Google Sheets
+  // 4. Gửi đầy đủ 6 trang tính (DatHang, TonKho, LuuKho, VanDon, NhanSu, NhatKy) lên Google Sheets
   async pushStateToCloud(reason = "MANUAL_PUSH", silent = false) {
+    if (window.omsEngine && typeof window.omsEngine.syncOrderCarriersFromShipments === "function") {
+      window.omsEngine.syncOrderCarriersFromShipments();
+    }
     this.saveLocalStateSnapshot();
 
     if (!this.endpointUrl) {
       this.syncStatus = "LOCAL_READY";
-      this.saveConfig({ lastSyncTime: `${this.formatNow()} (LocalStorage)` });
+      this.saveConfig({ lastSyncTime: `${this.formatNow()} (Lưu trên máy)` });
       if (!silent && window.omsEngine) {
         window.omsEngine.addLog(
           "info",
-          `💾 [LOCAL SYNC] Đã lưu trạng thái 5 bảng vào LocalStorage tức thì (${reason}). Hãy nhập Google Apps Script Web App URL trong mục Cài đặt nếu muốn đẩy lên Google Sheets.`
+          `[LƯU TRÊN MÁY] Đã lưu đầy đủ 6 bảng dữ liệu vận hành trên thiết bị hiện tại. Hãy dán đường dẫn Sổ Google Sheets trong mục Cài đặt để bật đồng bộ 2 chiều.`
         );
       }
       this.notifyUI();
       return {
         success: true,
         mode: "LOCAL_ONLY",
-        message: "Đã lưu tức thì vào LocalStorage! (Chưa cấu hình URL Google Apps Script)"
+        message: "Đã lưu dữ liệu trực tiếp trên máy này (chưa nhập đường dẫn kết nối Sổ Google Sheets)."
       };
     }
 
     this.syncStatus = "SYNCING";
     this.notifyUI();
 
+    const shipmentsList = (
+      window.omsEngine && Array.isArray(window.omsEngine.shipments)
+        ? window.omsEngine.shipments
+        : window.AppUI && Array.isArray(window.AppUI.shipments)
+        ? window.AppUI.shipments
+        : []
+    ).map((s) => (window.omsEngine ? window.omsEngine.normalizeShipmentPhones({ ...s }) : s));
+
+    const ordersList = (window.omsEngine ? window.omsEngine.orders : []).map((o) => ({
+      ...o,
+      customerPhone: window.omsEngine ? window.omsEngine.normalizePhoneVN(o.customerPhone) : o.customerPhone
+    }));
+
     const payload = {
       action: "SYNC_ALL",
       reason,
       secret_token: this.secretToken,
-      orders: window.omsEngine ? window.omsEngine.orders : [],
+      orders: ordersList,
       inventory: window.omsEngine ? window.omsEngine.inventory : [],
+      shipments: shipmentsList,
       users: window.userAuth ? window.userAuth.users : [],
       auditLogs: window.userAuth ? window.userAuth.accessLogs : []
     };
@@ -1290,42 +1628,81 @@ class CloudSyncAdapter {
       const resJson = await response.json();
       if (resJson && resJson.status === "SUCCESS") {
         this.syncStatus = "CLOUD_CONNECTED";
-        this.saveConfig({ lastSyncTime: `${this.formatNow()} (Google Sheets)` });
+        this.saveConfig({ lastSyncTime: `${this.formatNow()} (Đã gửi Google Sheets)` });
         if (window.omsEngine) {
           window.omsEngine.addLog(
             "sync",
-            `☁️ [CLOUD SYNC ➔ GOOGLE SHEETS] Đồng bộ thành công 5 bảng (Orders: ${payload.orders.length}, SKU: ${payload.inventory.length}, Users: ${payload.users.length}) lên Cloud.`
+            `[ĐỒNG BỘ GOOGLE SHEETS] Đã gửi thành công đủ 6 trang tính lên Sổ Google Sheets (${payload.orders.length} đơn hàng, ${payload.inventory.length} sản phẩm, ${payload.shipments.length} vận đơn, ${payload.users.length} nhân sự).`
           );
         }
         this.notifyUI();
         return {
           success: true,
           mode: "CLOUD",
-          message: resJson.message || "Đồng bộ lên Google Sheets thành công!",
+          message:
+            resJson.message ||
+            "Đã đồng bộ đầy đủ 6 trang tính (Đặt hàng, Tồn kho, Lưu kho, Vận đơn, Nhân sự, Nhật ký) lên Sổ Google Sheets thành công.",
           details: resJson.details
         };
       } else {
-        throw new Error((resJson && resJson.message) || "Phản hồi không hợp lệ từ Google Apps Script");
+        throw new Error((resJson && resJson.message) || "Không nhận được phản hồi hợp lệ từ Sổ Google Sheets");
       }
     } catch (err) {
       this.syncStatus = "CLOUD_ERROR";
-      this.saveConfig({ lastSyncTime: `${this.formatNow()} (Lưu dự phòng Local)` });
+      this.saveConfig({ lastSyncTime: `${this.formatNow()} (Tạm lưu trên máy)` });
       if (window.omsEngine && !silent) {
         window.omsEngine.addLog(
           "warn",
-          `⚠️ [CLOUD FALLBACK] Không thể kết nối Google Apps Script (${err.message}). Dữ liệu vẫn được bảo toàn 100% trên LocalStorage.`
+          `[TẠM LƯU TRÊN MÁY] Chưa thể kết nối tới Sổ Google Sheets lúc này. Toàn bộ 6 bảng dữ liệu vận hành vẫn được giữ an toàn trên máy.`
         );
       }
       this.notifyUI();
       return {
         success: false,
         mode: "FALLBACK_LOCAL",
-        message: `Đã lưu an toàn trên LocalStorage. Lỗi kết nối Cloud: ${err.message}`
+        message: "Chưa kết nối được Sổ Google Sheets — toàn bộ dữ liệu vẫn được lưu an toàn trên máy. Vui lòng kiểm tra đường dẫn liên kết hoặc kết nối mạng và thử lại."
       };
     }
   }
 
-  // 5. Kéo dữ liệu 5 bảng từ Google Sheets về Web App ODOMS
+  // Bảo toàn 4 tài khoản phân quyền gốc (dttd, lhmt ẩn dự phòng, ntqg, nttn) khi tải từ Google Sheets
+  ensureCoreAccountsPreserved(pulledUsers) {
+    const merged = Array.isArray(pulledUsers) ? JSON.parse(JSON.stringify(pulledUsers)) : [];
+    const defaults = Array.isArray(window.DEFAULT_OMS_USERS) ? window.DEFAULT_OMS_USERS : [];
+    defaults.forEach((def) => {
+      const idx = merged.findIndex(
+        (u) => String(u.username || "").toLowerCase() === String(def.username || "").toLowerCase()
+      );
+      if (idx === -1) {
+        merged.push(JSON.parse(JSON.stringify(def)));
+      }
+    });
+    merged.forEach((u) => {
+      const uname = String(u.username || "").toLowerCase();
+      if (uname === "lhmt") {
+        u.isRoot = true;
+        u.isHiddenBackup = true;
+        u.role = "Chuyên viên Vận hành (Dự phòng)";
+        u.fullName = "Lê Hoàng Minh Trung";
+        u.department = "Phòng Vận hành Đa kênh";
+      } else if (uname === "dttd") {
+        u.isRoot = true;
+        u.isHiddenBackup = false;
+        u.role = "Chuyên viên Vận hành";
+        u.fullName = "Đỗ Thị Thuỳ Dung";
+        u.department = "Phòng Vận hành Đa kênh";
+      } else if (uname === "ntqg") {
+        u.role = u.role || "Chuyên viên Điều phối";
+        u.department = u.department || "Phòng Điều phối Đơn hàng";
+      } else if (uname === "nttn") {
+        u.role = u.role || "Quản lý kho";
+        u.department = u.department || "Bộ phận Kho Vận";
+      }
+    });
+    return merged;
+  }
+
+  // 5. Tải đầy đủ 6 trang tính từ Google Sheets về ứng dụng ODOMS
   async pullStateFromCloud(silent = false) {
     if (!this.endpointUrl) {
       const restored = this.restoreLocalStateSnapshot();
@@ -1335,8 +1712,8 @@ class CloudSyncAdapter {
         success: restored,
         mode: "LOCAL_ONLY",
         message: restored
-          ? "Đã khôi phục dữ liệu từ LocalStorage."
-          : "Chưa cấu hình URL Google Apps Script. Đang sử dụng dữ liệu khởi tạo mặc định."
+          ? "Đã khôi phục dữ liệu vận hành gần nhất trên thiết bị."
+          : "Chưa nhập đường dẫn kết nối Sổ Google Sheets. Hệ thống đang dùng dữ liệu khởi tạo ban đầu."
       };
     }
 
@@ -1351,11 +1728,55 @@ class CloudSyncAdapter {
 
       if (resJson && resJson.status === "SUCCESS" && resJson.data) {
         this.isPulling = true;
-        const { orders, inventory, users, auditLogs } = resJson.data;
+        const { orders, inventory, shipments, users, auditLogs } = resJson.data;
 
-        if (Array.isArray(inventory) && inventory.length > 0 && window.omsEngine) {
-          window.omsEngine.inventory = inventory;
+        // 1. Nạp bảng VanDon trước để đối chiếu ĐVVC 3 tầng khi chuẩn hóa DatHang (kèm chuẩn hóa SĐT VN đủ số 0 đầu)
+        if (Array.isArray(shipments) && window.omsEngine) {
+          window.omsEngine.shipments = shipments.map((s) =>
+            window.omsEngine.normalizeShipmentPhones({
+              ...s,
+              shippingTierLabel: s.shippingTierLabel || window.omsEngine.getShippingTierLabel(s.shippingTier),
+              statusLabel: s.statusLabel || window.omsEngine.getShipmentStatusLabel(s.status),
+              sender: s.sender || {
+                name: "ODOMS Store — Kho Phường Bình Phú",
+                phone: "02877776868",
+                address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+              },
+              receiver: s.receiver
+                ? {
+                    ...s.receiver,
+                    phone: window.omsEngine.normalizePhoneVN(s.receiver.phone || s.receiverPhone || "")
+                  }
+                : {
+                    name: s.receiverName || "",
+                    phone: window.omsEngine.normalizePhoneVN(s.receiverPhone || ""),
+                    address: s.receiverAddress || ""
+                  },
+              shipperPhone: window.omsEngine.normalizePhoneVN(s.shipperPhone || ""),
+              timeline: Array.isArray(s.timeline) ? s.timeline : []
+            })
+          );
+          if (window.AppUI) {
+            window.AppUI.shipments = window.omsEngine.shipments;
+          }
         }
+
+        // 2. Cập nhật tồn kho gốc từ TonKho & LuuKho trước khi chạy lại phân bổ
+        if (Array.isArray(inventory) && inventory.length > 0 && window.omsEngine) {
+          window.INITIAL_INVENTORY = inventory.map((item) => ({
+            ...item,
+            reservedStock: 0,
+            availableStock: Number(item.physicalStock || 0),
+            channelReserved: { SHOPEE: 0, TIKTOK: 0, LAZADA: 0, FACEBOOK: 0, POS: 0 },
+            batches: (item.batches || []).map((b) => ({
+              ...b,
+              remainingQty: Number(b.initialQty !== undefined ? b.initialQty : b.remainingQty || 0)
+            }))
+          }));
+          window.omsEngine.inventory = JSON.parse(JSON.stringify(inventory));
+        }
+
+        // 3. Nạp DatHang giữ nguyên cột DonViVanChuyen & MaVanDon
         if (Array.isArray(orders) && window.omsEngine) {
           window.omsEngine.orders = orders.map((ord) =>
             window.omsEngine.normalizeRawOrder(
@@ -1376,15 +1797,20 @@ class CloudSyncAdapter {
                     : ord.platformStatus === "UNCONFIRMED"
                     ? "Chưa xác nhận"
                     : "Đã xác nhận",
-                "Phương thức thanh toán": ord.paymentMethod
+                "Phương thức thanh toán": ord.paymentMethod,
+                "Đơn vị vận chuyển": ord.carrier || "",
+                "Mã vận đơn": ord.trackingCode || ""
               },
               ord.sourceMethod || "EXCEL_IMPORT"
             )
           );
           window.omsEngine.recalculateAllAllocations();
+          window.omsEngine.syncOrderCarriersFromShipments();
         }
+
+        // 4. Nạp NhanSu & NhatKy (bảo toàn 4 tài khoản gốc)
         if (Array.isArray(users) && users.length > 0 && window.userAuth) {
-          window.userAuth.saveUsers(users);
+          window.userAuth.saveUsers(this.ensureCoreAccountsPreserved(users));
         }
         if (Array.isArray(auditLogs) && auditLogs.length > 0 && window.userAuth) {
           window.userAuth.saveAccessLogs(auditLogs);
@@ -1393,22 +1819,22 @@ class CloudSyncAdapter {
         this.isPulling = false;
         this.saveLocalStateSnapshot();
         this.syncStatus = "CLOUD_CONNECTED";
-        this.saveConfig({ lastSyncTime: `${this.formatNow()} (Tải từ Cloud)` });
+        this.saveConfig({ lastSyncTime: `${this.formatNow()} (Đã tải từ Google Sheets)` });
 
         if (window.omsEngine && !silent) {
           window.omsEngine.addLog(
             "sync",
-            `📥 [CLOUD PULL ⬅ GOOGLE SHEETS] Đã đồng bộ dữ liệu từ Google Sheets về máy (${(orders || []).length} đơn hàng, ${(inventory || []).length} SKU).`
+            `[TẢI TỪ GOOGLE SHEETS] Đã cập nhật dữ liệu mới nhất từ đủ 6 trang tính (${(orders || []).length} đơn hàng, ${(inventory || []).length} sản phẩm, ${(shipments || []).length} vận đơn).`
           );
         }
         this.notifyUI(true);
         return {
           success: true,
           mode: "CLOUD",
-          message: "Đã tải và đồng bộ dữ liệu 5 bảng từ Google Sheets thành công!"
+          message: "Đã tải và đồng bộ đầy đủ 6 trang tính từ Sổ Google Sheets thành công."
         };
       } else {
-        throw new Error((resJson && resJson.message) || "Dữ liệu trả về từ Google Sheets không hợp lệ");
+        throw new Error((resJson && resJson.message) || "Dữ liệu trả về từ Sổ Google Sheets không hợp lệ");
       }
     } catch (err) {
       this.isPulling = false;
@@ -1417,12 +1843,12 @@ class CloudSyncAdapter {
       return {
         success: false,
         mode: "ERROR",
-        message: `Không thể tải từ Google Sheets: ${err.message}`
+        message: "Chưa thể tải dữ liệu từ Sổ Google Sheets. Vui lòng kiểm tra đường dẫn kết nối hoặc đường truyền mạng và thử lại."
       };
     }
   }
 
-  // 6. Đồng bộ thời gian thực giữa nhiều Tab trình duyệt trên cùng máy (Storage Event)
+  // 6. Đồng bộ thời gian thực giữa các cửa sổ trình duyệt đang mở trên cùng máy
   initCrossTabSync() {
     window.addEventListener("storage", (event) => {
       if (!event.key) return;

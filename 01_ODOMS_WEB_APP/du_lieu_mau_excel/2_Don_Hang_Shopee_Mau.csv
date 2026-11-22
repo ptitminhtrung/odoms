@@ -1,4 +1,9 @@
-﻿Mã đơn hàng,Sàn TMĐT,Thời gian đặt hàng,SKU phân loại,Tên sản phẩm,Số lượng,Đơn giá,Người Mua,Số điện thoại,Địa chỉ nhận hàng,Trạng thái đơn hàng,Phương thức thanh toán
-SP261022001,SHOPEE,2026-10-22 08:15:10,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),4,250000,Nguyễn Văn An,0901234567,"123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM",Đã xác nhận,Ví ShopeePay
-SP261022002,SHOPEE,2026-10-22 08:20:00,SP-TAI-NGHE-02,Tai nghe Bluetooth Không dây TWS ANC Pro,3,490000,Trần Thị Bích,0912345678,"45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng",Đã xác nhận,COD (Thanh toán khi nhận hàng)
-SP261022003,SHOPEE,2026-10-22 08:25:30,SP-BAN-PHIM-05,Bàn Phím Cơ Không Dây RGB K68 Hotswap,4,650000,Lê Hoàng Nam,0987654321,"88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội",Chưa xác nhận,Ví ShopeePay
+﻿Mã đơn hàng,Sàn TMĐT,Thời gian đặt hàng,SKU phân loại,Tên sản phẩm,Số lượng,Đơn giá,Người Mua,Số điện thoại,Địa chỉ nhận hàng,Trạng thái đơn hàng,Phương thức thanh toán,Đơn vị vận chuyển
+SP261122001,SHOPEE,2026-11-22 08:15:10,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),4,250000,Nguyễn Văn An,0901234567,"123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM",Đã xác nhận,Ví ShopeePay,SPX Express
+SP260115002,SHOPEE,2026-01-15 09:20:00,SP-AO-THUN-02,Áo Thun Cotton Oversize Unisex (Trắng - Size M),5,190000,Trần Thị Bích,0912345678,"45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng",Đã xác nhận,COD (Thanh toán khi nhận hàng),SPX Express
+SP260318003,SHOPEE,2026-03-18 14:10:00,SP-QUAN-JEANS-06,Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31),4,450000,Lê Hoàng Nam,0987654321,"88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội",Đã xác nhận,Ví ShopeePay,SPX Express
+SP260520004,SHOPEE,2026-05-20 10:35:00,SP-DAM-MIDI-11,Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S),3,550000,Phạm Ngọc Hân,0905112233,"210 Phan Xích Long, Phường Cầu Kiệu, TP.HCM",Đã xác nhận,Ví ShopeePay,SPX Express
+SP260812005,SHOPEE,2026-08-12 16:40:00,SP-GIAY-SNEAKER-16,Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41),4,620000,Vũ Minh Đức,0913456789,"19 Hùng Vương, Phường Thuận Hóa, TP.Huế",Đã xác nhận,COD (Thanh toán khi nhận hàng),SPX Express
+SP261106006,SHOPEE,2026-11-06 11:15:00,SP-SET-BLAZER-14,Set Vest Blazer Nữ & Chân Váy (Trắng Kem - Size S),5,720000,Nguyễn Thùy Dương,0908223344,"72 Hai Bà Trưng, Phường Hoàn Kiếm, TP.Hà Nội",Đã xác nhận,Ví ShopeePay,SPX Express
+SP261117007,SHOPEE,2026-11-17 15:05:00,SP-AO-KHOAC-04,Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL),5,420000,Đặng Thị Thảo,0933445588,"78 Quang Trung, Phường Gò Vấp, TP.HCM",Đã xác nhận,COD (Thanh toán khi nhận hàng),SPX Express
+SP261122008,SHOPEE,2026-11-22 09:25:30,SP-TUI-DEO-21,Túi Đeo Chéo Da PU Chống Nước (Đen),3,340000,Trương Gia Huy,0978123456,"154 Nguyễn Trãi, Phường Bến Thành, TP.HCM",Chưa xác nhận,Ví ShopeePay,SPX Express

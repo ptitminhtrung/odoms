@@ -3,17 +3,17 @@
  * DỰ ÁN: HỆ THỐNG QUẢN LÝ ĐƠN HÀNG ĐA KÊNH THÔNG MINH (ODOMS)
  * TỆP TIN: S:\HTTT\02_REALTIME_BACKEND_SYNC\ODOMS_Backend_API.gs
  * MÔ TẢ:
- *   Backend Serverless trên Google Apps Script kết nối Cơ sở dữ liệu Google Sheets (5 bảng chuẩn PascalCase)
- *   kế thừa kiến trúc khóa tương tranh LockService & bộ Parser từ FIFO_Engine.gs.
- *   1. Tự động khởi tạo & chuyển đổi 5 Sheet chuẩn Tiếng Việt không dấu (PascalCase):
- *      - DatHang (18 cột)
- *      - TonKho (15 cột)
- *      - LuuKho (8 cột)
- *      - NhanSu (14 cột)
- *      - NhatKy (7 cột)
- *   2. Cổng doGet(e): Trả toàn bộ trạng thái 5 bảng dưới dạng JSON chuẩn cho Web App ODOMS & AppSheet.
- *   3. Cổng doPost(e): Nhận đồng bộ 2 chiều từ Web App (CloudSyncAdapter) và Webhook Postman
- *      với cơ chế khóa độc quyền LockService.getScriptLock() chống xung đột cho <= 10 người dùng.
+ *   Mã nguồn Google Apps Script độc lập kết nối Sổ dữ liệu Google Sheets chuẩn 6 trang tính
+ *   Tiếng Việt không dấu (PascalCase) — copy dán 1 lần và triển khai (Deploy) trên Google Sheets:
+ *     1. DatHang (19 cột — bổ sung cột DonViVanChuyen theo quy tắc ĐVVC 3 tầng)
+ *     2. TonKho  (15 cột — Tồn kho vật lý, đang giữ theo từng sàn và khả dụng)
+ *     3. LuuKho  (8 cột  — Lô hàng & mã QR truy xuất)
+ *     4. VanDon  (21 cột — Danh sách vận đơn, trạng thái giao nhận và hành trình)
+ *     5. NhanSu  (14 cột — Bảo toàn 4 tài khoản phân quyền dttd, lhmt, ntqg, nttn)
+ *     6. NhatKy  (7 cột  — Nhật ký hoạt động hệ thống)
+ *   - Khóa chống ghi đè đồng thời (LockService) hỗ trợ nhiều nhân viên thao tác cùng lúc.
+ *   - Tự động nâng cấp an toàn bảng DatHang 18 cột cũ sang 19 cột (chèn cột DonViVanChuyen
+ *     ngay trước MaVanDon) không làm lệch dữ liệu cũ.
  * =========================================================================================
  */
 
@@ -22,6 +22,7 @@ const ODOMS_CONFIG = {
     ORDERS: "DatHang",
     INVENTORY: "TonKho",
     BATCHES: "LuuKho",
+    SHIPMENTS: "VanDon",
     USERS: "NhanSu",
     LOGS: "NhatKy"
   },
@@ -29,6 +30,7 @@ const ODOMS_CONFIG = {
     Orders: "DatHang",
     Inventory_ATP: "TonKho",
     Batches: "LuuKho",
+    Shipments: "VanDon",
     Users_RBAC: "NhanSu",
     AuditLogs: "NhatKy"
   },
@@ -50,6 +52,7 @@ const ODOMS_CONFIG = {
       "TrangThaiDieuPhoi",
       "ThuTuGiuHang",
       "PhanBoLoHang",
+      "DonViVanChuyen",
       "MaVanDon",
       "ThoiGianCapNhat"
     ],
@@ -80,6 +83,29 @@ const ODOMS_CONFIG = {
       "SoLuongConLai",
       "ThoiGianCapNhat"
     ],
+    VanDon: [
+      "MaVanDon",
+      "MaDonGoc",
+      "SanTMDT",
+      "DonViVanChuyen",
+      "DichVuGiao",
+      "PhiVanChuyen",
+      "MienPhiVanChuyen",
+      "TienThuHoCOD",
+      "TrangThaiVanChuyen",
+      "NguoiNhan",
+      "SoDienThoaiNhan",
+      "DiaChiNhan",
+      "TomTatHangHoa",
+      "MaLoHang",
+      "BuuTaPhuTrach",
+      "SoDienThoaiBuuTa",
+      "ViTriHienTai",
+      "TienDoPhanTram",
+      "ThoiGianBanGiao",
+      "LichSuHanhTrinh",
+      "ThoiGianCapNhat"
+    ],
     NhanSu: [
       "MaNhanSu",
       "TenDangNhap",
@@ -106,13 +132,24 @@ const ODOMS_CONFIG = {
       "KetQua"
     ]
   },
+  CARRIER_POS_LABEL: "Tại quầy",
+  CARRIER_UNASSIGNED_LABEL: "Chưa gán ĐVVC",
+  PHONE_TEXT_COLUMNS: {
+    DatHang: ["SoDienThoai"],
+    VanDon: ["SoDienThoaiNhan", "SoDienThoaiBuuTa"]
+  },
+  DEFAULT_SENDER: {
+    name: "ODOMS Store — Kho Phường Bình Phú",
+    phone: "02877776868",
+    address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+  },
   LOCK_TIMEOUT_MS: 30000,
   DEFAULT_SECRET_TOKEN: "ODOMS_SECURE_TOKEN_2026"
 };
 
 /**
  * =========================================================================================
- * 1. KHỞI TẠO & CHUYỂN ĐỔI CƠ SỞ DỮ LIỆU 5 BẢNG CHUẨN PASCALCASE TRÊN GOOGLE SHEETS
+ * 1. KHỞI TẠO & NÂNG CẤP AN TOÀN SỔ DỮ LIỆU 6 TRANG TÍNH CHUẨN PASCALCASE
  * =========================================================================================
  */
 function migrateLegacySheets(ss) {
@@ -127,11 +164,79 @@ function migrateLegacySheets(ss) {
   });
 }
 
+function migrateDatHangAddCarrierColumn(ss) {
+  const sheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.ORDERS);
+  if (!sheet || sheet.getLastRow() === 0 || sheet.getLastColumn() === 0) return;
+
+  const lastCol = sheet.getLastColumn();
+  const headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+    return String(h || "").trim();
+  });
+
+  if (headerRow.indexOf("DonViVanChuyen") !== -1) {
+    return;
+  }
+
+  // Chèn cột DonViVanChuyen ngay trước MaVanDon (nếu có) để không làm lệch dữ liệu cột cũ
+  const trackingIdx = headerRow.indexOf("MaVanDon");
+  const updatedIdx = headerRow.indexOf("ThoiGianCapNhat");
+  let insertCol1Based = lastCol + 1;
+
+  if (trackingIdx >= 0) {
+    insertCol1Based = trackingIdx + 1;
+    sheet.insertColumnBefore(insertCol1Based);
+  } else if (updatedIdx >= 0) {
+    insertCol1Based = updatedIdx + 1;
+    sheet.insertColumnBefore(insertCol1Based);
+  }
+
+  sheet.getRange(1, insertCol1Based).setValue("DonViVanChuyen");
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const shipmentsIndex = buildShipmentLookupMaps(readShipmentsList(ss));
+    const currentLastCol = sheet.getLastColumn();
+    const updatedHeaders = sheet.getRange(1, 1, 1, currentLastCol).getValues()[0].map(function (h) {
+      return String(h || "").trim();
+    });
+    const orderIdIdx = updatedHeaders.indexOf("MaDonGoc");
+    const channelIdx = updatedHeaders.indexOf("SanTMDT");
+    const newTrackingIdx = updatedHeaders.indexOf("MaVanDon");
+    const bodyValues = sheet.getRange(2, 1, lastRow - 1, currentLastCol).getValues();
+
+    const carrierCells = bodyValues.map(function (row) {
+      const ordObj = {
+        orderId: orderIdIdx >= 0 ? String(row[orderIdIdx] || "").trim() : "",
+        channel: channelIdx >= 0 ? String(row[channelIdx] || "").trim() : "",
+        trackingCode: newTrackingIdx >= 0 ? String(row[newTrackingIdx] || "").trim() : "",
+        carrier: ""
+      };
+      return [resolveOrderCarrierBackend(ordObj, shipmentsIndex.byOrderId, shipmentsIndex.byTracking)];
+    });
+
+    sheet.getRange(2, insertCol1Based, carrierCells.length, 1).setValues(carrierCells);
+  }
+}
+
+function hasExpectedHeaders(sheet, expectedHeaders) {
+  if (!sheet || sheet.getLastRow() === 0) return false;
+  if (sheet.getLastColumn() < expectedHeaders.length) return false;
+  const actualHeaders = sheet.getRange(1, 1, 1, expectedHeaders.length).getValues()[0];
+  for (let i = 0; i < expectedHeaders.length; i++) {
+    if (String(actualHeaders[i] || "").trim() !== expectedHeaders[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function applySheetHeaderRow(sheet, headers) {
   if (!sheet || !headers || headers.length === 0) return;
   const maxCols = Math.max(sheet.getLastColumn(), headers.length);
   if (maxCols > headers.length) {
-    sheet.getRange(1, headers.length + 1, Math.max(1, sheet.getLastRow()), maxCols - headers.length).clearContent();
+    sheet
+      .getRange(1, headers.length + 1, Math.max(1, sheet.getLastRow()), maxCols - headers.length)
+      .clearContent();
   }
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   const headerRange = sheet.getRange(1, 1, 1, headers.length);
@@ -139,6 +244,39 @@ function applySheetHeaderRow(sheet, headers) {
   headerRange.setFontColor("#F3E4C9");
   headerRange.setFontWeight("bold");
   sheet.setFrozenRows(1);
+}
+
+function applyPhoneTextFormatToSheet(sheet, columnNames, minDataRows) {
+  if (!sheet || !Array.isArray(columnNames) || columnNames.length === 0) return;
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  let headerRow = [];
+  if (sheet.getLastRow() >= 1) {
+    headerRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
+      return String(h || "").trim();
+    });
+  }
+  const fallbackHeaders = ODOMS_CONFIG.HEADERS[sheet.getName()] || [];
+  const effectiveHeaders = headerRow.length >= fallbackHeaders.length ? headerRow : fallbackHeaders;
+  const maxRows = typeof sheet.getMaxRows === "function" ? sheet.getMaxRows() : 0;
+  const dataRowCount = Math.max(maxRows - 1, sheet.getLastRow() - 1, Number(minDataRows || 0), 1);
+
+  columnNames.forEach(function (colName) {
+    const idx = effectiveHeaders.indexOf(colName);
+    if (idx >= 0) {
+      sheet.getRange(2, idx + 1, dataRowCount, 1).setNumberFormat("@");
+    }
+  });
+}
+
+function applyPhoneTextFormatToAllSheets(ss) {
+  if (!ss) return;
+  const map = ODOMS_CONFIG.PHONE_TEXT_COLUMNS || {};
+  Object.keys(map).forEach(function (sheetName) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (sheet) {
+      applyPhoneTextFormatToSheet(sheet, map[sheetName], 1);
+    }
+  });
 }
 
 function setupODOMSDatabase() {
@@ -149,6 +287,7 @@ function setupODOMSDatabase() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   migrateLegacySheets(ss);
+  migrateDatHangAddCarrierColumn(ss);
 
   const sheetNames = Object.values(ODOMS_CONFIG.SHEETS);
   sheetNames.forEach(function (sheetName) {
@@ -160,11 +299,13 @@ function setupODOMSDatabase() {
     applySheetHeaderRow(sheet, headers);
   });
 
+  applyPhoneTextFormatToAllSheets(ss);
   seedDefaultDataIfEmpty(ss);
 
   return {
     status: "SUCCESS",
-    message: "Đã khởi tạo hoàn tất 5 bảng chuẩn PascalCase ODOMS (DatHang, TonKho, LuuKho, NhanSu, NhatKy).",
+    message:
+      "Đã khởi tạo hoàn tất sổ dữ liệu 6 trang tính chuẩn ODOMS (DatHang, TonKho, LuuKho, VanDon, NhanSu, NhatKy).",
     sheets: sheetNames,
     timestamp: formatNowVN()
   };
@@ -173,17 +314,18 @@ function setupODOMSDatabase() {
 function ensureSheetsInitialized() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   migrateLegacySheets(ss);
+  migrateDatHangAddCarrierColumn(ss);
 
-  const missingOrLegacyHeader = Object.values(ODOMS_CONFIG.SHEETS).some(function (name) {
+  const needsSetup = Object.values(ODOMS_CONFIG.SHEETS).some(function (name) {
     const sh = ss.getSheetByName(name);
-    if (!sh || sh.getLastRow() === 0) return true;
-    const expectedFirstCol = ODOMS_CONFIG.HEADERS[name][0];
-    const actualFirstCol = String(sh.getRange(1, 1).getValue() || "").trim();
-    return actualFirstCol !== expectedFirstCol;
+    const expected = ODOMS_CONFIG.HEADERS[name];
+    return !hasExpectedHeaders(sh, expected);
   });
 
-  if (missingOrLegacyHeader) {
+  if (needsSetup) {
     setupODOMSDatabase();
+  } else {
+    applyPhoneTextFormatToAllSheets(ss);
   }
   return ss;
 }
@@ -191,35 +333,22 @@ function ensureSheetsInitialized() {
 function seedDefaultDataIfEmpty(ss) {
   const nowStr = formatNowVN();
 
-  // 1. Seed TonKho & LuuKho nếu đang trống
+  // 1. Khởi tạo TonKho & LuuKho Thời trang (25 mã SP, 40 lô hàng — bảo toàn kịch bản SP-AO-POLO-01: 10 cái) nếu đang trống
   const invSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.INVENTORY);
   const batchSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.BATCHES);
-  if (invSheet && invSheet.getLastRow() <= 1) {
-    const defaultInvRows = [
-      ["SP-AO-POLO-01", "Áo Polo Nam Coolmate Pro (Đen - Size L)", "Thời trang", "Cái", 250000, 25, 10, 0, 10, 0, 0, 0, 0, 0, nowStr],
-      ["SP-TAI-NGHE-02", "Tai nghe Bluetooth Không dây TWS ANC Pro", "Phụ kiện số", "Hộp", 490000, 30, 15, 0, 15, 0, 0, 0, 0, 0, nowStr],
-      ["SP-BALO-LAP-03", "Balo Laptop Chống Nước 15.6 inch Urban", "Túi & Balo", "Chiếc", 380000, 20, 8, 0, 8, 0, 0, 0, 0, 0, nowStr],
-      ["SP-BINH-NHIET-04", "Bình Giữ Nhiệt Inox 304 Lock&Lock 900ml", "Gia dụng", "Bình", 310000, 40, 20, 0, 20, 0, 0, 0, 0, 0, nowStr],
-      ["SP-BAN-PHIM-05", "Bàn Phím Cơ Không Dây RGB K68 Hotswap", "Phụ kiện số", "Bộ", 650000, 20, 6, 0, 6, 0, 0, 0, 0, 0, nowStr]
-    ];
-    invSheet.getRange(2, 1, defaultInvRows.length, defaultInvRows[0].length).setValues(defaultInvRows);
+  if ((invSheet && invSheet.getLastRow() <= 1) || (batchSheet && batchSheet.getLastRow() <= 1)) {
+    const fashionCatalog = getFashion2026InventoryCatalog_();
+    writeInventoryAndBatchesSheets(ss, fashionCatalog);
   }
 
-  if (batchSheet && batchSheet.getLastRow() <= 1) {
-    const defaultBatchRows = [
-      ["LO-2026-A1", "OD-POLO-1001", "SP-AO-POLO-01", "2026-10-01", "2027-10-01", 6, 6, nowStr],
-      ["LO-2026-A2", "OD-POLO-1010", "SP-AO-POLO-01", "2026-10-10", "2027-10-10", 4, 4, nowStr],
-      ["LO-2026-B1", "OD-TWS-1003", "SP-TAI-NGHE-02", "2026-10-03", "2028-04-03", 10, 10, nowStr],
-      ["LO-2026-B2", "OD-TWS-1012", "SP-TAI-NGHE-02", "2026-10-12", "2028-04-12", 5, 5, nowStr],
-      ["LO-2026-C1", "OD-BALO-1005", "SP-BALO-LAP-03", "2026-10-05", "2028-10-05", 5, 5, nowStr],
-      ["LO-2026-C2", "OD-BALO-1015", "SP-BALO-LAP-03", "2026-10-15", "2028-10-15", 3, 3, nowStr],
-      ["LO-2026-D1", "OD-BINH-1002", "SP-BINH-NHIET-04", "2026-10-02", "2029-10-02", 20, 20, nowStr],
-      ["LO-2026-E1", "OD-KEYB-1008", "SP-BAN-PHIM-05", "2026-10-08", "2028-10-08", 6, 6, nowStr]
-    ];
-    batchSheet.getRange(2, 1, defaultBatchRows.length, defaultBatchRows[0].length).setValues(defaultBatchRows);
+  // 2. Khởi tạo VanDon Thời trang (10 vận đơn) nếu đang trống
+  const shipSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.SHIPMENTS);
+  if (shipSheet && shipSheet.getLastRow() <= 1) {
+    const fashionShipments = getFashion2026ShipmentsSeed_();
+    writeShipmentsSheet(ss, fashionShipments);
   }
 
-  // 2. Seed NhanSu nếu đang trống
+  // 3. Khởi tạo NhanSu nếu đang trống (bảo toàn tuyệt đối 4 tài khoản dttd, lhmt ẩn dự phòng, ntqg, nttn)
   const userSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.USERS);
   if (userSheet && userSheet.getLastRow() <= 1) {
     const defaultUsers = [
@@ -231,11 +360,11 @@ function seedDefaultDataIfEmpty(ss) {
     userSheet.getRange(2, 1, defaultUsers.length, defaultUsers[0].length).setValues(defaultUsers);
   }
 
-  // 3. Seed NhatKy (7 cột, không có VaiTro) nếu đang trống
+  // 4. Khởi tạo NhatKy nếu đang trống
   const logSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.LOGS);
   if (logSheet && logSheet.getLastRow() <= 1) {
     const defaultLogs = [
-      ["LOG-INIT-1", nowStr, "dttd", "Đỗ Thị Thuỳ Dung", "Khởi tạo cơ sở dữ liệu 5 bảng chuẩn PascalCase trên Google Sheets", "Google Cloud Apps Script", "SUCCESS"]
+      ["LOG-INIT-1", nowStr, "dttd", "Đỗ Thị Thuỳ Dung", "Khởi tạo sổ dữ liệu 6 trang tính ODOMS ngành Thời trang (25 sản phẩm) trên Google Sheets", "Sổ dữ liệu Google Sheets", "SUCCESS"]
     ];
     logSheet.getRange(2, 1, defaultLogs.length, defaultLogs[0].length).setValues(defaultLogs);
   }
@@ -249,13 +378,14 @@ function seedDefaultDataIfEmpty(ss) {
 function doGet(e) {
   try {
     const ss = ensureSheetsInitialized();
-    const action = (e && e.parameter && e.parameter.action) ? String(e.parameter.action).toUpperCase() : "PULL_ALL";
+    const action = e && e.parameter && e.parameter.action ? String(e.parameter.action).toUpperCase() : "PULL_ALL";
 
     if (action === "PING") {
       return jsonResponse({
         status: "SUCCESS",
-        service: "ODOMS_Backend_API",
-        message: "Kết nối Google Apps Script ODOMS hoạt động ổn định!",
+        service: "ODOMS_SHEETS_SYNC",
+        message: "Kết nối Sổ dữ liệu Google Sheets 6 trang tính đang hoạt động ổn định.",
+        sheets: Object.values(ODOMS_CONFIG.SHEETS),
         serverTime: formatNowVN()
       });
     }
@@ -270,7 +400,7 @@ function doGet(e) {
   } catch (err) {
     return jsonResponse({
       status: "ERROR",
-      message: "Lỗi doGet ODOMS: " + err.toString()
+      message: "Không thể đọc dữ liệu từ Sổ Google Sheets: " + err.toString()
     });
   }
 }
@@ -287,7 +417,7 @@ function doPost(e) {
   if (!hasLock) {
     return jsonResponse({
       status: "BUSY",
-      message: "Hệ thống đang xử lý đồng bộ từ người dùng khác (LockService Timeout). Vui lòng thử lại sau giây lát."
+      message: "Sổ Google Sheets đang bận cập nhật từ một nhân viên khác. Vui lòng thử lại sau vài giây."
     });
   }
 
@@ -305,13 +435,34 @@ function doPost(e) {
       return jsonResponse(setupRes);
     }
 
+    if (action === "SEED_FASHION_2026") {
+      const seedRes = seedFashion2026DataInternal_(ss);
+      return jsonResponse(seedRes);
+    }
+
     if (action === "SYNC_ALL" || action === "PUSH_STATE") {
       const syncResult = writeFullStateToSheets(ss, payload);
       return jsonResponse({
         status: "SUCCESS",
         action: action,
-        message: "Đã đồng bộ trạng thái ODOMS lên 5 bảng Google Sheets (DatHang, TonKho, LuuKho, NhanSu, NhatKy) thành công!",
+        message:
+          "Đã đồng bộ đầy đủ 6 trang tính lên Sổ Google Sheets (DatHang, TonKho, LuuKho, VanDon, NhanSu, NhatKy) thành công.",
         details: syncResult,
+        serverTime: formatNowVN()
+      });
+    }
+
+    if (action === "SYNC_SHIPMENTS") {
+      const incomingShipments = Array.isArray(payload.shipments) ? payload.shipments : [];
+      const shipCount = writeShipmentsSheet(ss, incomingShipments);
+      // Tự động cập nhật ngược ĐVVC & Mã vận đơn cho các đơn hàng khớp trên DatHang
+      const currentState = readAllSheetsState(ss);
+      const updatedOrdersCount = writeOrdersSheet(ss, currentState.orders, currentState.shipments);
+      return jsonResponse({
+        status: "SUCCESS",
+        action: "SYNC_SHIPMENTS",
+        message: "Đã cập nhật trang tính VanDon và tự động đồng bộ Đơn vị vận chuyển sang trang tính DatHang.",
+        details: { shipments: shipCount, orders: updatedOrdersCount },
         serverTime: formatNowVN()
       });
     }
@@ -326,13 +477,14 @@ function doPost(e) {
       return jsonResponse({
         status: "SUCCESS",
         action: "SYNC_USERS",
-        message: "Đã đồng bộ bảng NhanSu và NhatKy lên Google Sheets.",
+        message: "Đã đồng bộ danh sách Nhân sự và Nhật ký hoạt động lên Google Sheets.",
         serverTime: formatNowVN()
       });
     }
 
     if (action === "WEBHOOK_ORDER" || action === "INGEST_ORDERS") {
       const currentState = readAllSheetsState(ss);
+      const shipmentsIndex = buildShipmentLookupMaps(currentState.shipments);
       const incomingOrders = Array.isArray(payload.orders)
         ? payload.orders
         : payload.order
@@ -341,21 +493,48 @@ function doPost(e) {
 
       let added = 0;
       incomingOrders.forEach(function (ord) {
-        const orderId = String(ord.orderId || ord.MaDonGoc || ord.original_sn || ord["Mã đơn hàng"] || ("OD-" + Date.now())).trim();
+        const orderId = String(
+          ord.orderId || ord.MaDonGoc || ord.original_sn || ord["Mã đơn hàng"] || "OD-" + Date.now()
+        ).trim();
         const exists = currentState.orders.some(function (o) {
           return String(o.orderId) === orderId;
         });
         if (!exists) {
-          currentState.orders.push({
+          const channelVal = String(
+            ord.channel || ord.SanTMDT || ord.channel_id || ord["Sàn TMĐT"] || "SHOPEE"
+          ).toUpperCase();
+          const rawCarrier = pickVal(
+            ord,
+            [
+              "carrier",
+              "DonViVanChuyen",
+              "Đơn vị vận chuyển",
+              "ĐVVC",
+              "Don_Vi_Van_Chuyen",
+              "Shipping Provider",
+              "shippingProvider",
+              "Shipping Carrier",
+              "shippingCarrier",
+              "Carrier",
+              "carrier",
+              "Logistics",
+              "Nhà vận chuyển"
+            ],
+            ""
+          );
+          const rawTracking = String(
+            pickVal(ord, ["trackingCode", "MaVanDon", "Mã vận đơn", "Tracking Code"], "")
+          ).trim();
+          const newOrderObj = {
             orderId: orderId,
-            channel: String(ord.channel || ord.SanTMDT || ord.channel_id || ord["Sàn TMĐT"] || "SHOPEE").toUpperCase(),
+            channel: channelVal,
             orderTime: ord.orderTime || ord.ThoiGianDat || formatNowVN(),
             sku: String(ord.sku || ord.MaSanPhamSKU || ord.internal_sku || ord["SKU phân loại"] || "SP-AO-POLO-01").toUpperCase(),
             productName: ord.productName || ord.TenSanPham || ord["Tên sản phẩm"] || "",
             quantity: parseQuantity(ord.quantity || ord.SoLuong || ord.order_qty || ord["Số lượng"] || 1),
             unitPrice: parseCurrencyVND(ord.unitPrice || ord.DonGia || ord["Đơn giá"] || 250000),
-            customerName: ord.customerName || ord.KhachHang || ord["Người Mua"] || "Khách đặt qua Webhook",
-            customerPhone: ord.customerPhone || ord.SoDienThoai || ord["Số điện thoại"] || "N/A",
+            customerName: ord.customerName || ord.KhachHang || ord["Người Mua"] || "Khách đặt từ kênh bán",
+            customerPhone: normalizePhoneVN(ord.customerPhone || ord.SoDienThoai || ord["Số điện thoại"] || ""),
             shippingAddress: ord.shippingAddress || ord.DiaChiGiao || ord.delivery_city || ord["Địa chỉ nhận hàng"] || "TP.HCM",
             platformStatus: ord.platformStatus || ord.TrangThaiSan || "CONFIRMED",
             paymentMethod: ord.paymentMethod || ord.PhuongThucThanhToan || "COD",
@@ -363,18 +542,29 @@ function doPost(e) {
             status: ord.status || ord.TrangThaiDieuPhoi || "ALLOCATED",
             fifoRank: ord.fifoRank || ord.ThuTuGiuHang || "",
             allocatedBatches: ord.allocatedBatches || [],
-            trackingCode: ord.trackingCode || ord.MaVanDon || ""
-          });
+            carrier: rawCarrier,
+            trackingCode: rawTracking
+          };
+          newOrderObj.carrier = resolveOrderCarrierBackend(
+            newOrderObj,
+            shipmentsIndex.byOrderId,
+            shipmentsIndex.byTracking
+          );
+          if (!newOrderObj.trackingCode && shipmentsIndex.byOrderId[orderId]) {
+            newOrderObj.trackingCode = shipmentsIndex.byOrderId[orderId].trackingCode || "";
+          }
+          currentState.orders.push(newOrderObj);
           added++;
         }
       });
 
-      writeOrdersSheet(ss, currentState.orders);
+      writeOrdersSheet(ss, currentState.orders, currentState.shipments);
       return jsonResponse({
         status: "SUCCESS",
         action: action,
         addedCount: added,
         totalOrders: currentState.orders.length,
+        message: "Đã tiếp nhận " + added + " đơn hàng mới vào trang tính DatHang.",
         serverTime: formatNowVN()
       });
     }
@@ -382,26 +572,92 @@ function doPost(e) {
     return jsonResponse({
       status: "SUCCESS",
       action: action,
-      message: "Đã tiếp nhận yêu cầu doPost thành công.",
+      message: "Đã tiếp nhận và xử lý yêu cầu đồng bộ thành công.",
       serverTime: formatNowVN()
     });
   } catch (error) {
     return jsonResponse({
       status: "ERROR",
-      message: "Lỗi xử lý doPost ODOMS: " + error.toString()
+      message: "Không thể cập nhật dữ liệu lên Sổ Google Sheets: " + error.toString()
     });
   } finally {
     try {
       lock.releaseLock();
     } catch (lockErr) {
-      Logger.log("Lock đã giải phóng: " + lockErr.toString());
+      Logger.log("Giải phóng khóa đồng bộ: " + lockErr.toString());
     }
   }
 }
 
 /**
  * =========================================================================================
- * 4. CÁC HÀM ĐỌC / GHI 5 BẢNG TRÊN GOOGLE SHEETS (HỖ TRỢ TƯƠNG THÍCH 2 CHIỀU PASCALCASE)
+ * 4. CƠ CHẾ XÁC ĐỊNH ĐƠN VỊ VẬN CHUYỂN (ĐVVC) CHUẨN NGHIỆP VỤ 3 TẦNG
+ * =========================================================================================
+ */
+function isAssignedCarrierValue(val) {
+  const s = String(val || "").trim();
+  if (!s) return false;
+  const lower = s.toLowerCase();
+  return (
+    lower !== "chưa gán đvvc" &&
+    lower !== "chua gan dvvc" &&
+    lower !== "n/a" &&
+    lower !== "null" &&
+    lower !== "undefined" &&
+    s !== "-" &&
+    s !== "—"
+  );
+}
+
+function buildShipmentLookupMaps(shipments) {
+  const byOrderId = {};
+  const byTracking = {};
+  (shipments || []).forEach(function (s) {
+    if (!s) return;
+    const ordId = String(s.orderId || "").trim();
+    const trk = String(s.trackingCode || "").trim();
+    if (ordId) byOrderId[ordId] = s;
+    if (trk) byTracking[trk] = s;
+  });
+  return { byOrderId: byOrderId, byTracking: byTracking };
+}
+
+/**
+ * Quy tắc ĐVVC 3 tầng:
+ *  - Tầng 1: Đối chiếu vận đơn thực tế trong bảng VanDon (khớp MaDonGoc hoặc MaVanDon).
+ *  - Tầng 2: Đọc trực tiếp từ trường DonViVanChuyen của đơn hàng (từ Sàn TMĐT / Excel / DatHang).
+ *  - Tầng 3: Theo nguồn phát sinh đơn — POS tự động gán "Tại quầy"; Facebook / ngoài sàn chưa có vận đơn -> "Chưa gán ĐVVC".
+ */
+function resolveOrderCarrierBackend(orderObj, shipmentsByOrderId, shipmentsByTracking) {
+  const ord = orderObj || {};
+  const orderId = String(ord.orderId || "").trim();
+  const trackingCode = String(ord.trackingCode || "").trim();
+  const channelUpper = String(ord.channel || "").trim().toUpperCase();
+
+  // Tầng 1: Ưu tiên ĐVVC thực tế từ bảng VanDon
+  const matchedShipment =
+    (orderId && shipmentsByOrderId && shipmentsByOrderId[orderId]) ||
+    (trackingCode && shipmentsByTracking && shipmentsByTracking[trackingCode]) ||
+    null;
+  if (matchedShipment && isAssignedCarrierValue(matchedShipment.carrier)) {
+    return String(matchedShipment.carrier).trim();
+  }
+
+  // Tầng 2: Trường ĐVVC gốc từ Sàn TMĐT / tệp Excel / DatHang
+  if (isAssignedCarrierValue(ord.carrier)) {
+    return String(ord.carrier).trim();
+  }
+
+  // Tầng 3: Mặc định chuẩn theo nguồn phát sinh đơn
+  if (channelUpper === "POS" || channelUpper.indexOf("POS") !== -1) {
+    return ODOMS_CONFIG.CARRIER_POS_LABEL;
+  }
+  return ODOMS_CONFIG.CARRIER_UNASSIGNED_LABEL;
+}
+
+/**
+ * =========================================================================================
+ * 5. CÁC HÀM ĐỌC / GHI 6 TRANG TÍNH TRÊN GOOGLE SHEETS
  * =========================================================================================
  */
 function pickVal(row, keys, defaultVal) {
@@ -485,8 +741,170 @@ function parseAllocatedBatchesFromSheet(rawVal) {
     });
 }
 
-function readAllSheetsState(ss) {
+function getShippingTierLabelBackend(tierCode) {
+  const t = String(tierCode || "TIEU_CHUAN").toUpperCase();
+  if (t === "HOA_TOC") return "⚡ Hỏa Tốc (2H)";
+  if (t === "NHANH") return "🚀 Giao Nhanh (24H)";
+  return "📦 Tiêu Chuẩn";
+}
+
+function getShipmentStatusLabelBackend(statusCode) {
+  const st = String(statusCode || "PENDING_PICKUP").toUpperCase();
+  if (st === "IN_TRANSIT") return "🚚 Đang giao hàng";
+  if (st === "DELIVERED") return "✅ Giao thành công";
+  if (st === "FAILED_RETURNING") return "❌ Giao thất bại / Chờ chuyển hoàn";
+  return "⏳ Chờ lấy hàng";
+}
+
+function sanitizePipeField(val) {
+  return String(val || "")
+    .replace(/\r?\n/g, " ")
+    .replace(/\|/g, "/")
+    .trim();
+}
+
+function formatTimelineForSheet(timeline) {
+  if (!Array.isArray(timeline) || timeline.length === 0) return "";
+  return timeline
+    .map(function (step) {
+      return [
+        sanitizePipeField(step.time),
+        sanitizePipeField(step.title),
+        sanitizePipeField(step.desc),
+        sanitizePipeField(step.location)
+      ].join(" | ");
+    })
+    .join("\n");
+}
+
+function parseTimelineFromSheet(rawVal) {
+  const s = String(rawVal || "").trim();
+  if (!s) return [];
+  if (s.charAt(0) === "[") {
+    try {
+      const parsed = JSON.parse(s);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  return s
+    .split(/\r?\n|;;/)
+    .map(function (line) {
+      const trimmed = line.trim();
+      if (!trimmed) return null;
+      const parts = trimmed.split("|").map(function (p) {
+        return p.trim();
+      });
+      return {
+        time: parts[0] || "",
+        title: parts[1] || "Cập nhật vận chuyển",
+        desc: parts[2] || "",
+        location: parts[3] || "Kho ODOMS Phường Bình Phú"
+      };
+    })
+    .filter(function (item) {
+      return item !== null;
+    });
+}
+
+function readShipmentsList(ss) {
+  const shipRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.SHIPMENTS);
+  return shipRaw.map(function (s) {
+    const tierCode = String(pickVal(s, ["DichVuGiao", "shippingTier"], "TIEU_CHUAN")).toUpperCase();
+    const statusCode = String(pickVal(s, ["TrangThaiVanChuyen", "status"], "PENDING_PICKUP")).toUpperCase();
+    const isFreeRaw = pickVal(s, ["MienPhiVanChuyen", "isFreeship"], false);
+    const feeNum = parseCurrencyVND(pickVal(s, ["PhiVanChuyen", "shippingFee"], 0));
+    const isFreeship = isFreeRaw === true || String(isFreeRaw).toLowerCase() === "true" || feeNum === 0;
+    const progressNum = parseQuantity(pickVal(s, ["TienDoPhanTram", "progressPercent"], 20));
+
+    return {
+      trackingCode: String(pickVal(s, ["MaVanDon", "trackingCode"], "")).trim(),
+      orderId: String(pickVal(s, ["MaDonGoc", "orderId"], "")).trim(),
+      channel: String(pickVal(s, ["SanTMDT", "channel"], "SHOPEE")).trim().toUpperCase(),
+      carrier: String(pickVal(s, ["DonViVanChuyen", "carrier"], "")).trim(),
+      shippingTier: tierCode,
+      shippingTierLabel: getShippingTierLabelBackend(tierCode),
+      shippingFee: feeNum,
+      isFreeship: isFreeship,
+      totalCod: parseCurrencyVND(pickVal(s, ["TienThuHoCOD", "totalCod"], 0)),
+      status: statusCode,
+      statusLabel: getShipmentStatusLabelBackend(statusCode),
+      sender: {
+        name: ODOMS_CONFIG.DEFAULT_SENDER.name,
+        phone: ODOMS_CONFIG.DEFAULT_SENDER.phone,
+        address: ODOMS_CONFIG.DEFAULT_SENDER.address
+      },
+      receiver: {
+        name: String(pickVal(s, ["NguoiNhan", "receiverName"], "")).trim(),
+        phone: normalizePhoneVN(pickVal(s, ["SoDienThoaiNhan", "receiverPhone"], "")),
+        address: String(pickVal(s, ["DiaChiNhan", "receiverAddress"], "")).trim()
+      },
+      itemsSummary: String(pickVal(s, ["TomTatHangHoa", "itemsSummary"], "")).trim(),
+      batchCode: String(pickVal(s, ["MaLoHang", "batchCode"], "")).trim(),
+      shipperName: String(pickVal(s, ["BuuTaPhuTrach", "shipperName"], "Đang điều phối bưu tá")).trim(),
+      shipperPhone: normalizePhoneVN(pickVal(s, ["SoDienThoaiBuuTa", "shipperPhone"], "")),
+      currentLocation: String(pickVal(s, ["ViTriHienTai", "currentLocation"], "")).trim(),
+      progressPercent: progressNum,
+      handoverTime: String(pickVal(s, ["ThoiGianBanGiao", "handoverTime"], "")).trim(),
+      lastUpdateTime: String(pickVal(s, ["ThoiGianCapNhat", "lastUpdateTime"], "")).trim(),
+      timeline: parseTimelineFromSheet(pickVal(s, ["LichSuHanhTrinh", "timeline"], ""))
+    };
+  });
+}
+
+function readOrdersList(ss, shipmentsIndexOpt) {
+  const shipmentsIndex = shipmentsIndexOpt || buildShipmentLookupMaps(readShipmentsList(ss));
   const ordersRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.ORDERS);
+
+  return ordersRaw.map(function (r) {
+    const rawBatchesVal = pickVal(r, ["PhanBoLoHang", "allocatedBatchesJson"], "");
+    const rawSourceVal = pickVal(r, ["NguonTiepNhan", "sourceMethod"], "NhapTuFileExcel");
+    const rankVal = pickVal(r, ["ThuTuGiuHang", "fifoRank"], "");
+    const orderId = String(pickVal(r, ["MaDonGoc", "orderId"], "")).trim();
+    const channel = String(pickVal(r, ["SanTMDT", "channel"], "SHOPEE")).trim();
+    const rawCarrier = String(
+      pickVal(r, ["DonViVanChuyen", "carrier", "Don_Vi_Van_Chuyen", "Đơn vị vận chuyển"], "")
+    ).trim();
+    let trackingCode = String(pickVal(r, ["MaVanDon", "trackingCode"], "")).trim();
+
+    if (!trackingCode && shipmentsIndex.byOrderId[orderId]) {
+      trackingCode = shipmentsIndex.byOrderId[orderId].trackingCode || "";
+    }
+
+    const resolvedCarrier = resolveOrderCarrierBackend(
+      { orderId: orderId, channel: channel, carrier: rawCarrier, trackingCode: trackingCode },
+      shipmentsIndex.byOrderId,
+      shipmentsIndex.byTracking
+    );
+
+    return {
+      orderId: orderId,
+      channel: channel,
+      orderTime: String(pickVal(r, ["ThoiGianDat", "orderTime"], "")),
+      sku: String(pickVal(r, ["MaSanPhamSKU", "sku"], "")),
+      productName: String(pickVal(r, ["TenSanPham", "productName"], "")),
+      quantity: parseQuantity(pickVal(r, ["SoLuong", "quantity"], 0)),
+      unitPrice: parseCurrencyVND(pickVal(r, ["DonGia", "unitPrice"], 0)),
+      customerName: String(pickVal(r, ["KhachHang", "customerName"], "")),
+      customerPhone: normalizePhoneVN(pickVal(r, ["SoDienThoai", "customerPhone"], "")),
+      shippingAddress: String(pickVal(r, ["DiaChiGiao", "shippingAddress"], "")),
+      platformStatus: String(pickVal(r, ["TrangThaiSan", "platformStatus"], "CONFIRMED")),
+      paymentMethod: String(pickVal(r, ["PhuongThucThanhToan", "paymentMethod"], "COD")),
+      sourceMethod: parseSourceMethodFromSheet(rawSourceVal),
+      status: String(pickVal(r, ["TrangThaiDieuPhoi", "status"], "PENDING")),
+      fifoRank: rankVal !== "" && rankVal !== null ? Number(rankVal) : null,
+      allocatedBatches: parseAllocatedBatchesFromSheet(rawBatchesVal),
+      carrier: resolvedCarrier,
+      trackingCode: trackingCode
+    };
+  });
+}
+
+function readAllSheetsState(ss) {
+  const shipments = readShipmentsList(ss);
+  const shipmentsIndex = buildShipmentLookupMaps(shipments);
+  const orders = readOrdersList(ss, shipmentsIndex);
   const invRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.INVENTORY);
   const batchesRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.BATCHES);
   const usersRaw = readSheetObjects(ss, ODOMS_CONFIG.SHEETS.USERS);
@@ -531,32 +949,6 @@ function readAllSheetsState(ss) {
     };
   });
 
-  const orders = ordersRaw.map(function (r) {
-    const rawBatchesVal = pickVal(r, ["PhanBoLoHang", "allocatedBatchesJson"], "");
-    const rawSourceVal = pickVal(r, ["NguonTiepNhan", "sourceMethod"], "NhapTuFileExcel");
-    const rankVal = pickVal(r, ["ThuTuGiuHang", "fifoRank"], "");
-
-    return {
-      orderId: String(pickVal(r, ["MaDonGoc", "orderId"], "")),
-      channel: String(pickVal(r, ["SanTMDT", "channel"], "SHOPEE")),
-      orderTime: String(pickVal(r, ["ThoiGianDat", "orderTime"], "")),
-      sku: String(pickVal(r, ["MaSanPhamSKU", "sku"], "")),
-      productName: String(pickVal(r, ["TenSanPham", "productName"], "")),
-      quantity: parseQuantity(pickVal(r, ["SoLuong", "quantity"], 0)),
-      unitPrice: parseCurrencyVND(pickVal(r, ["DonGia", "unitPrice"], 0)),
-      customerName: String(pickVal(r, ["KhachHang", "customerName"], "")),
-      customerPhone: String(pickVal(r, ["SoDienThoai", "customerPhone"], "")),
-      shippingAddress: String(pickVal(r, ["DiaChiGiao", "shippingAddress"], "")),
-      platformStatus: String(pickVal(r, ["TrangThaiSan", "platformStatus"], "CONFIRMED")),
-      paymentMethod: String(pickVal(r, ["PhuongThucThanhToan", "paymentMethod"], "COD")),
-      sourceMethod: parseSourceMethodFromSheet(rawSourceVal),
-      status: String(pickVal(r, ["TrangThaiDieuPhoi", "status"], "PENDING")),
-      fifoRank: rankVal !== "" && rankVal !== null ? Number(rankVal) : null,
-      allocatedBatches: parseAllocatedBatchesFromSheet(rawBatchesVal),
-      trackingCode: String(pickVal(r, ["MaVanDon", "trackingCode"], ""))
-    };
-  });
-
   const users = usersRaw.map(function (u) {
     const isRootRaw = pickVal(u, ["QuyenQuanTriGoc", "isRoot"], false);
     const isHiddenRaw = pickVal(u, ["TaiKhoanDuPhongAn", "isHiddenBackup"], false);
@@ -586,7 +978,7 @@ function readAllSheetsState(ss) {
       fullName: String(pickVal(l, ["HoVaTen", "fullName"], "Hệ thống")),
       role: "Quản trị viên OMS",
       action: String(pickVal(l, ["NoiDungThaoTac", "action"], "")),
-      ip: String(pickVal(l, ["DiaChiIP", "ip"], "ODOMS Cloud Sync")),
+      ip: String(pickVal(l, ["DiaChiIP", "ip"], "Sổ dữ liệu Google Sheets")),
       status: String(pickVal(l, ["KetQua", "status"], "SUCCESS"))
     };
   });
@@ -594,6 +986,7 @@ function readAllSheetsState(ss) {
   return {
     orders: orders,
     inventory: inventory,
+    shipments: shipments,
     users: users,
     auditLogs: auditLogs
   };
@@ -604,12 +997,23 @@ function writeFullStateToSheets(ss, payload) {
     orders: 0,
     inventory: 0,
     batches: 0,
+    shipments: 0,
     users: 0,
     auditLogs: 0
   };
 
+  // Ghi VanDon trước để bảng DatHang đối chiếu chính xác ĐVVC 3 tầng
+  let effectiveShipments = null;
+  if (Array.isArray(payload.shipments)) {
+    counts.shipments = writeShipmentsSheet(ss, payload.shipments);
+    effectiveShipments = payload.shipments;
+  } else {
+    effectiveShipments = readShipmentsList(ss);
+    counts.shipments = effectiveShipments.length;
+  }
+
   if (Array.isArray(payload.orders)) {
-    counts.orders = writeOrdersSheet(ss, payload.orders);
+    counts.orders = writeOrdersSheet(ss, payload.orders, effectiveShipments);
   }
   if (Array.isArray(payload.inventory)) {
     const invRes = writeInventoryAndBatchesSheets(ss, payload.inventory);
@@ -626,17 +1030,35 @@ function writeFullStateToSheets(ss, payload) {
   return counts;
 }
 
-function writeOrdersSheet(ss, orders) {
+function writeOrdersSheet(ss, orders, shipmentsOpt) {
   const sheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.ORDERS);
   const headers = ODOMS_CONFIG.HEADERS.DatHang;
   clearSheetDataRows(sheet, headers);
 
-  if (!orders || orders.length === 0) return 0;
+  if (!orders || orders.length === 0) {
+    applyPhoneTextFormatToSheet(sheet, ODOMS_CONFIG.PHONE_TEXT_COLUMNS.DatHang, 1);
+    return 0;
+  }
+  const effectiveShipments = Array.isArray(shipmentsOpt) ? shipmentsOpt : readShipmentsList(ss);
+  const shipmentsIndex = buildShipmentLookupMaps(effectiveShipments);
   const nowStr = formatNowVN();
+
   const rows = orders.map(function (o) {
     const ch = o.channel || "SHOPEE";
+    const orderId = String(o.orderId || "").trim();
+    const matchedShip =
+      (orderId && shipmentsIndex.byOrderId[orderId]) ||
+      (o.trackingCode && shipmentsIndex.byTracking[String(o.trackingCode).trim()]) ||
+      null;
+    const trackingCode = String(o.trackingCode || (matchedShip ? matchedShip.trackingCode : "") || "").trim();
+    const resolvedCarrier = resolveOrderCarrierBackend(
+      { orderId: orderId, channel: ch, carrier: o.carrier, trackingCode: trackingCode },
+      shipmentsIndex.byOrderId,
+      shipmentsIndex.byTracking
+    );
+
     return [
-      o.orderId || "",
+      orderId,
       ch,
       o.orderTime || "",
       o.sku || "",
@@ -644,7 +1066,7 @@ function writeOrdersSheet(ss, orders) {
       Number(o.quantity || 0),
       Number(o.unitPrice || 0),
       o.customerName || "",
-      o.customerPhone || "",
+      normalizePhoneVN(o.customerPhone || ""),
       o.shippingAddress || "",
       o.platformStatus || "CONFIRMED",
       o.paymentMethod || "COD",
@@ -652,10 +1074,57 @@ function writeOrdersSheet(ss, orders) {
       o.status || "PENDING",
       o.fifoRank !== null && o.fifoRank !== undefined ? o.fifoRank : "",
       formatAllocatedBatchesForSheet(o.allocatedBatches),
-      o.trackingCode || "",
+      resolvedCarrier,
+      trackingCode,
       nowStr
     ];
   });
+  // Bắt buộc đặt định dạng Văn bản thuần "@" cho cột SoDienThoai TRƯỚC khi ghi setValues() để không mất số 0 đầu
+  applyPhoneTextFormatToSheet(sheet, ODOMS_CONFIG.PHONE_TEXT_COLUMNS.DatHang, rows.length);
+  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  return rows.length;
+}
+
+function writeShipmentsSheet(ss, shipments) {
+  const sheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.SHIPMENTS);
+  const headers = ODOMS_CONFIG.HEADERS.VanDon;
+  clearSheetDataRows(sheet, headers);
+
+  if (!shipments || shipments.length === 0) {
+    applyPhoneTextFormatToSheet(sheet, ODOMS_CONFIG.PHONE_TEXT_COLUMNS.VanDon, 1);
+    return 0;
+  }
+  const nowStr = formatNowVN();
+  const rows = shipments.map(function (s) {
+    const receiver = s.receiver || {};
+    const feeNum = Number(s.shippingFee || 0);
+    const isFreeship = s.isFreeship !== undefined ? Boolean(s.isFreeship) : feeNum === 0;
+    return [
+      String(s.trackingCode || "").trim(),
+      String(s.orderId || "").trim(),
+      String(s.channel || "SHOPEE").trim().toUpperCase(),
+      String(s.carrier || "").trim(),
+      String(s.shippingTier || "TIEU_CHUAN").trim().toUpperCase(),
+      feeNum,
+      isFreeship,
+      Number(s.totalCod || 0),
+      String(s.status || "PENDING_PICKUP").trim().toUpperCase(),
+      String(receiver.name || s.receiverName || s.customerName || "").trim(),
+      normalizePhoneVN(receiver.phone || s.receiverPhone || s.customerPhone || ""),
+      String(receiver.address || s.receiverAddress || s.address || "").trim(),
+      String(s.itemsSummary || "").trim(),
+      String(s.batchCode || "").trim(),
+      String(s.shipperName || "Đang điều phối bưu tá").trim(),
+      normalizePhoneVN(s.shipperPhone || ""),
+      String(s.currentLocation || "").trim(),
+      Number(s.progressPercent || 20),
+      String(s.handoverTime || nowStr).trim(),
+      formatTimelineForSheet(s.timeline),
+      String(s.lastUpdateTime || nowStr).trim()
+    ];
+  });
+  // Bắt buộc đặt định dạng Văn bản thuần "@" cho 2 cột SoDienThoaiNhan & SoDienThoaiBuuTa TRƯỚC khi ghi setValues()
+  applyPhoneTextFormatToSheet(sheet, ODOMS_CONFIG.PHONE_TEXT_COLUMNS.VanDon, rows.length);
   sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
   return rows.length;
 }
@@ -757,12 +1226,12 @@ function writeAuditLogsSheet(ss, logs) {
   const limited = logs.slice(0, 100);
   const rows = limited.map(function (l) {
     return [
-      l.id || ("LOG-" + Date.now()),
+      l.id || "LOG-" + Date.now(),
       l.time || formatNowVN(),
       l.username || "system",
       l.fullName || "Hệ thống",
       l.action || l.message || "",
-      l.ip || "ODOMS Cloud Sync",
+      l.ip || "Sổ dữ liệu Google Sheets",
       l.status || "SUCCESS"
     ];
   });
@@ -781,20 +1250,34 @@ function readSheetObjects(ss, sheetName) {
 
   for (let r = 1; r < data.length; r++) {
     const row = data[r];
-    if (!row || row.every(function (cell) { return cell === "" || cell === null; })) continue;
+    if (
+      !row ||
+      row.every(function (cell) {
+        return cell === "" || cell === null;
+      })
+    ) {
+      continue;
+    }
     const obj = {};
     for (let c = 0; c < headers.length; c++) {
       const key = String(headers[c] || "").trim();
       if (key) {
         let cellVal = row[c];
         if (cellVal instanceof Date && !isNaN(cellVal.getTime())) {
-          const pad = function (n) { return String(n).padStart(2, "0"); };
+          const pad = function (n) {
+            return String(n).padStart(2, "0");
+          };
           cellVal =
-            pad(cellVal.getDate()) + "/" +
-            pad(cellVal.getMonth() + 1) + "/" +
-            cellVal.getFullYear() + " " +
-            pad(cellVal.getHours()) + ":" +
-            pad(cellVal.getMinutes()) + ":" +
+            pad(cellVal.getDate()) +
+            "/" +
+            pad(cellVal.getMonth() + 1) +
+            "/" +
+            cellVal.getFullYear() +
+            " " +
+            pad(cellVal.getHours()) +
+            ":" +
+            pad(cellVal.getMinutes()) +
+            ":" +
             pad(cellVal.getSeconds());
         }
         obj[key] = cellVal;
@@ -817,7 +1300,7 @@ function clearSheetDataRows(sheet, headers) {
 
 /**
  * =========================================================================================
- * 5. CÁC HÀM TIỆN ÍCH & PARSER KẾ THỪA TỪ FIFO_Engine.gs
+ * 6. CÁC HÀM TIỆN ÍCH & CHUẨN HÓA SỐ LIỆU
  * =========================================================================================
  */
 function formatNowVN() {
@@ -841,9 +1324,7 @@ function formatNowVN() {
 }
 
 function jsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
-    ContentService.MimeType.JSON
-  );
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function parseCurrencyVND(val) {
@@ -864,4 +1345,947 @@ function parseQuantity(val) {
   const num = parseFloat(str);
   if (isNaN(num)) return 0;
   return isNegative ? -num : num;
+}
+
+/**
+ * Chuẩn hóa số điện thoại Việt Nam dạng chuỗi văn bản:
+ * - Giữ nguyên số 0 ở đầu (dạng String)
+ * - Tự động bù "0" nếu bị Google Sheets / Excel cắt còn 9 chữ số (bắt đầu bằng 3, 5, 7, 8, 9)
+ * - Chuyển đổi đầu +84 / 84 về đầu 0 chuẩn nội địa
+ */
+function normalizePhoneVN(rawVal) {
+  if (rawVal === null || rawVal === undefined) return "";
+  const str = String(rawVal).trim();
+  if (!str) return "";
+  const upper = str.toUpperCase();
+  if (upper === "N/A" || upper === "NULL" || upper === "UNDEFINED") return "";
+  const cleaned = str.replace(/^'+/, "").trim();
+  const digits = cleaned.replace(/\D/g, "");
+  if (!digits) return cleaned;
+  if (digits.length === 11 && digits.indexOf("84") === 0 && /^[35789]/.test(digits.charAt(2))) {
+    return "0" + digits.slice(2);
+  }
+  if (digits.length === 9 && /^[35789]/.test(digits.charAt(0))) {
+    return "0" + digits;
+  }
+  if (digits.length === 10 && digits.charAt(0) === "2") {
+    return "0" + digits;
+  }
+  if (digits.length === 10 && digits.charAt(0) === "0") {
+    return digits;
+  }
+  if (
+    (digits.length === 11 && digits.indexOf("02") === 0) ||
+    ((digits.length === 8 || digits.length === 10) && (digits.indexOf("1800") === 0 || digits.indexOf("1900") === 0))
+  ) {
+    return digits;
+  }
+  return cleaned;
+}
+
+/**
+ * =========================================================================================
+ * 7. HÀM KHỞI TẠO & NẠP SẠCH DỮ LIỆU NGÀNH THỜI TRANG 2026 (01/2026 – 22/11/2026)
+ *    - Bấm Chạy (Run) trực tiếp hàm seedFashion2026Data() một lần trên Apps Script Editor:
+ *      + Xóa sạch dữ liệu 5 mã sản phẩm cũ trên DatHang, TonKho, LuuKho, VanDon
+ *      + Nạp đủ 25 mã Thời trang (5 danh mục, 40 lô hàng, 409 SP vật lý) chuẩn S:\HTTT\fashion68.js
+ *      + Nạp 30 đơn hàng 5 sàn (01/2026 – 22/11/2026) có cột DonViVanChuyen 3 tầng
+ *      + Nạp 10 vận đơn Thời trang (4 trạng thái giao nhận) khớp 1:1 với Web App & 5 tệp CSV
+ *      + Giữ nguyên kịch bản tranh chấp tồn kho SP-AO-POLO-01 (10 cái: LO-2026-A1 6 cái + LO-2026-A2 4 cái)
+ *      + Bảo toàn tuyệt đối 4 tài khoản gốc trong trang tính NhanSu (không ghi đè bảng NhanSu)
+ * =========================================================================================
+ */
+function seedFashion2026Data() {
+  const lock = LockService.getScriptLock();
+  let hasLock = false;
+  try {
+    hasLock = lock.tryLock(ODOMS_CONFIG.LOCK_TIMEOUT_MS);
+  } catch (e) {
+    hasLock = false;
+  }
+
+  try {
+    const ss = ensureSheetsInitialized();
+    const res = seedFashion2026DataInternal_(ss);
+    Logger.log(JSON.stringify(res));
+    return res;
+  } finally {
+    if (hasLock) {
+      try {
+        lock.releaseLock();
+      } catch (releaseErr) {
+        Logger.log("Giải phóng khóa seedFashion2026Data: " + releaseErr.toString());
+      }
+    }
+  }
+}
+
+function seedFashion2026DataInternal_(ss) {
+  // Đảm bảo đủ 6 trang tính chuẩn (có DonViVanChuyen & VanDon) và định dạng cột SĐT dạng "@"
+  applyPhoneTextFormatToAllSheets(ss);
+
+  const inventory = getFashion2026InventoryCatalog_();
+  const orders = getFashion2026OrdersSeed_();
+  const shipments = getFashion2026ShipmentsSeed_();
+
+  // Chạy phân bổ tồn kho FIFO/FEFO và đối chiếu ĐVVC 3 tầng đồng nhất với OMSEngine
+  allocateFashionSeedData_(inventory, orders, shipments);
+
+  // Ghi VanDon trước để DatHang đối chiếu chính xác ĐVVC 3 tầng & Mã vận đơn
+  const shipCount = writeShipmentsSheet(ss, shipments);
+  const orderCount = writeOrdersSheet(ss, orders, shipments);
+  const invRes = writeInventoryAndBatchesSheets(ss, inventory);
+
+  // Bảo toàn tuyệt đối trang tính NhanSu: chỉ khởi tạo 4 tài khoản gốc nếu trang tính đang trống
+  const userSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.USERS);
+  let nhanSuPreserved = true;
+  if (userSheet && userSheet.getLastRow() <= 1) {
+    const defaultUsers = [
+      ["USR-001", "dttd", "dttd123", "Đỗ Thị Thuỳ Dung", "TD", "Chuyên viên Vận hành", "Phòng Vận hành Đa kênh", "Ca Hành chính (08:00 - 17:00)", "ACTIVE", true, false, "", "", "2026-10-01 08:00:00"],
+      ["USR-002", "lhmt", "lhmt123", "Lê Hoàng Minh Trung", "MT", "Chuyên viên Vận hành (Dự phòng)", "Phòng Vận hành Đa kênh", "Toàn thời gian (Cứu hộ hệ thống)", "ACTIVE", true, true, "", "", "2026-10-05 09:15:00"],
+      ["USR-003", "ntqg", "ntqg123", "Nguyễn Thị Quỳnh Giao", "QG", "Chuyên viên Điều phối", "Phòng Điều phối Đơn hàng", "Ca Sáng (07:30 - 16:30)", "ACTIVE", false, false, "", "", "2026-10-10 08:30:00"],
+      ["USR-004", "nttn", "nttn123", "Nguyễn Thị Thúy Ngân", "TN", "Quản lý kho", "Bộ phận Kho Vận", "Ca Chiều (13:00 - 21:00)", "ACTIVE", false, false, "", "", "2026-10-12 13:00:00"]
+    ];
+    userSheet.getRange(2, 1, defaultUsers.length, defaultUsers[0].length).setValues(defaultUsers);
+    nhanSuPreserved = false;
+  }
+  const userCount = userSheet ? Math.max(0, userSheet.getLastRow() - 1) : 0;
+
+  // Ghi nhận vào trang tính NhatKy (không xóa nhật ký cũ nếu đã có)
+  const logSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.LOGS);
+  if (logSheet) {
+    const nextRow = Math.max(2, logSheet.getLastRow() + 1);
+    logSheet.getRange(nextRow, 1, 1, ODOMS_CONFIG.HEADERS.NhatKy.length).setValues([
+      [
+        "LOG-SEED-2026",
+        formatNowVN(),
+        "dttd",
+        "Đỗ Thị Thuỳ Dung",
+        "Nạp bộ dữ liệu Thời trang 2026 (01/2026 - 22/11/2026): " +
+          invRes.inventoryCount +
+          " mã SP, " +
+          invRes.batchCount +
+          " lô hàng, " +
+          orderCount +
+          " đơn hàng, " +
+          shipCount +
+          " vận đơn (bảo toàn NhanSu)",
+        "Sổ dữ liệu Google Sheets",
+        "SUCCESS"
+      ]
+    ]);
+  }
+
+  return {
+    status: "SUCCESS",
+    action: "SEED_FASHION_2026",
+    message:
+      "Đã xóa sạch dữ liệu cũ và nạp trọn bộ 25 mã Thời trang (40 lô hàng), 30 đơn hàng (01/2026 - 22/11/2026) và 10 vận đơn chuẩn ĐVVC 3 tầng lên Google Sheets; bảo toàn nguyên vẹn trang tính NhanSu.",
+    details: {
+      inventory: invRes.inventoryCount,
+      batches: invRes.batchCount,
+      orders: orderCount,
+      shipments: shipCount,
+      users: userCount,
+      nhanSuPreserved: nhanSuPreserved
+    },
+    serverTime: formatNowVN()
+  };
+}
+
+function parseVNOrderTimeMs_(timeStr) {
+  const s = String(timeStr || "").trim();
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (dmy) {
+    return new Date(
+      Number(dmy[3]),
+      Number(dmy[2]) - 1,
+      Number(dmy[1]),
+      Number(dmy[4] || 0),
+      Number(dmy[5] || 0),
+      Number(dmy[6] || 0)
+    ).getTime();
+  }
+  const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[T\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+  if (ymd) {
+    return new Date(
+      Number(ymd[1]),
+      Number(ymd[2]) - 1,
+      Number(ymd[3]),
+      Number(ymd[4] || 0),
+      Number(ymd[5] || 0),
+      Number(ymd[6] || 0)
+    ).getTime();
+  }
+  return 0;
+}
+
+function allocateFashionSeedData_(inventory, orders, shipments) {
+  const shipmentsIndex = buildShipmentLookupMaps(shipments);
+  const invMap = {};
+  inventory.forEach(function (item) {
+    invMap[item.sku] = item;
+  });
+
+  const validOrders = [];
+  orders.forEach(function (ord) {
+    ord.allocatedBatches = [];
+    ord.fifoRank = null;
+    ord.customerPhone = normalizePhoneVN(ord.customerPhone);
+    const matchedShip = shipmentsIndex.byOrderId[ord.orderId];
+    if (matchedShip && matchedShip.trackingCode) {
+      ord.trackingCode = matchedShip.trackingCode;
+    }
+    ord.carrier = resolveOrderCarrierBackend(ord, shipmentsIndex.byOrderId, shipmentsIndex.byTracking);
+
+    if (ord.platformStatus === "CANCELLED") {
+      ord.status = "CANCELLED";
+      return;
+    }
+    if (!invMap[ord.sku] || !ord.quantity || ord.quantity <= 0) {
+      ord.status = "INVALID";
+      return;
+    }
+    validOrders.push(ord);
+  });
+
+  validOrders.sort(function (a, b) {
+    return parseVNOrderTimeMs_(a.orderTime) - parseVNOrderTimeMs_(b.orderTime);
+  });
+
+  const skuRankCounter = {};
+  validOrders.forEach(function (ord) {
+    skuRankCounter[ord.sku] = (skuRankCounter[ord.sku] || 0) + 1;
+    ord.fifoRank = skuRankCounter[ord.sku];
+
+    if (ord.platformStatus === "UNCONFIRMED") {
+      ord.status = "PENDING";
+      return;
+    }
+
+    const inv = invMap[ord.sku];
+    if (inv.availableStock >= ord.quantity) {
+      let needQty = ord.quantity;
+      const batchDetails = [];
+      for (let i = 0; i < inv.batches.length; i++) {
+        if (needQty <= 0) break;
+        const b = inv.batches[i];
+        if (b.remainingQty > 0) {
+          const take = Math.min(b.remainingQty, needQty);
+          b.remainingQty -= take;
+          needQty -= take;
+          batchDetails.push({
+            batchCode: b.batchCode,
+            qrCode: b.qrCode || b.batchCode,
+            takenQty: take
+          });
+        }
+      }
+      inv.reservedStock += ord.quantity;
+      inv.availableStock = inv.physicalStock - inv.reservedStock;
+      inv.channelReserved[ord.channel] = (inv.channelReserved[ord.channel] || 0) + ord.quantity;
+      ord.status = "ALLOCATED";
+      ord.allocatedBatches = batchDetails;
+    } else {
+      ord.status = "BACKORDER";
+    }
+  });
+}
+
+function getFashion2026InventoryCatalog_() {
+  const mkHold = function () {
+    return { SHOPEE: 0, TIKTOK: 0, LAZADA: 0, FACEBOOK: 0, POS: 0 };
+  };
+  return [
+    // DANH MỤC 1: ÁO (5 SẢN PHẨM)
+    {
+      sku: "SP-AO-POLO-01",
+      name: "Áo Polo Nam Coolmate Pro (Đen - Size L)",
+      category: "Áo",
+      unit: "Cái",
+      price: 250000,
+      maxCapacity: 25,
+      physicalStock: 10,
+      reservedStock: 0,
+      availableStock: 10,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-A1", qrCode: "OD-POLO-1001", importDate: "2026-10-01", expiryDate: "2027-10-01", initialQty: 6, remainingQty: 6 },
+        { batchCode: "LO-2026-A2", qrCode: "OD-POLO-1010", importDate: "2026-10-10", expiryDate: "2027-10-10", initialQty: 4, remainingQty: 4 }
+      ]
+    },
+    {
+      sku: "SP-AO-THUN-02",
+      name: "Áo Thun Cotton Oversize Unisex (Trắng - Size M)",
+      category: "Áo",
+      unit: "Cái",
+      price: 190000,
+      maxCapacity: 40,
+      physicalStock: 25,
+      reservedStock: 0,
+      availableStock: 25,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-B1", qrCode: "OD-THUN-1002", importDate: "2026-10-02", expiryDate: "2027-10-02", initialQty: 15, remainingQty: 15 },
+        { batchCode: "LO-2026-B2", qrCode: "OD-THUN-1012", importDate: "2026-10-12", expiryDate: "2027-10-12", initialQty: 10, remainingQty: 10 }
+      ]
+    },
+    {
+      sku: "SP-AO-SOMI-03",
+      name: "Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L)",
+      category: "Áo",
+      unit: "Cái",
+      price: 320000,
+      maxCapacity: 30,
+      physicalStock: 12,
+      reservedStock: 0,
+      availableStock: 12,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-C1", qrCode: "OD-SOMI-1003", importDate: "2026-10-03", expiryDate: "2027-10-03", initialQty: 12, remainingQty: 12 }
+      ]
+    },
+    {
+      sku: "SP-AO-KHOAC-04",
+      name: "Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL)",
+      category: "Áo",
+      unit: "Cái",
+      price: 420000,
+      maxCapacity: 20,
+      physicalStock: 8,
+      reservedStock: 0,
+      availableStock: 8,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-D1", qrCode: "OD-KHOAC-1004", importDate: "2026-10-04", expiryDate: "2028-04-04", initialQty: 5, remainingQty: 5 },
+        { batchCode: "LO-2026-D2", qrCode: "OD-KHOAC-1014", importDate: "2026-10-14", expiryDate: "2028-04-14", initialQty: 3, remainingQty: 3 }
+      ]
+    },
+    {
+      sku: "SP-AO-HOODIE-05",
+      name: "Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L)",
+      category: "Áo",
+      unit: "Cái",
+      price: 390000,
+      maxCapacity: 30,
+      physicalStock: 14,
+      reservedStock: 0,
+      availableStock: 14,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-E1", qrCode: "OD-HOOD-1005", importDate: "2026-10-05", expiryDate: "2028-04-05", initialQty: 14, remainingQty: 14 }
+      ]
+    },
+    // DANH MỤC 2: QUẦN (5 SẢN PHẨM)
+    {
+      sku: "SP-QUAN-JEANS-06",
+      name: "Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31)",
+      category: "Quần",
+      unit: "Chiếc",
+      price: 450000,
+      maxCapacity: 35,
+      physicalStock: 18,
+      reservedStock: 0,
+      availableStock: 18,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-F1", qrCode: "OD-JEAN-1006", importDate: "2026-10-02", expiryDate: "2028-10-02", initialQty: 10, remainingQty: 10 },
+        { batchCode: "LO-2026-F2", qrCode: "OD-JEAN-1015", importDate: "2026-10-15", expiryDate: "2028-10-15", initialQty: 8, remainingQty: 8 }
+      ]
+    },
+    {
+      sku: "SP-QUAN-KAKI-07",
+      name: "Quần Kaki Chinos Công Sở (Be - Size 30)",
+      category: "Quần",
+      unit: "Chiếc",
+      price: 380000,
+      maxCapacity: 30,
+      physicalStock: 15,
+      reservedStock: 0,
+      availableStock: 15,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-G1", qrCode: "OD-KAKI-1007", importDate: "2026-10-04", expiryDate: "2028-04-04", initialQty: 15, remainingQty: 15 }
+      ]
+    },
+    {
+      sku: "SP-QUAN-SHORT-08",
+      name: "Quần Short Thể Thao Vải Gió (Đen - Size L)",
+      category: "Quần",
+      unit: "Chiếc",
+      price: 180000,
+      maxCapacity: 50,
+      physicalStock: 30,
+      reservedStock: 0,
+      availableStock: 30,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-H1", qrCode: "OD-SHRT-1008", importDate: "2026-10-06", expiryDate: "2027-10-06", initialQty: 20, remainingQty: 20 },
+        { batchCode: "LO-2026-H2", qrCode: "OD-SHRT-1016", importDate: "2026-10-16", expiryDate: "2027-10-16", initialQty: 10, remainingQty: 10 }
+      ]
+    },
+    {
+      sku: "SP-QUAN-TAY-09",
+      name: "Quần Tây Âu Ống Đứng Cao Cấp (Xám Than - Size 31)",
+      category: "Quần",
+      unit: "Chiếc",
+      price: 490000,
+      maxCapacity: 25,
+      physicalStock: 9,
+      reservedStock: 0,
+      availableStock: 9,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-I1", qrCode: "OD-QTAY-1009", importDate: "2026-10-07", expiryDate: "2028-04-07", initialQty: 9, remainingQty: 9 }
+      ]
+    },
+    {
+      sku: "SP-QUAN-JOGGER-10",
+      name: "Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M)",
+      category: "Quần",
+      unit: "Chiếc",
+      price: 290000,
+      maxCapacity: 25,
+      physicalStock: 12,
+      reservedStock: 0,
+      availableStock: 12,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-J1", qrCode: "OD-JOGG-1010", importDate: "2026-10-08", expiryDate: "2027-10-08", initialQty: 7, remainingQty: 7 },
+        { batchCode: "LO-2026-J2", qrCode: "OD-JOGG-1017", importDate: "2026-10-17", expiryDate: "2027-10-17", initialQty: 5, remainingQty: 5 }
+      ]
+    },
+    // DANH MỤC 3: VÁY & ĐẦM (5 SẢN PHẨM)
+    {
+      sku: "SP-DAM-MIDI-11",
+      name: "Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S)",
+      category: "Váy & Đầm",
+      unit: "Chiếc",
+      price: 550000,
+      maxCapacity: 25,
+      physicalStock: 10,
+      reservedStock: 0,
+      availableStock: 10,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-K1", qrCode: "OD-MIDI-1011", importDate: "2026-10-03", expiryDate: "2027-10-03", initialQty: 6, remainingQty: 6 },
+        { batchCode: "LO-2026-K2", qrCode: "OD-MIDI-1013", importDate: "2026-10-13", expiryDate: "2027-10-13", initialQty: 4, remainingQty: 4 }
+      ]
+    },
+    {
+      sku: "SP-CHAN-VAY-12",
+      name: "Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M)",
+      category: "Váy & Đầm",
+      unit: "Chiếc",
+      price: 260000,
+      maxCapacity: 30,
+      physicalStock: 16,
+      reservedStock: 0,
+      availableStock: 16,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-L1", qrCode: "OD-CVAY-1012", importDate: "2026-10-05", expiryDate: "2027-10-05", initialQty: 16, remainingQty: 16 }
+      ]
+    },
+    {
+      sku: "SP-DAM-MAXI-13",
+      name: "Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M)",
+      category: "Váy & Đầm",
+      unit: "Chiếc",
+      price: 480000,
+      maxCapacity: 30,
+      physicalStock: 14,
+      reservedStock: 0,
+      availableStock: 14,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-M1", qrCode: "OD-MAXI-1013", importDate: "2026-10-06", expiryDate: "2027-10-06", initialQty: 8, remainingQty: 8 },
+        { batchCode: "LO-2026-M2", qrCode: "OD-MAXI-1018", importDate: "2026-10-18", expiryDate: "2027-10-18", initialQty: 6, remainingQty: 6 }
+      ]
+    },
+    {
+      sku: "SP-SET-BLAZER-14",
+      name: "Set Vest Blazer Nữ & Chân Váy (Trắng Kem - Size S)",
+      category: "Váy & Đầm",
+      unit: "Bộ",
+      price: 720000,
+      maxCapacity: 20,
+      physicalStock: 7,
+      reservedStock: 0,
+      availableStock: 7,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-N1", qrCode: "OD-BLAZ-1014", importDate: "2026-10-09", expiryDate: "2028-04-09", initialQty: 7, remainingQty: 7 }
+      ]
+    },
+    {
+      sku: "SP-DAM-THUN-15",
+      name: "Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M)",
+      category: "Váy & Đầm",
+      unit: "Chiếc",
+      price: 240000,
+      maxCapacity: 35,
+      physicalStock: 20,
+      reservedStock: 0,
+      availableStock: 20,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-O1", qrCode: "OD-DTHN-1015", importDate: "2026-10-04", expiryDate: "2027-10-04", initialQty: 12, remainingQty: 12 },
+        { batchCode: "LO-2026-O2", qrCode: "OD-DTHN-1014", importDate: "2026-10-14", expiryDate: "2027-10-14", initialQty: 8, remainingQty: 8 }
+      ]
+    },
+    // DANH MỤC 4: GIÀY & DÉP (5 SẢN PHẨM)
+    {
+      sku: "SP-GIAY-SNEAKER-16",
+      name: "Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41)",
+      category: "Giày & Dép",
+      unit: "Đôi",
+      price: 620000,
+      maxCapacity: 30,
+      physicalStock: 15,
+      reservedStock: 0,
+      availableStock: 15,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-P1", qrCode: "OD-SNEK-1016", importDate: "2026-10-02", expiryDate: "2028-10-02", initialQty: 10, remainingQty: 10 },
+        { batchCode: "LO-2026-P2", qrCode: "OD-SNEK-1012", importDate: "2026-10-12", expiryDate: "2028-10-12", initialQty: 5, remainingQty: 5 }
+      ]
+    },
+    {
+      sku: "SP-GIAY-CHAYBO-17",
+      name: "Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42)",
+      category: "Giày & Dép",
+      unit: "Đôi",
+      price: 750000,
+      maxCapacity: 25,
+      physicalStock: 11,
+      reservedStock: 0,
+      availableStock: 11,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-Q1", qrCode: "OD-RUNG-1017", importDate: "2026-10-06", expiryDate: "2028-10-06", initialQty: 11, remainingQty: 11 }
+      ]
+    },
+    {
+      sku: "SP-GIAY-LOAFER-18",
+      name: "Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40)",
+      category: "Giày & Dép",
+      unit: "Đôi",
+      price: 890000,
+      maxCapacity: 20,
+      physicalStock: 9,
+      reservedStock: 0,
+      availableStock: 9,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-R1", qrCode: "OD-LOAF-1018", importDate: "2026-10-05", expiryDate: "2029-10-05", initialQty: 6, remainingQty: 6 },
+        { batchCode: "LO-2026-R2", qrCode: "OD-LOAF-1015", importDate: "2026-10-15", expiryDate: "2029-10-15", initialQty: 3, remainingQty: 3 }
+      ]
+    },
+    {
+      sku: "SP-SANDAL-NU-19",
+      name: "Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37)",
+      category: "Giày & Dép",
+      unit: "Đôi",
+      price: 390000,
+      maxCapacity: 30,
+      physicalStock: 14,
+      reservedStock: 0,
+      availableStock: 14,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-S1", qrCode: "OD-SAND-1019", importDate: "2026-10-08", expiryDate: "2028-04-08", initialQty: 14, remainingQty: 14 }
+      ]
+    },
+    {
+      sku: "SP-DEP-DUC-20",
+      name: "Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41)",
+      category: "Giày & Dép",
+      unit: "Đôi",
+      price: 150000,
+      maxCapacity: 50,
+      physicalStock: 30,
+      reservedStock: 0,
+      availableStock: 30,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-T1", qrCode: "OD-DEPE-1020", importDate: "2026-10-01", expiryDate: "2028-10-01", initialQty: 18, remainingQty: 18 },
+        { batchCode: "LO-2026-T2", qrCode: "OD-DEPE-1011", importDate: "2026-10-11", expiryDate: "2028-10-11", initialQty: 12, remainingQty: 12 }
+      ]
+    },
+    // DANH MỤC 5: PHỤ KIỆN THỜI TRANG (5 SẢN PHẨM)
+    {
+      sku: "SP-TUI-DEO-21",
+      name: "Túi Đeo Chéo Da PU Chống Nước (Đen)",
+      category: "Phụ kiện thời trang",
+      unit: "Chiếc",
+      price: 340000,
+      maxCapacity: 30,
+      physicalStock: 15,
+      reservedStock: 0,
+      availableStock: 15,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-U1", qrCode: "OD-TUID-1021", importDate: "2026-10-03", expiryDate: "2028-10-03", initialQty: 9, remainingQty: 9 },
+        { batchCode: "LO-2026-U2", qrCode: "OD-TUID-1013", importDate: "2026-10-13", expiryDate: "2028-10-13", initialQty: 6, remainingQty: 6 }
+      ]
+    },
+    {
+      sku: "SP-THAT-LUNG-22",
+      name: "Thắt Lưng Nam Da Thật Khóa Tự Động (Đen)",
+      category: "Phụ kiện thời trang",
+      unit: "Chiếc",
+      price: 320000,
+      maxCapacity: 35,
+      physicalStock: 18,
+      reservedStock: 0,
+      availableStock: 18,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-V1", qrCode: "OD-BELT-1022", importDate: "2026-10-07", expiryDate: "2029-10-07", initialQty: 18, remainingQty: 18 }
+      ]
+    },
+    {
+      sku: "SP-NON-KET-23",
+      name: "Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu)",
+      category: "Phụ kiện thời trang",
+      unit: "Chiếc",
+      price: 160000,
+      maxCapacity: 40,
+      physicalStock: 25,
+      reservedStock: 0,
+      availableStock: 25,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-W1", qrCode: "OD-NONK-1023", importDate: "2026-10-04", expiryDate: "2028-04-04", initialQty: 15, remainingQty: 15 },
+        { batchCode: "LO-2026-W2", qrCode: "OD-NONK-1016", importDate: "2026-10-16", expiryDate: "2028-04-16", initialQty: 10, remainingQty: 10 }
+      ]
+    },
+    {
+      sku: "SP-KINH-MAT-24",
+      name: "Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)",
+      category: "Phụ kiện thời trang",
+      unit: "Chiếc",
+      price: 280000,
+      maxCapacity: 25,
+      physicalStock: 12,
+      reservedStock: 0,
+      availableStock: 12,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-X1", qrCode: "OD-KINH-1024", importDate: "2026-10-09", expiryDate: "2028-10-09", initialQty: 12, remainingQty: 12 }
+      ]
+    },
+    {
+      sku: "SP-TAT-CO-25",
+      name: "Set 5 Đôi Tất Cổ Ngắn Khử Mùi Bamboo (Mix Màu)",
+      category: "Phụ kiện thời trang",
+      unit: "Hộp",
+      price: 120000,
+      maxCapacity: 60,
+      physicalStock: 40,
+      reservedStock: 0,
+      availableStock: 40,
+      channelReserved: mkHold(),
+      batches: [
+        { batchCode: "LO-2026-Y1", qrCode: "OD-TATC-1025", importDate: "2026-10-02", expiryDate: "2027-10-02", initialQty: 25, remainingQty: 25 },
+        { batchCode: "LO-2026-Y2", qrCode: "OD-TATC-1014", importDate: "2026-10-14", expiryDate: "2027-10-14", initialQty: 15, remainingQty: 15 }
+      ]
+    }
+  ];
+}
+
+function getFashion2026OrdersSeed_() {
+  return [
+    // SHOPEE (8 đơn — khớp 1:1 với mock_data.js và 2_Don_Hang_Shopee_Mau.csv)
+    { orderId: "SP261122001", channel: "SHOPEE", orderTime: "22/11/2026 08:15:10", sku: "SP-AO-POLO-01", productName: "Áo Polo Nam Coolmate Pro (Đen - Size L)", quantity: 4, unitPrice: 250000, customerName: "Nguyễn Văn An", customerPhone: "0901234567", shippingAddress: "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "Ví ShopeePay", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "VD-SP-261122-8801" },
+    { orderId: "SP260115002", channel: "SHOPEE", orderTime: "15/01/2026 09:20:00", sku: "SP-AO-THUN-02", productName: "Áo Thun Cotton Oversize Unisex (Trắng - Size M)", quantity: 5, unitPrice: 190000, customerName: "Trần Thị Bích", customerPhone: "0912345678", shippingAddress: "45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "VD-SP-260115-1102" },
+    { orderId: "SP260318003", channel: "SHOPEE", orderTime: "18/03/2026 14:10:00", sku: "SP-QUAN-JEANS-06", productName: "Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31)", quantity: 4, unitPrice: 450000, customerName: "Lê Hoàng Nam", customerPhone: "0987654321", shippingAddress: "88 Cầu Giấy, Phường Cầu Giấy, TP.Hà Nội", platformStatus: "CONFIRMED", paymentMethod: "Ví ShopeePay", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "" },
+    { orderId: "SP260520004", channel: "SHOPEE", orderTime: "20/05/2026 10:35:00", sku: "SP-DAM-MIDI-11", productName: "Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S)", quantity: 3, unitPrice: 550000, customerName: "Phạm Ngọc Hân", customerPhone: "0905112233", shippingAddress: "210 Phan Xích Long, Phường Cầu Kiệu, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "Ví ShopeePay", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "" },
+    { orderId: "SP260812005", channel: "SHOPEE", orderTime: "12/08/2026 16:40:00", sku: "SP-GIAY-SNEAKER-16", productName: "Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41)", quantity: 4, unitPrice: 620000, customerName: "Vũ Minh Đức", customerPhone: "0913456789", shippingAddress: "19 Hùng Vương, Phường Thuận Hóa, TP.Huế", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "" },
+    { orderId: "SP261106006", channel: "SHOPEE", orderTime: "06/11/2026 11:15:00", sku: "SP-SET-BLAZER-14", productName: "Set Vest Blazer Nữ & Chân Váy (Trắng Kem - Size S)", quantity: 5, unitPrice: 720000, customerName: "Nguyễn Thùy Dương", customerPhone: "0908223344", shippingAddress: "72 Hai Bà Trưng, Phường Hoàn Kiếm, TP.Hà Nội", platformStatus: "CONFIRMED", paymentMethod: "Ví ShopeePay", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "" },
+    { orderId: "SP261117007", channel: "SHOPEE", orderTime: "17/11/2026 15:05:00", sku: "SP-AO-KHOAC-04", productName: "Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL)", quantity: 5, unitPrice: 420000, customerName: "Đặng Thị Thảo", customerPhone: "0933445588", shippingAddress: "78 Quang Trung, Phường Gò Vấp, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "VD-SP-261117-5519" },
+    { orderId: "SP261122008", channel: "SHOPEE", orderTime: "22/11/2026 09:25:30", sku: "SP-TUI-DEO-21", productName: "Túi Đeo Chéo Da PU Chống Nước (Đen)", quantity: 3, unitPrice: 340000, customerName: "Trương Gia Huy", customerPhone: "0978123456", shippingAddress: "154 Nguyễn Trãi, Phường Bến Thành, TP.HCM", platformStatus: "UNCONFIRMED", paymentMethod: "Ví ShopeePay", sourceMethod: "EXCEL_IMPORT", carrier: "SPX Express", trackingCode: "" },
+    // TIKTOK (7 đơn — khớp 1:1 với mock_data.js và 3_Don_Hang_TikTokShop_Mau.csv)
+    { orderId: "TT261122101", channel: "TIKTOK", orderTime: "22/11/2026 08:16:05", sku: "SP-AO-POLO-01", productName: "Áo Polo Nam Coolmate Pro (Đen - Size L)", quantity: 4, unitPrice: 250000, customerName: "Phạm Minh Tuấn", customerPhone: "0933445566", shippingAddress: "56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "J&T Express", trackingCode: "VD-TT-261122-4420" },
+    { orderId: "TT260214102", channel: "TIKTOK", orderTime: "14/02/2026 10:15:00", sku: "SP-CHAN-VAY-12", productName: "Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M)", quantity: 5, unitPrice: 260000, customerName: "Hoàng Thùy Linh", customerPhone: "0977889900", shippingAddress: "12 Trần Phú, Phường Nha Trang, tỉnh Khánh Hòa", platformStatus: "CONFIRMED", paymentMethod: "Ví ZaloPay", sourceMethod: "EXCEL_IMPORT", carrier: "J&T Express", trackingCode: "" },
+    { orderId: "TT260422103", channel: "TIKTOK", orderTime: "22/04/2026 13:50:00", sku: "SP-AO-HOODIE-05", productName: "Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L)", quantity: 4, unitPrice: 390000, customerName: "Đặng Quốc Khánh", customerPhone: "0966112233", shippingAddress: "90 Lạch Tray, Phường Lê Chân, TP.Hải Phòng", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "J&T Express", trackingCode: "" },
+    { orderId: "TT260719104", channel: "TIKTOK", orderTime: "19/07/2026 19:20:00", sku: "SP-DAM-MAXI-13", productName: "Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M)", quantity: 5, unitPrice: 480000, customerName: "Lý Thảo Nhi", customerPhone: "0935667788", shippingAddress: "31 Nguyễn Văn Cừ, Phường Ninh Kiều, TP.Cần Thơ", platformStatus: "CONFIRMED", paymentMethod: "Ví ZaloPay", sourceMethod: "EXCEL_IMPORT", carrier: "J&T Express", trackingCode: "" },
+    { orderId: "TT261010105", channel: "TIKTOK", orderTime: "10/10/2026 20:15:00", sku: "SP-DEP-DUC-20", productName: "Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41)", quantity: 8, unitPrice: 150000, customerName: "Phan Anh Khoa", customerPhone: "0942778899", shippingAddress: "64 Lê Duẩn, Phường Buôn Ma Thuột, tỉnh Đắk Lắk", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "J&T Express", trackingCode: "" },
+    { orderId: "TT261114106", channel: "TIKTOK", orderTime: "14/11/2026 14:30:00", sku: "SP-GIAY-CHAYBO-17", productName: "Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42)", quantity: 4, unitPrice: 750000, customerName: "Bùi Tiến Dũng", customerPhone: "0983556677", shippingAddress: "102 Trần Hưng Đạo, Phường An Đông, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "J&T Express", trackingCode: "VD-TT-261114-4418" },
+    { orderId: "TT261120107", channel: "TIKTOK", orderTime: "20/11/2026 16:45:00", sku: "SP-QUAN-JOGGER-10", productName: "Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M)", quantity: 3, unitPrice: 290000, customerName: "Mai Phương Anh", customerPhone: "0916998877", shippingAddress: "28 Phan Đình Phùng, Phường Ba Đình, TP.Hà Nội", platformStatus: "UNCONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "J&T Express", trackingCode: "" },
+    // LAZADA (6 đơn — khớp 1:1 với mock_data.js và 4_Don_Hang_Lazada_Mau.csv)
+    { orderId: "LZ261122201", channel: "LAZADA", orderTime: "22/11/2026 08:18:45", sku: "SP-AO-POLO-01", productName: "Áo Polo Nam Coolmate Pro (Đen - Size L)", quantity: 3, unitPrice: 250000, customerName: "Võ Thành Đạt", customerPhone: "0944556677", shippingAddress: "78 Nguyễn Văn Linh, Phường Tân Thuận, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "Thẻ Visa / Mastercard", sourceMethod: "EXCEL_IMPORT", carrier: "GHN (Giao Hàng Nhanh)", trackingCode: "" },
+    { orderId: "LZ260308202", channel: "LAZADA", orderTime: "08/03/2026 11:05:00", sku: "SP-AO-SOMI-03", productName: "Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L)", quantity: 4, unitPrice: 320000, customerName: "Nguyễn Quốc Bảo", customerPhone: "0907334455", shippingAddress: "145 Điện Biên Phủ, Phường Gia Định, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "Thẻ Visa / Mastercard", sourceMethod: "EXCEL_IMPORT", carrier: "GHN (Giao Hàng Nhanh)", trackingCode: "" },
+    { orderId: "LZ260615203", channel: "LAZADA", orderTime: "15/06/2026 09:40:00", sku: "SP-QUAN-KAKI-07", productName: "Quần Kaki Chinos Công Sở (Be - Size 30)", quantity: 5, unitPrice: 380000, customerName: "Ngô Thanh Vân", customerPhone: "0918273645", shippingAddress: "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "GHN (Giao Hàng Nhanh)", trackingCode: "VD-LZ-260615-6603" },
+    { orderId: "LZ260909204", channel: "LAZADA", orderTime: "09/09/2026 15:25:00", sku: "SP-SANDAL-NU-19", productName: "Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37)", quantity: 5, unitPrice: 390000, customerName: "Đinh Hồng Nhung", customerPhone: "0939112244", shippingAddress: "51 Nguyễn Văn Thoại, Phường Ngũ Hành Sơn, TP.Đà Nẵng", platformStatus: "CONFIRMED", paymentMethod: "Thẻ Visa / Mastercard", sourceMethod: "EXCEL_IMPORT", carrier: "GHN (Giao Hàng Nhanh)", trackingCode: "" },
+    { orderId: "LZ261110205", channel: "LAZADA", orderTime: "10/11/2026 10:12:00", sku: "SP-GIAY-LOAFER-18", productName: "Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40)", quantity: 5, unitPrice: 890000, customerName: "Tô Hoàng Long", customerPhone: "0903667799", shippingAddress: "18 Lý Tự Trọng, Phường Sài Gòn, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "Thẻ Visa / Mastercard", sourceMethod: "EXCEL_IMPORT", carrier: "GHN (Giao Hàng Nhanh)", trackingCode: "" },
+    { orderId: "LZ261120206", channel: "LAZADA", orderTime: "20/11/2026 13:20:00", sku: "SP-THAT-LUNG-22", productName: "Thắt Lưng Nam Da Thật Khóa Tự Động (Đen)", quantity: 5, unitPrice: 320000, customerName: "Hồ Nhật Minh", customerPhone: "0914889922", shippingAddress: "67 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "COD (Thanh toán khi nhận hàng)", sourceMethod: "EXCEL_IMPORT", carrier: "GHN (Giao Hàng Nhanh)", trackingCode: "VD-LZ-261120-9102" },
+    // POS & FACEBOOK (9 đơn — khớp 1:1 với mock_data.js và 5_Don_Hang_Facebook_POS_Mau.csv)
+    { orderId: "POS261122301", channel: "POS", orderTime: "22/11/2026 08:17:20", sku: "SP-AO-POLO-01", productName: "Áo Polo Nam Coolmate Pro (Đen - Size L)", quantity: 2, unitPrice: 250000, customerName: "Khách lẻ tại Quầy POS Phường Bình Phú", customerPhone: "0909888777", shippingAddress: "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)", platformStatus: "CONFIRMED", paymentMethod: "Tiền mặt tại quầy", sourceMethod: "EXCEL_IMPORT", carrier: "Tại quầy", trackingCode: "" },
+    { orderId: "POS260405302", channel: "POS", orderTime: "05/04/2026 15:10:00", sku: "SP-QUAN-SHORT-08", productName: "Quần Short Thể Thao Vải Gió (Đen - Size L)", quantity: 6, unitPrice: 180000, customerName: "Lương Văn Hải (Mua tại quầy)", customerPhone: "0902445566", shippingAddress: "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)", platformStatus: "CONFIRMED", paymentMethod: "Tiền mặt tại quầy", sourceMethod: "EXCEL_IMPORT", carrier: "Tại quầy", trackingCode: "" },
+    { orderId: "POS260828303", channel: "POS", orderTime: "28/08/2026 17:30:00", sku: "SP-QUAN-TAY-09", productName: "Quần Tây Âu Ống Đứng Cao Cấp (Xám Than - Size 31)", quantity: 5, unitPrice: 490000, customerName: "Trịnh Công Sơn (Mua tại quầy)", customerPhone: "0915223311", shippingAddress: "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)", platformStatus: "CONFIRMED", paymentMethod: "Chuyển khoản VietQR", sourceMethod: "EXCEL_IMPORT", carrier: "Tại quầy", trackingCode: "" },
+    { orderId: "POS261117304", channel: "POS", orderTime: "17/11/2026 10:45:00", sku: "SP-TAT-CO-25", productName: "Set 5 Đôi Tất Cổ Ngắn Khử Mùi Bamboo (Mix Màu)", quantity: 8, unitPrice: 120000, customerName: "Châu Ngọc Lan (Mua tại quầy)", customerPhone: "0938776655", shippingAddress: "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)", platformStatus: "CONFIRMED", paymentMethod: "Tiền mặt tại quầy", sourceMethod: "EXCEL_IMPORT", carrier: "Tại quầy", trackingCode: "" },
+    { orderId: "FB260225401", channel: "FACEBOOK", orderTime: "25/02/2026 20:00:00", sku: "SP-DAM-THUN-15", productName: "Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M)", quantity: 5, unitPrice: 240000, customerName: "Nguyễn Thị Thanh Trúc (Chốt đơn Livestream FB)", customerPhone: "0922334455", shippingAddress: "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội", platformStatus: "CONFIRMED", paymentMethod: "Chuyển khoản VietQR", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "VD-FB-260225-2201" },
+    { orderId: "FB260626402", channel: "FACEBOOK", orderTime: "26/06/2026 21:15:00", sku: "SP-NON-KET-23", productName: "Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu)", quantity: 6, unitPrice: 160000, customerName: "Phạm Quang Vinh (Chốt đơn Livestream FB)", customerPhone: "0979443322", shippingAddress: "85 Cộng Hòa, Phường Bảy Hiền, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "COD (Thu hộ khi giao)", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "VD-FB-260626-6602" },
+    { orderId: "FB261102403", channel: "FACEBOOK", orderTime: "02/11/2026 19:40:00", sku: "SP-KINH-MAT-24", productName: "Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)", quantity: 4, unitPrice: 280000, customerName: "Bùi Anh Tuấn (Chốt đơn Livestream FB)", customerPhone: "0928112233", shippingAddress: "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội", platformStatus: "CONFIRMED", paymentMethod: "Chuyển khoản VietQR", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "VD-FB-261102-3351" },
+    { orderId: "FB261118404", channel: "FACEBOOK", orderTime: "18/11/2026 20:30:00", sku: "SP-AO-THUN-02", productName: "Áo Thun Cotton Oversize Unisex (Trắng - Size M)", quantity: 4, unitPrice: 190000, customerName: "Lê Ngọc Bích (Inbox Fanpage)", customerPhone: "0965334411", shippingAddress: "112 Cách Mạng Tháng 8, Phường Xuân Hòa, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "COD (Thu hộ khi giao)", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "" },
+    { orderId: "FB261122405", channel: "FACEBOOK", orderTime: "22/11/2026 08:24:00", sku: "SP-MA-LOI-999", productName: "Áo Khoác Gió — Sai mã sản phẩm", quantity: 2, unitPrice: 350000, customerName: "Đỗ Mỹ Linh", customerPhone: "0938111222", shippingAddress: "15 Hai Bà Trưng, Phường Tân Định, TP.HCM", platformStatus: "CANCELLED", paymentMethod: "COD (Thu hộ khi giao)", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "" }
+  ];
+}
+
+function getFashion2026ShipmentsSeed_() {
+  return [
+    {
+      trackingCode: "VD-SP-261122-8801",
+      orderId: "SP261122001",
+      channel: "SHOPEE",
+      carrier: "SPX Express",
+      shippingTier: "HOA_TOC",
+      shippingFee: 0,
+      isFreeship: true,
+      totalCod: 0,
+      status: "IN_TRANSIT",
+      receiver: { name: "Nguyễn Văn An", phone: "0901234567", address: "123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM" },
+      itemsSummary: "Áo Polo Nam Coolmate Pro (Đen - Size L) × 4",
+      batchCode: "LO-2026-A1",
+      shipperName: "Trần Quốc Bảo (Bưu tá SPX Express)",
+      shipperPhone: "0934567890",
+      currentLocation: "Đang trên đường phát — Cách người nhận 1.2 km (Gần Ngã tư Lê Lợi - Pasteur, Phường Sài Gòn, TP.HCM)",
+      progressPercent: 80,
+      handoverTime: "22/11/2026 08:30:15",
+      lastUpdateTime: "22/11/2026 14:20:00",
+      timeline: [
+        { time: "08:15:10", title: "Xuất kho ODOMS & Đóng gói", desc: "Đã xuất kho tại 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "09:00:25", title: "Bưu tá đã nhận hàng", desc: "Bưu tá SPX Express Trần Quốc Bảo đã tiếp nhận kiện hàng tại kho.", location: "186 An Dương Vương, Phường Bình Phú, TP.HCM" },
+        { time: "11:15:40", title: "Đến điểm trung chuyển", desc: "Kiện hàng đã qua trung tâm phân loại Trung tâm TP.HCM.", location: "Điểm phân loại SPX Phường Sài Gòn" },
+        { time: "13:45:00", title: "Đang trên đường giao", desc: "Bưu tá đang di chuyển phát hàng đến địa chỉ 123 Nguyễn Huệ, Phường Sài Gòn, TP.HCM.", location: "Tuyến đường Lê Lợi - Nguyễn Huệ, Phường Sài Gòn, TP.HCM" }
+      ]
+    },
+    {
+      trackingCode: "VD-TT-261122-4420",
+      orderId: "TT261122101",
+      channel: "TIKTOK",
+      carrier: "J&T Express",
+      shippingTier: "NHANH",
+      shippingFee: 25000,
+      isFreeship: false,
+      totalCod: 1000000,
+      status: "IN_TRANSIT",
+      receiver: { name: "Phạm Minh Tuấn", phone: "0933445566", address: "56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM" },
+      itemsSummary: "Áo Polo Nam Coolmate Pro (Đen - Size L) × 4 (Chia 2 lô A1 + A2)",
+      batchCode: "LO-2026-A1 + LO-2026-A2",
+      shipperName: "Lê Minh Tuấn (J&T Express)",
+      shipperPhone: "0908776554",
+      currentLocation: "Đang giao hàng — Cách người nhận 2.0 km (Khu vực Phường Thủ Đức)",
+      progressPercent: 70,
+      handoverTime: "22/11/2026 09:10:00",
+      lastUpdateTime: "22/11/2026 13:50:00",
+      timeline: [
+        { time: "08:45:00", title: "Xuất kho ODOMS & Bàn giao", desc: "Xuất từ Kho 186 An Dương Vương, Phường Bình Phú, TP.HCM.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "09:30:10", title: "J&T Express đã nhận", desc: "Kiện hàng đã nhập bưu cục J&T Phường Bình Phú.", location: "Bưu cục J&T Phường Bình Phú" },
+        { time: "11:40:20", title: "Chuyển giao bưu cục phát", desc: "Kiện hàng đã tới bưu cục phát Phường Thủ Đức.", location: "Bưu cục J&T Phường Thủ Đức" },
+        { time: "13:30:00", title: "Đang giao hàng", desc: "Bưu tá đang gọi khách hẹn nhận tại 56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM.", location: "Đường Võ Văn Ngân, Phường Thủ Đức, TP.HCM" }
+      ]
+    },
+    {
+      trackingCode: "VD-LZ-261120-9102",
+      orderId: "LZ261120206",
+      channel: "LAZADA",
+      carrier: "GHN (Giao Hàng Nhanh)",
+      shippingTier: "TIEU_CHUAN",
+      shippingFee: 0,
+      isFreeship: true,
+      totalCod: 1600000,
+      status: "PENDING_PICKUP",
+      receiver: { name: "Hồ Nhật Minh", phone: "0914889922", address: "67 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM" },
+      itemsSummary: "Thắt Lưng Nam Da Thật Khóa Tự Động (Đen) × 5",
+      batchCode: "LO-2026-V1",
+      shipperName: "Phạm Văn Hùng (GHN TP.HCM)",
+      shipperPhone: "0977123456",
+      currentLocation: "Đã đóng gói — Chờ bưu tá GHN tới nhận tại Kho ODOMS Phường Bình Phú",
+      progressPercent: 25,
+      handoverTime: "20/11/2026 14:15:00",
+      lastUpdateTime: "20/11/2026 15:00:00",
+      timeline: [
+        { time: "20/11 13:55", title: "Duyệt đơn & Đóng gói", desc: "Đã đóng gói 5 Thắt Lưng Nam Da Thật từ lô LO-2026-V1.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "20/11 14:15", title: "Báo đơn vị vận chuyển lấy hàng", desc: "Đã gửi yêu cầu bưu tá GHN tới kho tiếp nhận kiện hàng.", location: "Kho ODOMS Phường Bình Phú" }
+      ]
+    },
+    {
+      trackingCode: "VD-FB-261102-3351",
+      orderId: "FB261102403",
+      channel: "FACEBOOK",
+      carrier: "GHTK (Giao Hàng Tiết Kiệm)",
+      shippingTier: "NHANH",
+      shippingFee: 35000,
+      isFreeship: false,
+      totalCod: 0,
+      status: "PENDING_PICKUP",
+      receiver: { name: "Bùi Anh Tuấn", phone: "0928112233", address: "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội" },
+      itemsSummary: "Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng) × 4",
+      batchCode: "LO-2026-X1",
+      shipperName: "Nguyễn Hoàng Hải (Điều phối GHTK)",
+      shipperPhone: "0909609200",
+      currentLocation: "Đã đóng gói chống sốc — Chờ bưu tá GHTK tới lấy tại 186 An Dương Vương, Phường Bình Phú, TP.HCM",
+      progressPercent: 20,
+      handoverTime: "02/11/2026 20:10:00",
+      lastUpdateTime: "02/11/2026 20:25:00",
+      timeline: [
+        { time: "02/11 20:05", title: "Duyệt đơn & Đóng gói", desc: "Đã in vận đơn VD-FB-261102-3351 và đóng hộp bảo vệ kính mát.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "02/11 20:25", title: "Báo đơn vị vận chuyển lấy hàng", desc: "Đã gửi yêu cầu bưu tá GHTK ghé kho lấy kiện hàng.", location: "Kho ODOMS Phường Bình Phú" }
+      ]
+    },
+    {
+      trackingCode: "VD-SP-261117-5519",
+      orderId: "SP261117007",
+      channel: "SHOPEE",
+      carrier: "SPX Express",
+      shippingTier: "TIEU_CHUAN",
+      shippingFee: 0,
+      isFreeship: true,
+      totalCod: 2100000,
+      status: "FAILED_RETURNING",
+      receiver: { name: "Đặng Thị Thảo", phone: "0933445588", address: "78 Quang Trung, Phường Gò Vấp, TP.HCM" },
+      itemsSummary: "Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL) × 5",
+      batchCode: "LO-2026-D1",
+      shipperName: "Vũ Đình Trọng (SPX Express)",
+      shipperPhone: "0961889900",
+      currentLocation: "Bưu tá gọi 3 cuộc không nghe máy — Lưu kho Phường Gò Vấp chờ giao lại lần 2",
+      progressPercent: 60,
+      handoverTime: "17/11/2026 16:00:00",
+      lastUpdateTime: "19/11/2026 15:10:00",
+      timeline: [
+        { time: "17/11 16:00", title: "Xuất kho ODOMS", desc: "Xuất 5 Áo Khoác Dù từ lô LO-2026-D1 tại Kho Phường Bình Phú.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "18/11 09:00", title: "Nhập kho bưu cục Phường Gò Vấp", desc: "Kiện hàng đã tới bưu cục phát.", location: "Bưu cục SPX Phường Gò Vấp" },
+        { time: "19/11 14:30", title: "Giao không thành công lần 1", desc: "Thuê bao không liên lạc được lúc 14:15, 14:22, 14:30.", location: "Đường Quang Trung, Phường Gò Vấp, TP.HCM" },
+        { time: "19/11 15:10", title: "Chờ giao lại lần 2", desc: "Kiện hàng lưu tạm tại bưu cục, dự kiến giao lại sáng hôm sau.", location: "Bưu cục SPX Phường Gò Vấp" }
+      ]
+    },
+    {
+      trackingCode: "VD-TT-261114-4418",
+      orderId: "TT261114106",
+      channel: "TIKTOK",
+      carrier: "J&T Express",
+      shippingTier: "NHANH",
+      shippingFee: 28000,
+      isFreeship: false,
+      totalCod: 3000000,
+      status: "IN_TRANSIT",
+      receiver: { name: "Bùi Tiến Dũng", phone: "0983556677", address: "102 Trần Hưng Đạo, Phường An Đông, TP.HCM" },
+      itemsSummary: "Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42) × 4",
+      batchCode: "LO-2026-Q1",
+      shipperName: "Đỗ Thanh Tùng (J&T Express)",
+      shipperPhone: "0919334455",
+      currentLocation: "Đang giao hàng — Bưu tá đang trên tuyến đường Trần Hưng Đạo, Phường An Đông",
+      progressPercent: 75,
+      handoverTime: "14/11/2026 15:20:00",
+      lastUpdateTime: "16/11/2026 10:40:00",
+      timeline: [
+        { time: "14/11 15:20", title: "Xuất kho ODOMS & Đóng hộp", desc: "Xuất 4 đôi Giày Chạy Bộ từ lô LO-2026-Q1.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "15/11 08:30", title: "Đến bưu cục Phường An Đông", desc: "Kiện hàng đã hoàn tất phân loại nội thành.", location: "Bưu cục J&T Phường An Đông" },
+        { time: "16/11 10:40", title: "Đang giao hàng", desc: "Bưu tá đang giao kiện hàng tới địa chỉ người nhận.", location: "Phường An Đông, TP.HCM" }
+      ]
+    },
+    {
+      trackingCode: "VD-SP-260115-1102",
+      orderId: "SP260115002",
+      channel: "SHOPEE",
+      carrier: "SPX Express",
+      shippingTier: "TIEU_CHUAN",
+      shippingFee: 0,
+      isFreeship: true,
+      totalCod: 950000,
+      status: "DELIVERED",
+      receiver: { name: "Trần Thị Bích", phone: "0912345678", address: "45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng" },
+      itemsSummary: "Áo Thun Cotton Oversize Unisex (Trắng - Size M) × 5",
+      batchCode: "LO-2026-B1",
+      shipperName: "Nguyễn Tấn Phát (SPX Đà Nẵng)",
+      shipperPhone: "0905887766",
+      currentLocation: "Đã giao thành công — Khách ký nhận lúc 10:25 ngày 17/01/2026",
+      progressPercent: 100,
+      handoverTime: "15/01/2026 11:00:00",
+      lastUpdateTime: "17/01/2026 10:25:00",
+      timeline: [
+        { time: "15/01 11:00", title: "Xuất kho ODOMS Phường Bình Phú", desc: "Xuất 5 Áo Thun Cotton Oversize từ lô LO-2026-B1.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "16/01 18:10", title: "Đến kho trung chuyển Đà Nẵng", desc: "Kiện hàng đã tới trung tâm khai thác miền Trung.", location: "Kho SPX TP.Đà Nẵng" },
+        { time: "17/01 10:25", title: "Giao thành công", desc: "Khách hàng Trần Thị Bích đã nhận đủ hàng và thanh toán thu hộ.", location: "45 Lê Lợi, Phường Hải Châu, TP.Đà Nẵng" }
+      ]
+    },
+    {
+      trackingCode: "VD-FB-260225-2201",
+      orderId: "FB260225401",
+      channel: "FACEBOOK",
+      carrier: "GHTK (Giao Hàng Tiết Kiệm)",
+      shippingTier: "NHANH",
+      shippingFee: 32000,
+      isFreeship: false,
+      totalCod: 0,
+      status: "DELIVERED",
+      receiver: { name: "Nguyễn Thị Thanh Trúc", phone: "0922334455", address: "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội" },
+      itemsSummary: "Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M) × 5",
+      batchCode: "LO-2026-O1",
+      shipperName: "Trần Văn Mạnh (GHTK Hà Nội)",
+      shipperPhone: "0984221100",
+      currentLocation: "Đã giao thành công — Khách đã nhận đủ kiện hàng",
+      progressPercent: 100,
+      handoverTime: "26/02/2026 08:30:00",
+      lastUpdateTime: "28/02/2026 15:40:00",
+      timeline: [
+        { time: "26/02 08:30", title: "Xuất kho ODOMS & Bàn giao GHTK", desc: "Xuất 5 Đầm Thun Suông từ lô LO-2026-O1.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "27/02 20:00", title: "Đến kho khai thác Hà Nội", desc: "Kiện hàng đã đến bưu cục phát Phường Cửa Nam.", location: "Kho GHTK Hà Nội" },
+        { time: "28/02 15:40", title: "Giao thành công", desc: "Người nhận Nguyễn Thị Thanh Trúc đã ký nhận hoàn tất.", location: "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội" }
+      ]
+    },
+    {
+      trackingCode: "VD-LZ-260615-6603",
+      orderId: "LZ260615203",
+      channel: "LAZADA",
+      carrier: "GHN (Giao Hàng Nhanh)",
+      shippingTier: "TIEU_CHUAN",
+      shippingFee: 0,
+      isFreeship: true,
+      totalCod: 1900000,
+      status: "DELIVERED",
+      receiver: { name: "Ngô Thanh Vân", phone: "0918273645", address: "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ" },
+      itemsSummary: "Quần Kaki Chinos Công Sở (Be - Size 30) × 5",
+      batchCode: "LO-2026-G1",
+      shipperName: "Phạm Văn Hùng (GHN Cần Thơ)",
+      shipperPhone: "0977123456",
+      currentLocation: "Đã giao thành công — Khách ký nhận lúc 11:28 ngày 17/06/2026",
+      progressPercent: 100,
+      handoverTime: "15/06/2026 14:00:00",
+      lastUpdateTime: "17/06/2026 11:28:00",
+      timeline: [
+        { time: "15/06 14:00", title: "Xuất kho ODOMS Phường Bình Phú", desc: "Xuất 5 Quần Kaki Chinos từ lô LO-2026-G1.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "16/06 06:30", title: "Rời trung tâm phân loại TP.HCM", desc: "Kiện hàng lên xe vận chuyển đi Tây Nam Bộ.", location: "Kho trung chuyển GHN Tân Bình" },
+        { time: "17/06 07:15", title: "Đến bưu cục Phường An Cư", desc: "Đã tới bưu cục phát Cần Thơ.", location: "Bưu cục GHN Phường An Cư, TP.Cần Thơ" },
+        { time: "17/06 11:28", title: "Giao thành công", desc: "Khách hàng Ngô Thanh Vân đã nhận hàng và thanh toán đủ tiền thu hộ.", location: "22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ" }
+      ]
+    },
+    {
+      trackingCode: "VD-FB-260626-6602",
+      orderId: "FB260626402",
+      channel: "FACEBOOK",
+      carrier: "GHTK (Giao Hàng Tiết Kiệm)",
+      shippingTier: "TIEU_CHUAN",
+      shippingFee: 22000,
+      isFreeship: false,
+      totalCod: 960000,
+      status: "DELIVERED",
+      receiver: { name: "Phạm Quang Vinh", phone: "0979443322", address: "85 Cộng Hòa, Phường Bảy Hiền, TP.HCM" },
+      itemsSummary: "Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu) × 6",
+      batchCode: "LO-2026-W1",
+      shipperName: "Lý Quốc Cường (GHTK TP.HCM)",
+      shipperPhone: "0937665544",
+      currentLocation: "Đã giao thành công — Hoàn tất thu hộ nội thành TP.HCM",
+      progressPercent: 100,
+      handoverTime: "27/06/2026 09:00:00",
+      lastUpdateTime: "28/06/2026 16:15:00",
+      timeline: [
+        { time: "27/06 09:00", title: "Xuất kho ODOMS & Bàn giao GHTK", desc: "Xuất 6 Nón Kết Lưỡi Trai từ lô LO-2026-W1.", location: "Kho ODOMS Phường Bình Phú" },
+        { time: "28/06 16:15", title: "Giao thành công", desc: "Khách hàng Phạm Quang Vinh đã nhận đủ hàng và thanh toán thu hộ.", location: "85 Cộng Hòa, Phường Bảy Hiền, TP.HCM" }
+      ]
+    }
+  ];
 }

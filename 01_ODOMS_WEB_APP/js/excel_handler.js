@@ -21,7 +21,19 @@ class ExcelHandler {
       customerPhone: ["Số điện thoại", "Phone", "customerPhone", "SDT", "SĐT", "phone"],
       shippingAddress: ["Địa chỉ nhận hàng", "Shipping Address", "shippingAddress", "Dia_Chi", "Địa chỉ", "address"],
       platformStatus: ["Trạng thái đơn hàng", "Trạng thái", "Trang_Thai", "Order Status", "order_status", "status"],
-      paymentMethod: ["Phương thức thanh toán", "Payment Method", "paymentMethod", "Hinh_Thuc_TT", "Thanh toán"]
+      paymentMethod: ["Phương thức thanh toán", "Payment Method", "paymentMethod", "Hinh_Thuc_TT", "Thanh toán"],
+      carrier: [
+        "Đơn vị vận chuyển",
+        "ĐVVC",
+        "DonViVanChuyen",
+        "Don_Vi_Van_Chuyen",
+        "Shipping Provider",
+        "shippingProvider",
+        "Shipping Carrier",
+        "shippingCarrier",
+        "Carrier",
+        "carrier"
+      ]
     },
     INVENTORY_COLUMNS: {
       sku: "Mã SKU",
@@ -780,36 +792,41 @@ class ExcelHandler {
       }
     ];
 
+    const totalSampleOrders = (window.UNIFIED_SAMPLE_DATASET || []).length;
+    const totalInvSkus = (window.INITIAL_INVENTORY || []).length;
+    const totalInvUnits = (window.INITIAL_INVENTORY || []).reduce((s, i) => s + Number(i.physicalStock || 0), 0);
+    const shopeeCount = ((window.SAMPLE_EXCEL_DATASETS && window.SAMPLE_EXCEL_DATASETS.SHOPEE) || []).length;
+
     const tocEntries = [
       {
         sheet: "1_Bang_Gom_Chung_5_Kenh",
-        desc: "Bảng tổng hợp toàn bộ 11 đơn hàng từ 5 kênh đã chuẩn hóa về Canonical Order Schema.",
-        rel: "Hợp nhất từ 5 kênh (Shopee, TikTok, Lazada, POS, FB) — Đủ 14 trường thông số"
+        desc: `Bảng tổng hợp toàn bộ ${totalSampleOrders} đơn hàng Thời trang từ 5 kênh bán hàng giai đoạn 01/2026 - 22/11/2026.`,
+        rel: "Hợp nhất từ 5 kênh (Shopee, TikTok Shop, Lazada, POS, Facebook) — Đủ 15 cột thông tin nghiệp vụ kèm ĐVVC"
       },
       {
         sheet: "2_Mau_Don_Shopee",
-        desc: "Bảng dữ liệu đơn hàng xuất nguyên bản từ Shopee Seller Centre (3 đơn hàng mẫu).",
-        rel: "Liên kết kênh SHOPEE & đối chiếu tồn kho mã SP-AO-POLO-01, SP-TAI-NGHE-02, SP-BAN-PHIM-05"
+        desc: `Bảng dữ liệu đơn hàng Thời trang xuất từ kênh Shopee (${shopeeCount} đơn hàng từ 01/2026 - 22/11/2026).`,
+        rel: "Liên kết kênh SHOPEE & đối chiếu tồn kho các mã SP-AO-POLO-01, SP-AO-THUN-02, SP-QUAN-JEANS-06, SP-SET-BLAZER-14..."
       },
       {
         sheet: "3_Mau_Don_TikTokShop",
-        desc: "Bảng dữ liệu đơn hàng xuất nguyên bản từ TikTok Shop Seller Center (Header tiếng Anh).",
-        rel: "Liên kết kênh TIKTOK & kiểm thử tự động ánh xạ tên cột tiếng Anh sang chuẩn nội bộ"
+        desc: "Bảng dữ liệu đơn hàng Thời trang xuất từ kênh TikTok Shop (tiêu đề tiếng Anh kèm cột Shipping Provider).",
+        rel: "Liên kết kênh TIKTOK & tự động đối chiếu tên cột tiếng Anh sang chuẩn nội bộ ODOMS"
       },
       {
         sheet: "4_Mau_Don_Lazada",
-        desc: "Bảng dữ liệu đơn hàng xuất nguyên bản từ Lazada Seller Center (Header camelCase).",
-        rel: "Liên kết kênh LAZADA & kiểm thử kịch bản Chặn bán lố (Anti-Overselling) đơn LZ261022201"
+        desc: "Bảng dữ liệu đơn hàng Thời trang xuất từ kênh Lazada (kèm cột shippingProvider).",
+        rel: "Liên kết kênh LAZADA & kiểm tra kịch bản chặn nhận vượt tồn kho đơn LZ261122201"
       },
       {
         sheet: "5_Mau_Don_FB_POS",
-        desc: "Bảng dữ liệu đơn hàng từ Facebook Livestream/Fanpage và Cửa hàng vật lý POS.",
-        rel: "Bao gồm đơn ưu tiên tại quầy POS (POS261022301) và đơn lỗi SKU / Đã hủy (FB261022402)"
+        desc: "Bảng dữ liệu đơn hàng Thời trang từ Facebook Livestream/Fanpage và Cửa hàng vật lý POS.",
+        rel: "Bao gồm đơn ưu tiên tại quầy POS (POS261122301), đơn Facebook chưa gán ĐVVC và đơn hủy sai mã (FB261122405)"
       },
       {
         sheet: "6_Danh_Muc_Ton_Kho_FEFO",
-        desc: "Danh mục 5 mã SKU sản phẩm, tồn kho vật lý (59 SP), tồn khả dụng ATP và danh sách Lô hàng FEFO.",
-        rel: "Bảng Cha (Master Data) cung cấp tồn kho gốc và hạn sử dụng lô hàng cho Bước 3 & Bước 4"
+        desc: `Danh mục ${totalInvSkus} mã sản phẩm Thời trang (5 nhóm hàng), tổng tồn vật lý ${totalInvUnits} sản phẩm và danh sách lô nhập kho.`,
+        rel: "Bảng danh mục gốc cung cấp tồn kho thực tế và hạn sử dụng từng lô hàng cho bước kiểm tra & giữ hàng"
       }
     ];
 
@@ -939,9 +956,11 @@ class ExcelHandler {
     return ExcelHandler.buildWorksheetXml({ cols, rows, hyperlinks, showGridLines: false });
   }
 
-  // Xây dựng Sheet 6: Danh mục Tồn kho Khả dụng (ATP) & Lô hàng FEFO (Tham chiếu tbl_VatTu & tbl_QuanLyThung)
+  // Xây dựng Sheet 6: Danh mục Tồn kho Thời trang & Lô hàng xuất theo hạn dùng
   static buildInventoryFefoSheetSpec() {
-    const cols = [18, 42, 16, 14, 16, 16, 22, 16, 24, 34];
+    const invList = window.INITIAL_INVENTORY || [];
+    const totalPhysical = invList.reduce((sum, item) => sum + Number(item.physicalStock || 0), 0);
+    const cols = [18, 42, 20, 14, 16, 16, 22, 16, 24, 38];
     const rows = [
       {
         r: 1,
@@ -950,7 +969,7 @@ class ExcelHandler {
           {
             col: 0,
             s: 1,
-            v: "BẢNG DỮ LIỆU: 6_DANH_MUC_TON_KHO_FEFO - DANH MỤC SẢN PHẨM (SKU), TỒN KHO KHẢ DỤNG ATP & LÔ HÀNG FEFO"
+            v: `BẢNG DỮ LIỆU: 6_DANH_MUC_TON_KHO_FEFO - DANH MỤC ${invList.length} SẢN PHẨM THỜI TRANG, TỒN KHO & LÔ HÀNG`
           }
         ]
       },
@@ -961,7 +980,7 @@ class ExcelHandler {
           {
             col: 0,
             s: 2,
-            v: "Bảng Cha (Master Data) lưu trữ cấu hình tồn kho gốc (59 SP vật lý) và danh sách Lô hàng xuất theo nguyên tắc Hết hạn trước - Xuất trước (FEFO)."
+            v: `Bảng danh mục gốc lưu trữ tồn kho thực tế (${invList.length} mã Thời trang · ${totalPhysical} sản phẩm vật lý) và danh sách lô hàng xuất theo thứ tự hết hạn trước — xuất trước.`
           },
           { col: 9, s: 18, v: "← Quay về tbl_Overview" }
         ]
@@ -970,21 +989,20 @@ class ExcelHandler {
         r: 4,
         ht: 25,
         cells: [
-          { col: 0, s: 5, v: "Mã SKU (PK)" },
-          { col: 1, s: 5, v: "Tên sản phẩm thương mại" },
+          { col: 0, s: 5, v: "Mã sản phẩm" },
+          { col: 1, s: 5, v: "Tên sản phẩm Thời trang" },
           { col: 2, s: 5, v: "Danh mục" },
           { col: 3, s: 5, v: "Đơn vị tính" },
-          { col: 4, s: 5, v: "Tồn Vật Lý" },
-          { col: 5, s: 5, v: "Đang Giữ Chỗ" },
-          { col: 6, s: 5, v: "Tồn Khả Dụng ATP (Formula)" },
+          { col: 4, s: 5, v: "Tồn kho thực tế" },
+          { col: 5, s: 5, v: "Đang giữ cho đơn" },
+          { col: 6, s: 5, v: "Sẵn sàng bán (Công thức)" },
           { col: 7, s: 5, v: "Đơn Giá Bán (VND)" },
-          { col: 8, s: 5, v: "Giá Trị Tồn Kho (Formula)" },
-          { col: 9, s: 5, v: "Danh sách Lô FEFO & Mã QR Định danh" }
+          { col: 8, s: 5, v: "Giá Trị Tồn Kho (Công thức)" },
+          { col: 9, s: 5, v: "Danh sách Lô hàng & Mã QR định danh" }
         ]
       }
     ];
 
-    const invList = window.INITIAL_INVENTORY || [];
     invList.forEach((item, idx) => {
       const rNum = 5 + idx;
       const isZebra = idx % 2 === 1;
@@ -1130,7 +1148,7 @@ class ExcelHandler {
       CANCELLED: "Đã hủy đơn"
     };
 
-    // Chuẩn hóa đầy đủ 11 đơn hàng cho Sheet 1 (1_Bang_Gom_Chung_5_Kenh) - Không thiếu bất kỳ trường nào
+    // Chuẩn hóa đầy đủ đơn hàng Thời trang cho Sheet 1 (1_Bang_Gom_Chung_5_Kenh) gồm đủ 15 cột có ĐVVC
     const unifiedRows = (window.UNIFIED_SAMPLE_DATASET || []).map((r) => {
       const norm = window.omsEngine.normalizeRawOrder(r);
       return {
@@ -1146,7 +1164,8 @@ class ExcelHandler {
         "Số điện thoại": norm.customerPhone,
         "Địa chỉ nhận hàng": norm.shippingAddress,
         "Trạng thái đơn hàng": statusLabelMap[norm.platformStatus] || "Đã xác nhận",
-        "Phương thức thanh toán": norm.paymentMethod
+        "Phương thức thanh toán": norm.paymentMethod,
+        "Đơn vị vận chuyển": norm.carrier || "Chưa gán ĐVVC"
       };
     });
 
@@ -1154,82 +1173,92 @@ class ExcelHandler {
       { header: "Mã đơn hàng", key: "Mã đơn hàng", width: 17, role: "pk" },
       { header: "Sàn TMĐT", key: "Sàn TMĐT", width: 14, role: "fk_center" },
       { header: "Thời gian đặt hàng", key: "Thời gian đặt hàng", width: 21, align: "center" },
-      { header: "SKU phân loại", key: "SKU phân loại", width: 18, role: "fk_center" },
-      { header: "Tên sản phẩm", key: "Tên sản phẩm", width: 40 },
+      { header: "SKU phân loại", key: "SKU phân loại", width: 20, role: "fk_center" },
+      { header: "Tên sản phẩm", key: "Tên sản phẩm", width: 44 },
       { header: "Đơn vị tính", key: "Đơn vị tính", width: 13, align: "center" },
       { header: "Số lượng", key: "Số lượng", width: 12, type: "number" },
       { header: "Đơn giá", key: "Đơn giá", width: 15, type: "currency" },
-      { header: "Thành tiền (Formula)", type: "formula_total", qtyColIdx: 6, priceColIdx: 7, width: 20 },
-      { header: "Người Mua", key: "Người Mua", width: 28 },
+      { header: "Thành tiền (VNĐ)", type: "formula_total", qtyColIdx: 6, priceColIdx: 7, width: 20 },
+      { header: "Người Mua", key: "Người Mua", width: 30 },
       { header: "Số điện thoại", key: "Số điện thoại", width: 15, align: "center" },
       { header: "Địa chỉ nhận hàng", key: "Địa chỉ nhận hàng", width: 46 },
       { header: "Trạng thái đơn hàng", key: "Trạng thái đơn hàng", width: 19, align: "center" },
-      { header: "Phương thức thanh toán", key: "Phương thức thanh toán", width: 28 }
+      { header: "Phương thức thanh toán", key: "Phương thức thanh toán", width: 28 },
+      { header: "Đơn vị vận chuyển", key: "Đơn vị vận chuyển", width: 24, align: "center" }
     ];
 
     const shopeeColumns = [
       { header: "Mã đơn hàng", key: "Mã đơn hàng", width: 17, role: "pk" },
       { header: "Sàn TMĐT", key: "Sàn TMĐT", width: 14, role: "fk_center" },
       { header: "Thời gian đặt hàng", key: "Thời gian đặt hàng", width: 21, align: "center" },
-      { header: "SKU phân loại", key: "SKU phân loại", width: 18, role: "fk_center" },
-      { header: "Tên sản phẩm", key: "Tên sản phẩm", width: 40 },
+      { header: "SKU phân loại", key: "SKU phân loại", width: 20, role: "fk_center" },
+      { header: "Tên sản phẩm", key: "Tên sản phẩm", width: 44 },
       { header: "Số lượng", key: "Số lượng", width: 12, type: "number" },
       { header: "Đơn giá", key: "Đơn giá", width: 15, type: "currency" },
-      { header: "Thành tiền (Formula)", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 20 },
+      { header: "Thành tiền (VNĐ)", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 20 },
       { header: "Người Mua", key: "Người Mua", width: 24 },
       { header: "Số điện thoại", key: "Số điện thoại", width: 15, align: "center" },
       { header: "Địa chỉ nhận hàng", key: "Địa chỉ nhận hàng", width: 44 },
       { header: "Trạng thái đơn hàng", key: "Trạng thái đơn hàng", width: 19, align: "center" },
-      { header: "Phương thức thanh toán", key: "Phương thức thanh toán", width: 28 }
+      { header: "Phương thức thanh toán", key: "Phương thức thanh toán", width: 28 },
+      { header: "Đơn vị vận chuyển", key: "Đơn vị vận chuyển", width: 24, align: "center" }
     ];
 
     const tiktokColumns = [
       { header: "Order ID", key: "Order ID", width: 17, role: "pk" },
       { header: "Channel", key: "Channel", width: 14, role: "fk_center" },
       { header: "Created Time", key: "Created Time", width: 21, align: "center" },
-      { header: "Seller SKU", key: "Seller SKU", width: 18, role: "fk_center" },
-      { header: "Product Name", key: "Product Name", width: 40 },
+      { header: "Seller SKU", key: "Seller SKU", width: 20, role: "fk_center" },
+      { header: "Product Name", key: "Product Name", width: 44 },
       { header: "Quantity", key: "Quantity", width: 12, type: "number" },
       { header: "Unit Price", key: "Unit Price", width: 15, type: "currency" },
-      { header: "Total Amount (Formula)", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 21 },
+      { header: "Total Amount", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 21 },
       { header: "Recipient", key: "Recipient", width: 24 },
       { header: "Phone", key: "Phone", width: 15, align: "center" },
       { header: "Shipping Address", key: "Shipping Address", width: 44 },
       { header: "Order Status", key: "Order Status", width: 19, align: "center" },
-      { header: "Payment Method", key: "Payment Method", width: 28 }
+      { header: "Payment Method", key: "Payment Method", width: 28 },
+      { header: "Shipping Provider", key: "Shipping Provider", width: 24, align: "center" }
     ];
 
     const lazadaColumns = [
       { header: "orderNumber", key: "orderNumber", width: 17, role: "pk" },
       { header: "channel", key: "channel", width: 14, role: "fk_center" },
       { header: "createTime", key: "createTime", width: 21, align: "center" },
-      { header: "sellerSku", key: "sellerSku", width: 18, role: "fk_center" },
-      { header: "itemName", key: "itemName", width: 40 },
+      { header: "sellerSku", key: "sellerSku", width: 20, role: "fk_center" },
+      { header: "itemName", key: "itemName", width: 44 },
       { header: "qty", key: "qty", width: 12, type: "number" },
       { header: "unitPrice", key: "unitPrice", width: 15, type: "currency" },
-      { header: "totalAmount (Formula)", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 21 },
+      { header: "totalAmount", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 21 },
       { header: "customerName", key: "customerName", width: 24 },
       { header: "customerPhone", key: "customerPhone", width: 15, align: "center" },
       { header: "shippingAddress", key: "shippingAddress", width: 44 },
       { header: "order_status", key: "order_status", width: 19, align: "center" },
-      { header: "paymentMethod", key: "paymentMethod", width: 28 }
+      { header: "paymentMethod", key: "paymentMethod", width: 28 },
+      { header: "shippingProvider", key: "shippingProvider", width: 24, align: "center" }
     ];
 
     const fbPosColumns = [
       { header: "Ma_Don", key: "Ma_Don", width: 17, role: "pk" },
       { header: "Kenh_Ban", key: "Kenh_Ban", width: 14, role: "fk_center" },
       { header: "Thoi_Gian_Dat", key: "Thoi_Gian_Dat", width: 21, align: "center" },
-      { header: "Ma_SKU", key: "Ma_SKU", width: 18, role: "fk_center" },
-      { header: "Ten_SP", key: "Ten_SP", width: 42 },
+      { header: "Ma_SKU", key: "Ma_SKU", width: 20, role: "fk_center" },
+      { header: "Ten_SP", key: "Ten_SP", width: 44 },
       { header: "So_Luong", key: "So_Luong", width: 12, type: "number" },
       { header: "Don_Gia", key: "Don_Gia", width: 15, type: "currency" },
-      { header: "Thanh_Tien (Formula)", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 20 },
+      { header: "Thanh_Tien", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 20 },
       { header: "Ten_Khach", key: "Ten_Khach", width: 32 },
       { header: "SDT", key: "SDT", width: 15, align: "center" },
       { header: "Dia_Chi", key: "Dia_Chi", width: 48 },
       { header: "Trang_Thai", key: "Trang_Thai", width: 19, align: "center" },
-      { header: "Hinh_Thuc_TT", key: "Hinh_Thuc_TT", width: 26 }
+      { header: "Hinh_Thuc_TT", key: "Hinh_Thuc_TT", width: 26 },
+      { header: "Don_Vi_Van_Chuyen", key: "Don_Vi_Van_Chuyen", width: 24, align: "center" }
     ];
+
+    const shopeeRows = window.SAMPLE_EXCEL_DATASETS.SHOPEE || [];
+    const tiktokRows = window.SAMPLE_EXCEL_DATASETS.TIKTOK || [];
+    const lazadaRows = window.SAMPLE_EXCEL_DATASETS.LAZADA || [];
+    const fbPosRows = window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS || [];
 
     const sheetsConfig = [
       {
@@ -1239,9 +1268,8 @@ class ExcelHandler {
       {
         name: "1_Bang_Gom_Chung_5_Kenh",
         xml: ExcelHandler.buildOrderSheetSpec({
-          title: "BẢNG DỮ LIỆU: 1_BANG_GOM_CHUNG_5_KENH - BẢNG GOM ĐƠN HÀNG ĐA KÊNH TỔNG HỢP (11 ĐƠN)",
-          subtitle:
-            "Tổng hợp toàn bộ 11 đơn hàng từ 5 kênh (Shopee, TikTok Shop, Lazada, POS, Facebook) đã chuẩn hóa đầy đủ 14 trường thông số Canonical Schema.",
+          title: `BẢNG DỮ LIỆU: 1_BANG_GOM_CHUNG_5_KENH - BẢNG GOM ĐƠN HÀNG ĐA KÊNH THỜI TRANG TỔNG HỢP (${unifiedRows.length} ĐƠN)`,
+          subtitle: `Tổng hợp toàn bộ ${unifiedRows.length} đơn hàng Thời trang từ 5 kênh (Shopee, TikTok Shop, Lazada, POS, Facebook) giai đoạn 01/2026 - 22/11/2026 với đủ 15 cột thông tin nghiệp vụ.`,
           columnsSpec: unifiedColumns,
           dataRows: unifiedRows
         })
@@ -1249,41 +1277,37 @@ class ExcelHandler {
       {
         name: "2_Mau_Don_Shopee",
         xml: ExcelHandler.buildOrderSheetSpec({
-          title: "BẢNG DỮ LIỆU: 2_MAU_DON_SHOPEE - ĐƠN HÀNG XUẤT TỪ SHOPEE SELLER CENTRE",
-          subtitle:
-            "Dữ liệu đơn hàng xuất nguyên bản từ sàn Shopee Mall (3 đơn hàng). Cột Thành tiền tự động nhân Số lượng × Đơn giá.",
+          title: `BẢNG DỮ LIỆU: 2_MAU_DON_SHOPEE - ĐƠN HÀNG THỜI TRANG TỪ KÊNH SHOPEE (${shopeeRows.length} ĐƠN)`,
+          subtitle: `Dữ liệu đơn hàng Thời trang xuất từ kênh Shopee (${shopeeRows.length} đơn giai đoạn 01/2026 - 22/11/2026, kèm cột Đơn vị vận chuyển).`,
           columnsSpec: shopeeColumns,
-          dataRows: window.SAMPLE_EXCEL_DATASETS.SHOPEE || []
+          dataRows: shopeeRows
         })
       },
       {
         name: "3_Mau_Don_TikTokShop",
         xml: ExcelHandler.buildOrderSheetSpec({
-          title: "BẢNG DỮ LIỆU: 3_MAU_DON_TIKTOKSHOP - ĐƠN HÀNG XUẤT TỪ TIKTOK SHOP SELLER CENTER",
-          subtitle:
-            "Dữ liệu đơn hàng xuất nguyên bản từ TikTok Shop (Header tiếng Anh chuẩn của sàn). Bộ đọc ODOMS tự động ánh xạ về Canonical Schema.",
+          title: `BẢNG DỮ LIỆU: 3_MAU_DON_TIKTOKSHOP - ĐƠN HÀNG THỜI TRANG TỪ TIKTOK SHOP (${tiktokRows.length} ĐƠN)`,
+          subtitle: `Dữ liệu đơn hàng Thời trang từ TikTok Shop (${tiktokRows.length} đơn giai đoạn 02/2026 - 22/11/2026, tiêu đề cột chuẩn sàn kèm Shipping Provider).`,
           columnsSpec: tiktokColumns,
-          dataRows: window.SAMPLE_EXCEL_DATASETS.TIKTOK || []
+          dataRows: tiktokRows
         })
       },
       {
         name: "4_Mau_Don_Lazada",
         xml: ExcelHandler.buildOrderSheetSpec({
-          title: "BẢNG DỮ LIỆU: 4_MAU_DON_LAZADA - ĐƠN HÀNG XUẤT TỪ LAZADA SELLER CENTER",
-          subtitle:
-            "Dữ liệu đơn hàng xuất nguyên bản từ Lazada Mall (Header camelCase). Minh họa kịch bản đơn LZ261022201 đặt trễ bị chặn bán lố (Anti-Overselling).",
+          title: `BẢNG DỮ LIỆU: 4_MAU_DON_LAZADA - ĐƠN HÀNG THỜI TRANG TỪ KÊNH LAZADA (${lazadaRows.length} ĐƠN)`,
+          subtitle: `Dữ liệu đơn hàng Thời trang từ kênh Lazada (${lazadaRows.length} đơn giai đoạn 03/2026 - 22/11/2026). Minh họa kịch bản đơn LZ261122201 đặt trễ bị chặn vượt tồn kho.`,
           columnsSpec: lazadaColumns,
-          dataRows: window.SAMPLE_EXCEL_DATASETS.LAZADA || []
+          dataRows: lazadaRows
         })
       },
       {
         name: "5_Mau_Don_FB_POS",
         xml: ExcelHandler.buildOrderSheetSpec({
-          title: "BẢNG DỮ LIỆU: 5_MAU_DON_FB_POS - ĐƠN HÀNG TỪ FACEBOOK LIVESTREAM & CỬA HÀNG POS",
-          subtitle:
-            "Bao gồm đơn mua trực tiếp tại quầy POS Phường Bình Phú (POS261022301) và đơn lỗi mã SKU / Đã hủy (FB261022402) để kiểm thử Validation Engine.",
+          title: `BẢNG DỮ LIỆU: 5_MAU_DON_FB_POS - ĐƠN HÀNG THỜI TRANG FACEBOOK & CỬA HÀNG POS (${fbPosRows.length} ĐƠN)`,
+          subtitle: `Bao gồm đơn tại quầy POS Phường Bình Phú (POS261122301), đơn Facebook chưa gán ĐVVC (FB261118404) và đơn hủy sai mã sản phẩm (FB261122405).`,
           columnsSpec: fbPosColumns,
-          dataRows: window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS || []
+          dataRows: fbPosRows
         })
       },
       {

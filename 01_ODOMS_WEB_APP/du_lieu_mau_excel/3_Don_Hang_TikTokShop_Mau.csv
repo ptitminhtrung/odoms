@@ -1,4 +1,8 @@
-﻿Order ID,Channel,Created Time,Seller SKU,Product Name,Quantity,Unit Price,Recipient,Phone,Shipping Address,Order Status,Payment Method
-TT261022101,TIKTOK,2026-10-22 08:16:05,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),4,250000,Phạm Minh Tuấn,0933445566,"56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM",Đã xác nhận,COD (Thanh toán khi nhận hàng)
-TT261022102,TIKTOK,2026-10-22 08:21:15,SP-BALO-LAP-03,Balo Laptop Chống Nước 15.6 inch Urban,5,380000,Hoàng Thùy Linh,0977889900,"12 Trần Phú, phường Nha Trang, tỉnh Khánh Hòa",Đã xác nhận,Ví ZaloPay
-TT261022103,TIKTOK,2026-10-22 08:27:10,SP-BAN-PHIM-05,Bàn Phím Cơ Không Dây RGB K68 Hotswap,3,650000,Đặng Quốc Khánh,0966112233,"90 Lạch Tray, Phường Lê Chân, TP.Hải Phòng",Chờ xác nhận,COD (Thanh toán khi nhận hàng)
+﻿Order ID,Channel,Created Time,Seller SKU,Product Name,Quantity,Unit Price,Recipient,Phone,Shipping Address,Order Status,Payment Method,Shipping Provider
+TT261122101,TIKTOK,2026-11-22 08:16:05,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),4,250000,Phạm Minh Tuấn,0933445566,"56 Võ Văn Ngân, Phường Thủ Đức, TP.HCM",Đã xác nhận,COD (Thanh toán khi nhận hàng),J&T Express
+TT260214102,TIKTOK,2026-02-14 10:15:00,SP-CHAN-VAY-12,Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M),5,260000,Hoàng Thùy Linh,0977889900,"12 Trần Phú, Phường Nha Trang, tỉnh Khánh Hòa",Đã xác nhận,Ví ZaloPay,J&T Express
+TT260422103,TIKTOK,2026-04-22 13:50:00,SP-AO-HOODIE-05,Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L),4,390000,Đặng Quốc Khánh,0966112233,"90 Lạch Tray, Phường Lê Chân, TP.Hải Phòng",Đã xác nhận,COD (Thanh toán khi nhận hàng),J&T Express
+TT260719104,TIKTOK,2026-07-19 19:20:00,SP-DAM-MAXI-13,Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M),5,480000,Lý Thảo Nhi,0935667788,"31 Nguyễn Văn Cừ, Phường Ninh Kiều, TP.Cần Thơ",Đã xác nhận,Ví ZaloPay,J&T Express
+TT261010105,TIKTOK,2026-10-10 20:15:00,SP-DEP-DUC-20,Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41),8,150000,Phan Anh Khoa,0942778899,"64 Lê Duẩn, Phường Buôn Ma Thuột, tỉnh Đắk Lắk",Đã xác nhận,COD (Thanh toán khi nhận hàng),J&T Express
+TT261114106,TIKTOK,2026-11-14 14:30:00,SP-GIAY-CHAYBO-17,Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42),4,750000,Bùi Tiến Dũng,0983556677,"102 Trần Hưng Đạo, Phường An Đông, TP.HCM",Đã xác nhận,COD (Thanh toán khi nhận hàng),J&T Express
+TT261120107,TIKTOK,2026-11-20 16:45:00,SP-QUAN-JOGGER-10,Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M),3,290000,Mai Phương Anh,0916998877,"28 Phan Đình Phùng, Phường Ba Đình, TP.Hà Nội",Chờ xác nhận,COD (Thanh toán khi nhận hàng),J&T Express

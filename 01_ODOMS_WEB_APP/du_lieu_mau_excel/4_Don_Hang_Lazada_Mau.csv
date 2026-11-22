@@ -1,3 +1,7 @@
-﻿orderNumber,channel,createTime,sellerSku,itemName,qty,unitPrice,customerName,customerPhone,shippingAddress,order_status,paymentMethod
-LZ261022201,LAZADA,2026-10-22 08:18:45,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),3,250000,Võ Thành Đạt,0944556677,"78 Nguyễn Văn Linh, Phường Tân Thuận, TP.HCM",Đã xác nhận,Thẻ Visa / Mastercard
-LZ261022202,LAZADA,2026-10-22 08:19:10,SP-BINH-NHIET-04,Bình Giữ Nhiệt Inox 304 Lock&Lock 900ml,6,310000,Ngô Thanh Vân,0918273645,"22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ",Đã xác nhận,COD (Thanh toán khi nhận hàng)
+﻿orderNumber,channel,createTime,sellerSku,itemName,qty,unitPrice,customerName,customerPhone,shippingAddress,order_status,paymentMethod,shippingProvider
+LZ261122201,LAZADA,2026-11-22 08:18:45,SP-AO-POLO-01,Áo Polo Nam Coolmate Pro (Đen - Size L),3,250000,Võ Thành Đạt,0944556677,"78 Nguyễn Văn Linh, Phường Tân Thuận, TP.HCM",Đã xác nhận,Thẻ Visa / Mastercard,GHN (Giao Hàng Nhanh)
+LZ260308202,LAZADA,2026-03-08 11:05:00,SP-AO-SOMI-03,Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L),4,320000,Nguyễn Quốc Bảo,0907334455,"145 Điện Biên Phủ, Phường Gia Định, TP.HCM",Đã xác nhận,Thẻ Visa / Mastercard,GHN (Giao Hàng Nhanh)
+LZ260615203,LAZADA,2026-06-15 09:40:00,SP-QUAN-KAKI-07,Quần Kaki Chinos Công Sở (Be - Size 30),5,380000,Ngô Thanh Vân,0918273645,"22 Đại lộ Hòa Bình, Phường An Cư, TP.Cần Thơ",Đã xác nhận,COD (Thanh toán khi nhận hàng),GHN (Giao Hàng Nhanh)
+LZ260909204,LAZADA,2026-09-09 15:25:00,SP-SANDAL-NU-19,Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37),5,390000,Đinh Hồng Nhung,0939112244,"51 Nguyễn Văn Thoại, Phường Ngũ Hành Sơn, TP.Đà Nẵng",Đã xác nhận,Thẻ Visa / Mastercard,GHN (Giao Hàng Nhanh)
+LZ261110205,LAZADA,2026-11-10 10:12:00,SP-GIAY-LOAFER-18,Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40),5,890000,Tô Hoàng Long,0903667799,"18 Lý Tự Trọng, Phường Sài Gòn, TP.HCM",Đã xác nhận,Thẻ Visa / Mastercard,GHN (Giao Hàng Nhanh)
+LZ261120206,LAZADA,2026-11-20 13:20:00,SP-THAT-LUNG-22,Thắt Lưng Nam Da Thật Khóa Tự Động (Đen),5,320000,Hồ Nhật Minh,0914889922,"67 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM",Đã xác nhận,COD (Thanh toán khi nhận hàng),GHN (Giao Hàng Nhanh)
