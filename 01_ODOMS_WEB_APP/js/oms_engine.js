@@ -915,13 +915,11 @@ class OMSEngine {
     ) {
       platformStatus = "CONFIRMED";
     } else if (!rawStatus) {
-      if (orderId === "FB261122405" || orderId === "FB261022402") {
+      if (orderId === "FB261122405") {
         platformStatus = "CANCELLED";
       } else if (
         orderId === "SP261122008" ||
-        orderId === "TT261120107" ||
-        orderId === "SP261022003" ||
-        orderId === "TT261022103"
+        orderId === "TT261120107"
       ) {
         platformStatus = "UNCONFIRMED";
       } else {
@@ -939,13 +937,13 @@ class OMSEngine {
       if (channelRaw === "POS") {
         paymentMethod = "Tiền mặt tại quầy";
       } else if (channelRaw === "SHOPEE") {
-        paymentMethod = orderId === "SP260115002" || orderId === "SP261022002" ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay";
+        paymentMethod = orderId === "SP260115002" ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay";
       } else if (channelRaw === "TIKTOK") {
-        paymentMethod = orderId === "TT260214102" || orderId === "TT261022102" ? "Ví ZaloPay" : "COD (Thanh toán khi nhận hàng)";
+        paymentMethod = orderId === "TT260214102" ? "Ví ZaloPay" : "COD (Thanh toán khi nhận hàng)";
       } else if (channelRaw === "LAZADA") {
-        paymentMethod = orderId === "LZ261122201" || orderId === "LZ261022201" ? "Thẻ Visa / Mastercard" : "COD (Thanh toán khi nhận hàng)";
+        paymentMethod = orderId === "LZ261122201" ? "Thẻ Visa / Mastercard" : "COD (Thanh toán khi nhận hàng)";
       } else if (channelRaw === "FACEBOOK") {
-        paymentMethod = orderId === "FB260225401" || orderId === "FB261022401" ? "Chuyển khoản VietQR" : "COD (Thu hộ khi giao)";
+        paymentMethod = orderId === "FB260225401" ? "Chuyển khoản VietQR" : "COD (Thu hộ khi giao)";
       } else {
         paymentMethod = "COD (Thanh toán khi nhận hàng)";
       }
@@ -1397,12 +1395,36 @@ window.normalizePhoneVN = (val) => window.omsEngine.normalizePhoneVN(val);
 // ============================================================================
 class CloudSyncAdapter {
   constructor() {
-    this.STORAGE_CONFIG_KEY = "ODOMS_CLOUD_CONFIG_V3";
-    this.STORAGE_ENGINE_STATE_KEY = "ODOMS_ENGINE_STATE_V3";
+    this.DATASET_VERSION = "FASHION_2026_V4";
+    this.MIN_FASHION_SKU_COUNT = 25;
+    this.STORAGE_CONFIG_KEY = "ODOMS_CLOUD_CONFIG_V4";
+    this.LEGACY_CONFIG_KEY = "ODOMS_CLOUD_CONFIG_V3";
+    this.STORAGE_ENGINE_STATE_KEY = "ODOMS_ENGINE_STATE_V4";
+    this.LEGACY_ENGINE_STATE_KEY = "ODOMS_ENGINE_STATE_V3";
     this.DEFAULT_ENDPOINT_URL = "https://script.google.com/macros/s/AKfycbz6rZY-zx9nslSBnilGuggzeXFGbAe_3IwaQazglnCoh9lwZ7rrB6IDaAIAdqrfegUb/exec";
+    // Danh sách đen (blocklist) duy nhất để phát hiện & thanh lọc bộ dữ liệu cũ (4 nhóm mã phi thời trang & 11 đơn tháng 10)
+    this.LEGACY_BLOCKED_SKUS = [
+      "SP-TAI-NGHE-02",
+      "SP-BALO-LAP-03",
+      "SP-BALO-LAP-04",
+      "SP-BINH-NHIET-04",
+      "SP-BINH-NHIET-05",
+      "SP-BAN-PHIM-03",
+      "SP-BAN-PHIM-05"
+    ];
+    this.LEGACY_BLOCKED_ORDER_PREFIXES = [
+      "SP261022",
+      "TT261022",
+      "LZ261022",
+      "POS261022",
+      "FB261022"
+    ];
     this.isPulling = false;
+    this._initialPullSettled = false;
     this.pushDebounceTimer = null;
+    this.userPushDebounceTimer = null;
 
+    this.purgeLegacyStorageCache();
     const savedCfg = this.loadConfig();
     this.endpointUrl = savedCfg.endpointUrl || this.DEFAULT_ENDPOINT_URL;
     this.secretToken = savedCfg.secretToken || "ODOMS_SECURE_TOKEN_2026";
@@ -1411,6 +1433,72 @@ class CloudSyncAdapter {
     this.syncStatus = this.endpointUrl ? "CLOUD_READY" : "LOCAL_READY";
 
     this.initCrossTabSync();
+  }
+
+  // Thanh lọc tức thì bộ nhớ tạm V3 cũ hoặc nhãn "(Lưu trên máy)" của bản cũ
+  purgeLegacyStorageCache() {
+    try {
+      if (localStorage.getItem(this.LEGACY_ENGINE_STATE_KEY) !== null) {
+        localStorage.removeItem(this.LEGACY_ENGINE_STATE_KEY);
+      }
+      const legacyCfgRaw = localStorage.getItem(this.LEGACY_CONFIG_KEY);
+      if (legacyCfgRaw) {
+        try {
+          const legacyCfg = JSON.parse(legacyCfgRaw);
+          if (legacyCfg && !localStorage.getItem(this.STORAGE_CONFIG_KEY)) {
+            const migratedCfg = {
+              endpointUrl: legacyCfg.endpointUrl || this.DEFAULT_ENDPOINT_URL,
+              secretToken: legacyCfg.secretToken || "ODOMS_SECURE_TOKEN_2026",
+              autoSync: legacyCfg.autoSync !== false,
+              lastSyncTime: "Chưa đồng bộ"
+            };
+            localStorage.setItem(this.STORAGE_CONFIG_KEY, JSON.stringify(migratedCfg));
+          }
+        } catch (e) {
+          // Ignore parse error
+        }
+        localStorage.removeItem(this.LEGACY_CONFIG_KEY);
+      }
+    } catch (e) {
+      // Ignore storage error
+    }
+  }
+
+  // Kiểm định xem bản chụp trong bộ nhớ thiết bị có chứa dữ liệu cũ (5 mã cũ / đơn 261022 / khác FASHION_2026_V4) không
+  isLegacyOrCorruptedSnapshot(parsed) {
+    if (!parsed || typeof parsed !== "object") return true;
+    if (parsed.datasetVersion !== this.DATASET_VERSION) return true;
+    if (!Array.isArray(parsed.inventory) || parsed.inventory.length < this.MIN_FASHION_SKU_COUNT) return true;
+    if (!Array.isArray(parsed.orders)) return true;
+
+    const blockedSkus = this.LEGACY_BLOCKED_SKUS || [];
+    const blockedPrefixes = this.LEGACY_BLOCKED_ORDER_PREFIXES || [];
+
+    const checkInvList = [
+      ...parsed.inventory,
+      ...(Array.isArray(parsed.initialInventory) ? parsed.initialInventory : [])
+    ];
+    for (let i = 0; i < checkInvList.length; i++) {
+      const sku = String((checkInvList[i] && checkInvList[i].sku) || "").trim().toUpperCase();
+      if (blockedSkus.includes(sku)) return true;
+    }
+
+    let invalidCount = 0;
+    for (let j = 0; j < parsed.orders.length; j++) {
+      const ord = parsed.orders[j] || {};
+      const ordId = String(ord.orderId || "").trim().toUpperCase();
+      const ordSku = String(ord.sku || "").trim().toUpperCase();
+      if (blockedSkus.includes(ordSku)) return true;
+      if (ordId.includes("261022") || blockedPrefixes.some((p) => ordId.startsWith(p))) {
+        return true;
+      }
+      if (String(ord.status || "").toUpperCase() === "INVALID") {
+        invalidCount++;
+      }
+    }
+    if (invalidCount > 3) return true;
+
+    return false;
   }
 
   sanitizeLastSyncLabel(rawLabel) {
@@ -1489,6 +1577,7 @@ class CloudSyncAdapter {
         window.omsEngine.syncOrderCarriersFromShipments();
       }
       const snapshot = {
+        datasetVersion: this.DATASET_VERSION,
         updatedAt: this.formatNow(),
         allocationMode: window.omsEngine.allocationMode,
         initialInventory: window.INITIAL_INVENTORY,
@@ -1496,6 +1585,9 @@ class CloudSyncAdapter {
         orders: window.omsEngine.orders,
         shipments: Array.isArray(window.omsEngine.shipments) ? window.omsEngine.shipments : []
       };
+      if (this.isLegacyOrCorruptedSnapshot(snapshot)) {
+        return;
+      }
       localStorage.setItem(this.STORAGE_ENGINE_STATE_KEY, JSON.stringify(snapshot));
     } catch (e) {
       console.warn("Không thể lưu dữ liệu tạm trên thiết bị:", e);
@@ -1506,15 +1598,18 @@ class CloudSyncAdapter {
   restoreLocalStateSnapshot() {
     if (!window.omsEngine) return false;
     try {
+      this.purgeLegacyStorageCache();
       const raw = localStorage.getItem(this.STORAGE_ENGINE_STATE_KEY);
       if (!raw) return false;
       const parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.inventory) || !Array.isArray(parsed.orders)) {
+      if (this.isLegacyOrCorruptedSnapshot(parsed)) {
+        localStorage.removeItem(this.STORAGE_ENGINE_STATE_KEY);
         return false;
       }
       this.isPulling = true;
-      if (Array.isArray(parsed.initialInventory) && parsed.initialInventory.length > 0) {
+      if (Array.isArray(parsed.initialInventory) && parsed.initialInventory.length >= this.MIN_FASHION_SKU_COUNT) {
         window.INITIAL_INVENTORY = parsed.initialInventory;
+        window.omsEngine.baseInitialInventory = JSON.parse(JSON.stringify(parsed.initialInventory));
       }
       if (Array.isArray(parsed.shipments)) {
         window.omsEngine.shipments = parsed.shipments.map((s) => window.omsEngine.normalizeShipmentPhones(s));
@@ -1549,13 +1644,32 @@ class CloudSyncAdapter {
   // 3. Đặt lịch tự động cập nhật sang Google Sheets
   scheduleCloudPush(reason = "AUTO_SYNC") {
     this.saveLocalStateSnapshot();
-    this.saveConfig({ lastSyncTime: `${this.formatNow()} (Lưu trên máy)` });
 
     if (!this.autoSync || !this.endpointUrl) {
       this.syncStatus = "LOCAL_READY";
+      this.saveConfig({ lastSyncTime: `${this.formatNow()} (Lưu trên máy)` });
       this.notifyUI();
       return;
     }
+
+    // Chốt chặn 1: Tuyệt đối không cho phép bất kỳ lệnh đẩy nào lên Google Sheets khi chưa PULL_ALL thành công lần đầu
+    if (!this._initialPullSettled) {
+      return;
+    }
+
+    // Chốt chặn 2: Khi chỉ phát sinh đăng nhập / đăng xuất / quản lý nhân sự (AUDIT_LOGS_SYNC / USERS_RBAC_SYNC)
+    // chỉ đẩy riêng bảng Nhân sự & Nhật ký (action: SYNC_USERS), tuyệt đối không gọi SYNC_ALL ghi đè Đặt hàng & Tồn kho
+    if (reason === "AUDIT_LOGS_SYNC" || reason === "USERS_RBAC_SYNC") {
+      if (this.userPushDebounceTimer) {
+        clearTimeout(this.userPushDebounceTimer);
+      }
+      this.userPushDebounceTimer = setTimeout(() => {
+        this.pushUsersAndLogsOnly(reason);
+      }, 350);
+      return;
+    }
+
+    this.saveConfig({ lastSyncTime: `${this.formatNow()} (Lưu trên máy)` });
 
     if (this.pushDebounceTimer) {
       clearTimeout(this.pushDebounceTimer);
@@ -1563,6 +1677,33 @@ class CloudSyncAdapter {
     this.pushDebounceTimer = setTimeout(() => {
       this.pushStateToCloud(reason, true);
     }, 350);
+  }
+
+  // 3b. Gửi riêng danh sách Nhân sự & Nhật ký hoạt động (không chạm vào DatHang, TonKho, LuuKho, VanDon)
+  async pushUsersAndLogsOnly(reason = "AUDIT_LOGS_SYNC") {
+    if (!this.endpointUrl || !this._initialPullSettled) return { success: false, mode: "SKIPPED_BEFORE_PULL" };
+    const payload = {
+      action: "SYNC_USERS",
+      reason,
+      datasetVersion: this.DATASET_VERSION,
+      secret_token: this.secretToken,
+      users: window.userAuth ? window.userAuth.users : [],
+      auditLogs: window.userAuth ? window.userAuth.accessLogs : []
+    };
+    try {
+      const response = await fetch(this.endpointUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+      const resJson = await response.json();
+      return {
+        success: Boolean(resJson && resJson.status === "SUCCESS"),
+        mode: "CLOUD_USERS_ONLY"
+      };
+    } catch (e) {
+      return { success: false, mode: "FALLBACK_LOCAL" };
+    }
   }
 
   // 4. Gửi đầy đủ 6 trang tính (DatHang, TonKho, LuuKho, VanDon, NhanSu, NhatKy) lên Google Sheets
@@ -1589,6 +1730,32 @@ class CloudSyncAdapter {
       };
     }
 
+    // Khóa cứng: Nếu chưa từng tải thành công từ Google Sheets (_initialPullSettled !== true), tự động chuyển sang kéo dữ liệu về trước, cấm ghi đè!
+    if (!this._initialPullSettled) {
+      if (!silent) {
+        return this.pullStateFromCloud(false);
+      }
+      return {
+        success: false,
+        mode: "BLOCKED_UNTIL_PULL_SETTLED",
+        message: "Hệ thống đang ưu tiên tải dữ liệu chuẩn từ Sổ Google Sheets trước để bảo vệ chống ghi đè."
+      };
+    }
+
+    const candidateCheck = {
+      datasetVersion: this.DATASET_VERSION,
+      initialInventory: window.INITIAL_INVENTORY,
+      inventory: window.omsEngine ? window.omsEngine.inventory : [],
+      orders: window.omsEngine ? window.omsEngine.orders : []
+    };
+    if (this.isLegacyOrCorruptedSnapshot(candidateCheck)) {
+      return {
+        success: false,
+        mode: "BLOCKED_LEGACY_PAYLOAD",
+        message: "Đã chặn đẩy dữ liệu lên Google Sheets do phát hiện dữ liệu không khớp bộ Thời trang 2026 (25 mã sản phẩm)."
+      };
+    }
+
     this.syncStatus = "SYNCING";
     this.notifyUI();
 
@@ -1607,6 +1774,7 @@ class CloudSyncAdapter {
 
     const payload = {
       action: "SYNC_ALL",
+      datasetVersion: this.DATASET_VERSION,
       reason,
       secret_token: this.secretToken,
       orders: ordersList,
@@ -1761,8 +1929,18 @@ class CloudSyncAdapter {
           }
         }
 
-        // 2. Cập nhật tồn kho gốc từ TonKho & LuuKho trước khi chạy lại phân bổ
-        if (Array.isArray(inventory) && inventory.length > 0 && window.omsEngine) {
+        // 2. Cập nhật đồng bộ cả window.INITIAL_INVENTORY & baseInitialInventory từ TonKho & LuuKho hợp lệ (>= 25 mã Thời trang) trước khi chạy lại phân bổ
+        const hasBlockedLegacySku =
+          Array.isArray(inventory) &&
+          inventory.some((item) =>
+            (this.LEGACY_BLOCKED_SKUS || []).includes(String((item && item.sku) || "").trim().toUpperCase())
+          );
+        if (
+          Array.isArray(inventory) &&
+          inventory.length >= this.MIN_FASHION_SKU_COUNT &&
+          !hasBlockedLegacySku &&
+          window.omsEngine
+        ) {
           window.INITIAL_INVENTORY = inventory.map((item) => ({
             ...item,
             reservedStock: 0,
@@ -1773,12 +1951,20 @@ class CloudSyncAdapter {
               remainingQty: Number(b.initialQty !== undefined ? b.initialQty : b.remainingQty || 0)
             }))
           }));
+          window.omsEngine.baseInitialInventory = JSON.parse(JSON.stringify(window.INITIAL_INVENTORY));
           window.omsEngine.inventory = JSON.parse(JSON.stringify(inventory));
         }
 
-        // 3. Nạp DatHang giữ nguyên cột DonViVanChuyen & MaVanDon
+        // 3. Nạp DatHang giữ nguyên cột DonViVanChuyen & MaVanDon (lọc bỏ nếu còn sót đơn 261022 cũ)
         if (Array.isArray(orders) && window.omsEngine) {
-          window.omsEngine.orders = orders.map((ord) =>
+          const validFashionOrders = orders.filter((ord) => {
+            const ordId = String((ord && ord.orderId) || "").trim().toUpperCase();
+            const ordSku = String((ord && ord.sku) || "").trim().toUpperCase();
+            if ((this.LEGACY_BLOCKED_SKUS || []).includes(ordSku)) return false;
+            if (ordId.includes("261022")) return false;
+            return true;
+          });
+          window.omsEngine.orders = validFashionOrders.map((ord) =>
             window.omsEngine.normalizeRawOrder(
               {
                 "Mã đơn hàng": ord.orderId,
@@ -1817,6 +2003,7 @@ class CloudSyncAdapter {
         }
 
         this.isPulling = false;
+        this._initialPullSettled = true;
         this.saveLocalStateSnapshot();
         this.syncStatus = "CLOUD_CONNECTED";
         this.saveConfig({ lastSyncTime: `${this.formatNow()} (Đã tải từ Google Sheets)` });

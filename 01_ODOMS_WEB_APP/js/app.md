@@ -605,10 +605,11 @@ const AppUI = {
     const channels = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
     const skus = [
       "SP-AO-POLO-01",
-      "SP-TAI-NGHE-02",
-      "SP-BALO-LAP-03",
-      "SP-BINH-NHIET-04",
-      "SP-BAN-PHIM-05"
+      "SP-AO-THUN-02",
+      "SP-QUAN-JEANS-06",
+      "SP-DAM-MIDI-11",
+      "SP-GIAY-SNEAKER-16",
+      "SP-TUI-DEO-21"
     ];
     const sampleCustomers = [
       "Nguyễn Minh Tuấn",
@@ -2727,7 +2728,7 @@ handleResetPassword(username) {
   waybillHistory: [
     {
       trackingCode: `VD-ODOMS-${String(new Date().getFullYear()).slice(-2)}${String(new Date().getMonth() + 1).padStart(2, "0")}${String(new Date().getDate()).padStart(2, "0")}-8801`,
-      orderId: "SP261022001",
+      orderId: "SP261122001",
       channel: "SHOPEE",
       carrier: "SPX Express",
       customerName: "Nguyễn Văn An",
@@ -2921,7 +2922,7 @@ handleResetPassword(username) {
       return isNaN(parsed) ? fallback : parsed;
     };
 
-    const orderId = val("wbOrderId", "SP261022001");
+    const orderId = val("wbOrderId", "SP261122001");
     const matchedOrd = window.omsEngine?.orders?.find((o) => o.orderId === orderId);
     const totalAmount = num("wbTotalAmount", 0);
     const paymentMethod = matchedOrd?.paymentMethod || (totalAmount > 0 ? "COD (Thanh toán khi nhận hàng)" : "Ví ShopeePay");

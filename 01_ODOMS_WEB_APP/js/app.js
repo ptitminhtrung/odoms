@@ -770,7 +770,7 @@ const AppUI = {
     window.omsEngine.resetSystem();
     this.syncShipmentsFromEngine();
     if (window.cloudSync) {
-      window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
+      window.cloudSync.saveLocalStateSnapshot();
     }
     this.renderAll();
 
@@ -853,7 +853,7 @@ const AppUI = {
     window.omsEngine.resetSystem();
     this.syncShipmentsFromEngine();
     if (window.cloudSync) {
-      window.cloudSync.scheduleCloudPush("RESET_SYSTEM");
+      window.cloudSync.saveLocalStateSnapshot();
     }
     this.renderAll();
   },
@@ -1466,7 +1466,12 @@ handleResetPassword(username) {
   // Dữ liệu cơ sở 11 tháng ngành Thời trang (Tháng 01/2026 – ngày 22/11/2026)
   // kết hợp động với các đơn hàng thực tế theo đúng tháng của từng đơn trong omsEngine
   getMonthlyHistoricalDataset() {
-    const liveOrders = window.omsEngine ? window.omsEngine.orders : [];
+    const liveOrders =
+      typeof this.getValidOrdersUpToNow === "function"
+        ? this.getValidOrdersUpToNow()
+        : window.omsEngine
+        ? window.omsEngine.orders
+        : [];
 
     const extractMonthKey = (ord) => {
       const s = String(ord && ord.orderTime ? ord.orderTime : "").trim();
@@ -2687,8 +2692,13 @@ handleResetPassword(username) {
     const activeCh = this.activePieChannel;
     const scale = data.scaleFactor || 1;
 
-    // Cộng thêm số lượng từ các đơn hàng thực tế vừa nạp vào omsEngine
-    const liveOrders = window.omsEngine ? window.omsEngine.orders : [];
+    // Cộng thêm số lượng từ các đơn hàng thực tế hợp lệ (<= Date.now()) trong omsEngine
+    const liveOrders =
+      typeof this.getValidOrdersUpToNow === "function"
+        ? this.getValidOrdersUpToNow()
+        : window.omsEngine
+        ? window.omsEngine.orders
+        : [];
     const liveSkuMap = {};
     liveOrders.forEach((o) => {
       if (o.status === "ALLOCATED" && (!activeCh || o.channel === activeCh)) {
@@ -2775,14 +2785,14 @@ handleResetPassword(username) {
   },
 
   renderKPIsAndBadges() {
-    const orders = window.omsEngine ? window.omsEngine.orders : [];
-    const inv = window.omsEngine ? window.omsEngine.inventory : [];
+    const orders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : (window.omsEngine ? window.omsEngine.orders : []);
+    const inv = typeof this.getEffectiveInventoryAtNow === "function" ? this.getEffectiveInventoryAtNow() : (window.omsEngine ? window.omsEngine.inventory : []);
 
-    // 1. Dữ liệu Khối 1: Kho hàng
-    const totalPhysical = inv.reduce((s, i) => s + (i.physicalStock || 0), 0);
-    const totalAvailable = inv.reduce((s, i) => s + (i.availableStock || 0), 0);
-    const totalReserved = inv.reduce((s, i) => s + (i.reservedStock || 0), 0);
-    const outOfStockSkus = inv.filter((i) => (i.availableStock || 0) === 0).length;
+    // 1. Dữ liệu Khối 1: Kho hàng (cách ly đơn tương lai > Date.now())
+    const totalPhysical = inv.reduce((s, i) => s + (i.effectivePhysicalStock ?? i.physicalStock ?? 0), 0);
+    const totalAvailable = inv.reduce((s, i) => s + (i.effectiveAvailableStock ?? i.availableStock ?? 0), 0);
+    const totalReserved = inv.reduce((s, i) => s + (i.effectiveReservedStock ?? i.reservedStock ?? 0), 0);
+    const outOfStockSkus = inv.filter((i) => (i.effectiveAvailableStock ?? i.availableStock ?? 0) === 0).length;
 
     // 2. Dữ liệu Khối 2: Đơn hàng các kênh (Tiếp nhận / Gom đơn)
     const totalOrders = orders.length;
@@ -2800,8 +2810,8 @@ handleResetPassword(username) {
     const waybillList = this.waybillHistory || [];
     const totalWaybills = waybillList.length;
 
-    // 4. Dữ liệu Khối 4: Vận chuyển đơn
-    const shipmentsList = this.syncShipmentsFromEngine();
+    // 4. Dữ liệu Khối 4: Vận chuyển đơn (chỉ tính vận đơn <= Date.now())
+    const shipmentsList = typeof this.getValidShipmentsUpToNow === "function" ? this.getValidShipmentsUpToNow(orders) : this.syncShipmentsFromEngine();
     const totalShipments = shipmentsList.length;
     const inTransitShipments = shipmentsList.filter(s => s.status === "IN_TRANSIT" || s.status === "PENDING_PICKUP").length;
     const deliveredShipments = shipmentsList.filter(s => s.status === "DELIVERED").length;
@@ -2842,8 +2852,10 @@ handleResetPassword(username) {
     // Cập nhật 4 Thẻ chỉ số riêng của Kho (Tab Kho)
     const uniqueCategories = new Set(inv.map((i) => i.category)).size;
     const lowStockSkus = inv.filter((i) => {
-      const pct = i.physicalStock > 0 ? Math.round((i.availableStock / i.physicalStock) * 100) : 0;
-      return (i.availableStock || 0) > 0 && pct <= 35;
+      const phys = i.effectivePhysicalStock ?? i.physicalStock ?? 0;
+      const avail = i.effectiveAvailableStock ?? i.availableStock ?? 0;
+      const pct = phys > 0 ? Math.round((avail / phys) * 100) : 0;
+      return avail > 0 && pct <= 35;
     }).length;
     const alertTotalSkus = outOfStockSkus + lowStockSkus;
 
@@ -2857,7 +2869,7 @@ handleResetPassword(username) {
     setElText("invKpiAlertSub", `Hết hàng: ${outOfStockSkus} · Sắp hết hàng: ${lowStockSkus}`);
 
     // Badges số lượng trên Sidebar ODOMS (đồng bộ 100% với Tổng Quan & chặn dữ liệu tương lai)
-    const activeShippingBadgeCount = this.getUnfinishedValidShipmentsCount();
+    const activeShippingBadgeCount = this.getUnfinishedValidShipmentsCount(orders);
     const lowStockBadgeCount = this.getLowStockInventoryItems(inv).length;
     setElText("badgeShippingCount", activeShippingBadgeCount);
     setElText("badgeFifoCount", activeShippingBadgeCount);
@@ -2865,7 +2877,7 @@ handleResetPassword(username) {
   },
 
   renderCharts() {
-    const orders = window.omsEngine.orders;
+    const orders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : window.omsEngine.orders;
     const allocated = orders.filter((o) => o.status === "ALLOCATED").length;
     const backorder = orders.filter((o) => o.status === "BACKORDER").length;
     const invalid = orders.filter((o) => o.status === "INVALID").length;
@@ -3338,8 +3350,8 @@ handleResetPassword(username) {
     const container = document.getElementById("channelStripContainer");
     if (!container) return;
 
-    const orders = window.omsEngine.orders;
-    const inv = window.omsEngine.inventory;
+    const orders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : window.omsEngine.orders;
+    const inv = typeof this.getEffectiveInventoryAtNow === "function" ? this.getEffectiveInventoryAtNow() : window.omsEngine.inventory;
     const channels = window.omsEngine.channels;
 
     const channelKeys = ["SHOPEE", "TIKTOK", "LAZADA", "FACEBOOK", "POS"];
@@ -3347,7 +3359,7 @@ handleResetPassword(username) {
       .map((chKey) => {
         const ch = channels[chKey];
         const chOrders = orders.filter((o) => o.channel === chKey).length;
-        const heldUnits = inv.reduce((sum, item) => sum + (item.channelReserved[chKey] || 0), 0);
+        const heldUnits = inv.reduce((sum, item) => sum + ((item.effectiveChannelReserved || item.channelReserved || {})[chKey] || 0), 0);
         const isConnected = ch.isConnected !== false;
         const hasSync = ch.syncCount > 0 && ch.lastSync && ch.lastSync !== "Chưa đồng bộ";
 
@@ -3388,9 +3400,11 @@ handleResetPassword(username) {
     const container = document.getElementById("actionableAlertsContainer");
     if (!container) return;
 
-    const backorders = window.omsEngine.orders.filter((o) => o.status === "BACKORDER");
-    const invalids = window.omsEngine.orders.filter((o) => o.status === "INVALID");
-    const zeroSkus = window.omsEngine.inventory.filter((i) => i.availableStock === 0);
+    const validOrders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : window.omsEngine.orders;
+    const effectiveInv = typeof this.getEffectiveInventoryAtNow === "function" ? this.getEffectiveInventoryAtNow() : window.omsEngine.inventory;
+    const backorders = validOrders.filter((o) => o.status === "BACKORDER");
+    const invalids = validOrders.filter((o) => o.status === "INVALID");
+    const zeroSkus = effectiveInv.filter((i) => (i.effectiveAvailableStock ?? i.availableStock) === 0);
 
     const items = [];
 
@@ -3443,7 +3457,8 @@ handleResetPassword(username) {
     const countSpan = document.getElementById("orderCountLabel");
     if (!tbody) return;
 
-    let list = [...window.omsEngine.orders];
+    const validOrders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : window.omsEngine.orders;
+    let list = [...validOrders];
     list.sort((a, b) =>
       this.orderSortMode === "OLDEST_FIRST"
         ? a.timestampMs - b.timestampMs
@@ -3470,7 +3485,7 @@ handleResetPassword(username) {
     }
 
     if (countSpan) {
-      countSpan.innerText = `Hiển thị ${list.length} / ${window.omsEngine.orders.length} đơn hàng`;
+      countSpan.innerText = `Hiển thị ${list.length} / ${validOrders.length} đơn hàng`;
     }
 
     if (list.length === 0) {
@@ -3738,17 +3753,25 @@ handleResetPassword(username) {
     const statusFilter = this.invStatusFilter || "ALL";
     const q = (this.invSearchQuery || "").toLowerCase();
 
-    const filteredItems = window.omsEngine.inventory.filter((item) => {
+    const effectiveInventory =
+      typeof this.getEffectiveInventoryAtNow === "function"
+        ? this.getEffectiveInventoryAtNow(window.omsEngine.inventory || [])
+        : window.omsEngine.inventory || [];
+
+    const filteredItems = effectiveInventory.filter((item) => {
       if (catFilter !== "ALL" && item.category !== catFilter) return false;
 
-      const pct = item.physicalStock > 0 ? Math.round((item.availableStock / item.physicalStock) * 100) : 0;
-      const itemStatusKey = item.availableStock === 0 ? "OUT" : pct <= 35 ? "LOW" : "ENOUGH";
+      const phys = item.effectivePhysicalStock ?? item.physicalStock ?? 0;
+      const avail = item.effectiveAvailableStock ?? item.availableStock ?? 0;
+      const resv = item.effectiveReservedStock ?? item.reservedStock ?? 0;
+      const pct = phys > 0 ? Math.round((avail / phys) * 100) : 0;
+      const itemStatusKey = avail === 0 ? "OUT" : pct <= 35 ? "LOW" : "ENOUGH";
       if (statusFilter === "AVAILABLE") {
-        if ((item.availableStock || 0) <= 0) return false;
+        if (avail <= 0) return false;
       } else if (statusFilter === "RESERVED") {
-        if ((item.reservedStock || 0) <= 0) return false;
+        if (resv <= 0) return false;
       } else if (statusFilter === "ALERT") {
-        if ((item.availableStock || 0) > 0 && pct > 35) return false;
+        if (avail > 0 && pct > 35) return false;
       } else if (statusFilter !== "ALL" && itemStatusKey !== statusFilter) {
         return false;
       }
@@ -3782,10 +3805,14 @@ handleResetPassword(username) {
 
     tbody.innerHTML = filteredItems
       .map((item) => {
-        const pct = item.physicalStock > 0 ? Math.round((item.availableStock / item.physicalStock) * 100) : 0;
-        const barClass = item.availableStock === 0 ? "out" : pct <= 30 ? "low" : "";
+        const phys = item.effectivePhysicalStock ?? item.physicalStock ?? 0;
+        const avail = item.effectiveAvailableStock ?? item.availableStock ?? 0;
+        const resv = item.effectiveReservedStock ?? item.reservedStock ?? 0;
+        const chMap = item.effectiveChannelReserved || item.channelReserved || {};
+        const pct = phys > 0 ? Math.round((avail / phys) * 100) : 0;
+        const barClass = avail === 0 ? "out" : pct <= 30 ? "low" : "";
 
-        const channelHolds = Object.entries(item.channelReserved || {})
+        const channelHolds = Object.entries(chMap)
           .filter(([, count]) => count > 0)
           .map(
             ([ch, count]) =>
@@ -3794,7 +3821,7 @@ handleResetPassword(username) {
           .join(" ");
 
         const statusLabel =
-          item.availableStock === 0
+          avail === 0
             ? `<span class="status-badge st-INVALID">Hết hàng</span>`
             : pct <= 35
             ? `<span class="status-badge st-BACKORDER">Sắp hết hàng</span>`
@@ -3810,19 +3837,19 @@ handleResetPassword(username) {
             <div style="font-weight:700;color:${prodColColor};">${item.name}</div>
             <div style="font-size:11.5px;color:${prodColColor};margin-top:2px;">Mã SKU: <strong>${item.sku}</strong></div>
           </td>
-          <td style="font-weight:800;font-size:14px;color:${physColColor};">${item.physicalStock} ${item.unit || "SP"}</td>
+          <td style="font-weight:800;font-size:14px;color:${physColColor};">${phys} ${item.unit || "SP"}</td>
           <td>
-            <div style="font-weight:700;color:${resColColor};font-size:14px;">${item.reservedStock} ${item.unit || "SP"}</div>
+            <div style="font-weight:700;color:${resColColor};font-size:14px;">${resv} ${item.unit || "SP"}</div>
             <div style="margin-top:4px;">
               ${channelHolds || `<span style="font-size:11px;color:${resColColor};">Chưa có đơn giữ</span>`}
             </div>
           </td>
           <td>
             <div style="font-weight:800;font-size:15px;color:${availColColor};">
-              ${item.availableStock} ${item.unit || "SP"}
+              ${avail} ${item.unit || "SP"}
             </div>
             ${
-              item.availableStock === 0
+              avail === 0
                 ? `<div style="font-size:11px;color:${activeCard === "AVAILABLE" ? "#2563eb" : activeCard === "ALERT" ? "#dc2626" : "#6b7280"};margin-top:2px;font-weight:600;">Đã giữ hết cho đơn</div>`
                 : ""
             }
@@ -3906,7 +3933,7 @@ handleResetPassword(username) {
     if (!selectEl) return;
 
     const currentVal = selectEl.value;
-    const allOrders = window.omsEngine ? window.omsEngine.orders : [];
+    const allOrders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : (window.omsEngine ? window.omsEngine.orders : []);
     const confirmedOrders = allOrders.filter(
       (o) =>
         (o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED")) ===
@@ -4530,8 +4557,8 @@ handleResetPassword(username) {
     const tbody = document.getElementById("channelReportTableBody");
     if (!tbody) return;
 
-    const orders = window.omsEngine.orders;
-    const inv = window.omsEngine.inventory;
+    const orders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : window.omsEngine.orders;
+    const inv = typeof this.getEffectiveInventoryAtNow === "function" ? this.getEffectiveInventoryAtNow() : window.omsEngine.inventory;
     const channels = ["SHOPEE", "TIKTOK", "LAZADA", "FACEBOOK", "POS"];
 
     tbody.innerHTML = channels
@@ -4540,7 +4567,7 @@ handleResetPassword(username) {
         const alloc = chOrders.filter((o) => o.status === "ALLOCATED").length;
         const back = chOrders.filter((o) => o.status === "BACKORDER").length;
         const invErr = chOrders.filter((o) => o.status === "INVALID").length;
-        const heldUnits = inv.reduce((s, item) => s + (item.channelReserved[ch] || 0), 0);
+        const heldUnits = inv.reduce((s, item) => s + ((item.effectiveChannelReserved || item.channelReserved || {})[ch] || 0), 0);
         const revenue = chOrders
           .filter((o) => o.status === "ALLOCATED")
           .reduce((s, o) => s + o.quantity * o.unitPrice, 0);
@@ -4703,7 +4730,7 @@ handleResetPassword(username) {
   },
 
   renderShippingTab() {
-    const list = this.syncShipmentsFromEngine();
+    const list = typeof this.getValidShipmentsUpToNow === "function" ? this.getValidShipmentsUpToNow() : this.syncShipmentsFromEngine();
 
     const setEl = (id, val) => {
       const el = document.getElementById(id);
@@ -5005,27 +5032,37 @@ handleResetPassword(username) {
     this.ensureFlatSettingsStyles();
 
     if (window.cloudSync) {
-      // Bảo vệ chống đẩy ngược mảng đơn rỗng lên Google Sheets khi người dùng đăng nhập trước khi PULL_ALL hoàn tất
+      // Bảo vệ 2 tầng chống đẩy ngược dữ liệu cũ hoặc mảng đơn rỗng lên Google Sheets khi chưa PULL_ALL thành công
       if (!window.cloudSync._bootPushGuardInstalled) {
         window.cloudSync._bootPushGuardInstalled = true;
         window.cloudSync._initialPullSettled = false;
         const origSchedulePush = window.cloudSync.scheduleCloudPush.bind(window.cloudSync);
         window.cloudSync.scheduleCloudPush = (reason = "AUTO_SYNC") => {
           const ordersEmpty = !window.omsEngine || !Array.isArray(window.omsEngine.orders) || window.omsEngine.orders.length === 0;
-          if (!window.cloudSync._initialPullSettled && ordersEmpty && (reason === "AUDIT_LOGS_SYNC" || reason === "USERS_RBAC_SYNC")) {
+          if (!window.cloudSync._initialPullSettled || (ordersEmpty && (reason === "AUDIT_LOGS_SYNC" || reason === "USERS_RBAC_SYNC"))) {
             window.cloudSync.saveLocalStateSnapshot();
             return;
           }
           return origSchedulePush(reason);
         };
       }
+      // Thanh lọc bộ nhớ cũ và chỉ khôi phục snapshot nếu đã đạt chuẩn FASHION_2026_V4 (25 mã Thời trang)
+      if (typeof window.cloudSync.purgeLegacyStorageCache === "function") {
+        window.cloudSync.purgeLegacyStorageCache();
+      }
       window.cloudSync.restoreLocalStateSnapshot();
       this.syncShipmentsFromEngine();
       if (window.cloudSync.endpointUrl && window.cloudSync.autoSync) {
-        Promise.resolve(window.cloudSync.pullStateFromCloud(true)).finally(() => {
-          window.cloudSync._initialPullSettled = true;
-        });
-      } else {
+        let pullSucceeded = false;
+        Promise.resolve(window.cloudSync.pullStateFromCloud(true))
+          .then((res) => {
+            pullSucceeded = Boolean(res && res.success);
+          })
+          .finally(() => {
+            // Chỉ mở khóa _initialPullSettled = true khi đã PULL_ALL thành công từ Google Sheets
+            window.cloudSync._initialPullSettled = pullSucceeded;
+          });
+      } else if (!window.cloudSync.endpointUrl) {
         window.cloudSync._initialPullSettled = true;
       }
     }
@@ -5165,6 +5202,13 @@ handleResetPassword(username) {
   async handleManualCloudPush() {
     if (!window.cloudSync) return;
     this.handleSaveCloudConfig(true);
+    if (!window.cloudSync._initialPullSettled) {
+      const pullRes = await window.cloudSync.pullStateFromCloud(true);
+      this.syncShipmentsFromEngine();
+      this.showCloudFeedback(pullRes.message, pullRes.success);
+      this.renderAll();
+      return;
+    }
     const res = await window.cloudSync.pushStateToCloud("MANUAL_UI_PUSH", false);
     this.showCloudFeedback(res.message, res.success);
     this.renderLogs();
@@ -5174,6 +5218,9 @@ handleResetPassword(username) {
     if (!window.cloudSync) return;
     this.handleSaveCloudConfig(true);
     const res = await window.cloudSync.pullStateFromCloud(false);
+    if (res && res.success) {
+      window.cloudSync._initialPullSettled = true;
+    }
     this.syncShipmentsFromEngine();
     this.showCloudFeedback(res.message, res.success);
     this.renderAll();
@@ -5274,33 +5321,52 @@ handleResetPassword(username) {
 
     // Tính phần giữ chỗ thuộc các đơn ở tương lai (> Date.now()) để loại trừ ở tầng hiển thị (không sửa omsEngine)
     const futureReservedBySku = {};
+    const futureChannelReservedBySku = {};
     allOrders.forEach((ord) => {
       if (!ord) return;
       if (ord.status === "ALLOCATED" && ord.platformStatus !== "CANCELLED") {
         const ordTs = this.getOrderTimestampMs(ord);
         if (ordTs > nowMs) {
           const skuKey = String(ord.sku || "").trim();
+          const chKey = String(ord.channel || "").trim().toUpperCase();
+          const qty = Number(ord.quantity) || 0;
           if (skuKey) {
-            futureReservedBySku[skuKey] = (futureReservedBySku[skuKey] || 0) + (Number(ord.quantity) || 0);
+            futureReservedBySku[skuKey] = (futureReservedBySku[skuKey] || 0) + qty;
+            if (!futureChannelReservedBySku[skuKey]) {
+              futureChannelReservedBySku[skuKey] = {};
+            }
+            if (chKey) {
+              futureChannelReservedBySku[skuKey][chKey] = (futureChannelReservedBySku[skuKey][chKey] || 0) + qty;
+            }
           }
         }
       }
     });
 
     return inventory.map((item) => {
+      const skuKey = String(item.sku || "").trim();
       const physical = Math.max(0, Number(item.physicalStock ?? item.stock) || 0);
       const rawReserved =
         item.reservedStock !== undefined && item.reservedStock !== null
           ? Math.max(0, Number(item.reservedStock) || 0)
           : Math.max(0, physical - (Number(item.availableStock) || 0));
-      const futureRes = futureReservedBySku[String(item.sku || "").trim()] || 0;
+      const futureRes = futureReservedBySku[skuKey] || 0;
       const effectiveReserved = Math.max(0, rawReserved - futureRes);
       const effectiveAvailable = Math.min(physical, Math.max(0, physical - effectiveReserved));
+
+      const rawChMap = item.channelReserved || {};
+      const futChMap = futureChannelReservedBySku[skuKey] || {};
+      const effectiveChannelReserved = {};
+      ["SHOPEE", "TIKTOK", "LAZADA", "FACEBOOK", "POS"].forEach((ch) => {
+        effectiveChannelReserved[ch] = Math.max(0, (Number(rawChMap[ch]) || 0) - (Number(futChMap[ch]) || 0));
+      });
+
       return {
         ...item,
         effectivePhysicalStock: physical,
         effectiveReservedStock: effectiveReserved,
-        effectiveAvailableStock: effectiveAvailable
+        effectiveAvailableStock: effectiveAvailable,
+        effectiveChannelReserved
       };
     });
   },
@@ -5598,6 +5664,14 @@ handleResetPassword(username) {
     const svg = document.getElementById("dashComboTrendSvg");
     if (!svg) return;
 
+    const dateEl = document.getElementById("dashDateFilter");
+    const dateVal = dateEl ? dateEl.value : "ALL";
+    const rangeNoteEl = document.getElementById("comboChartRangeNote");
+    if (rangeNoteEl) {
+      rangeNoteEl.innerText = dateVal === "ALL" ? "(6 tháng gần nhất)" : "";
+      rangeNoteEl.classList.toggle("hidden", dateVal !== "ALL");
+    }
+
     const plotLeft = 36;
     const plotRight = 442;
     const plotTop = 26;
@@ -5619,12 +5693,9 @@ handleResetPassword(username) {
       return;
     }
 
-    const dateEl = document.getElementById("dashDateFilter");
-    const dateVal = dateEl ? dateEl.value : "ALL";
     const pad2 = (n) => String(n).padStart(2, "0");
 
-    // Xác định tập các tháng phát sinh trong orders để quyết định gom theo Tháng hay theo Ngày
-    const monthSet = new Set();
+    // Chuẩn hóa khóa nội bộ YYYY-MM và YYYY-MM-DD cho từng đơn hàng (<= Date.now())
     const orderEntries = orders.map((ord) => {
       const ts = this.getOrderTimestampMs(ord);
       const dt = new Date(ts);
@@ -5633,59 +5704,57 @@ handleResetPassword(username) {
       const dd = dt.getDate();
       const mKey = `${yyyy}-${pad2(mm)}`;
       const dKey = `${yyyy}-${pad2(mm)}-${pad2(dd)}`;
-      monthSet.add(mKey);
       return { ord, ts, yyyy, mm, dd, mKey, dKey };
     });
 
-    const useMonthlyMode = dateVal === "ALL" && monthSet.size >= 2;
+    const useMonthlyMode = dateVal === "ALL";
     const bucketMap = new Map();
 
     if (useMonthlyMode) {
-      // Tạo chuỗi liên tục từ tháng sớm nhất đến tháng muộn nhất (VD: Th01 -> Th11/2026)
-      const sortedMonths = Array.from(monthSet).sort();
-      const [startY, startM] = sortedMonths[0].split("-").map(Number);
-      const [endY, endM] = sortedMonths[sortedMonths.length - 1].split("-").map(Number);
-      let cy = startY;
-      let cm = startM;
-      while (cy < endY || (cy === endY && cm <= endM)) {
+      // Khung trượt cố định đúng 6 tháng gần nhất tính lùi từ tháng hiện tại khi mở hệ thống (Date.now())
+      // Ví dụ: mở 23/11/2026 -> 06/2026..11/2026; mở 15/03/2027 -> 10/2026..03/2027; mở 30/06/2027 -> 01/2027..06/2027
+      const nowDt = new Date(Date.now());
+      const anchorY = nowDt.getFullYear();
+      const anchorM = nowDt.getMonth() + 1;
+
+      for (let offset = 5; offset >= 0; offset--) {
+        const mDate = new Date(anchorY, anchorM - 1 - offset, 1, 0, 0, 0, 0);
+        const cy = mDate.getFullYear();
+        const cm = mDate.getMonth() + 1;
         const key = `${cy}-${pad2(cm)}`;
         bucketMap.set(key, {
           key,
-          label: `Th${pad2(cm)}`,
+          label: `${pad2(cm)}/${cy}`,
           fullLabel: `Tháng ${pad2(cm)}/${cy}`,
           received: 0,
           exported: 0,
           revenue: 0,
-          ts: new Date(cy, cm - 1, 1, 0, 0, 0, 0).getTime()
+          ts: mDate.getTime()
         });
-        cm++;
-        if (cm > 12) {
-          cm = 1;
-          cy++;
-        }
       }
     }
 
     orderEntries.forEach(({ ord, yyyy, mm, dd, mKey, dKey }) => {
       const key = useMonthlyMode ? mKey : dKey;
-      if (!bucketMap.has(key)) {
+      if (useMonthlyMode) {
+        // Chỉ gom các đơn thuộc đúng khung trượt 6 tháng gần nhất
+        if (!bucketMap.has(key)) return;
+      } else if (!bucketMap.has(key)) {
         bucketMap.set(key, {
           key,
-          label: useMonthlyMode ? `Th${pad2(mm)}` : `${pad2(dd)}/${pad2(mm)}`,
-          fullLabel: useMonthlyMode ? `Tháng ${pad2(mm)}/${yyyy}` : `${pad2(dd)}/${pad2(mm)}/${yyyy}`,
+          label: `${pad2(dd)}/${pad2(mm)}`,
+          fullLabel: `${pad2(dd)}/${pad2(mm)}/${yyyy}`,
           received: 0,
           exported: 0,
           revenue: 0,
-          ts: useMonthlyMode
-            ? new Date(yyyy, mm - 1, 1, 0, 0, 0, 0).getTime()
-            : new Date(yyyy, mm - 1, dd, 0, 0, 0, 0).getTime()
+          ts: new Date(yyyy, mm - 1, dd, 0, 0, 0, 0).getTime()
         });
       }
       const b = bucketMap.get(key);
       b.received += 1;
       const isCancelled = ord.status === "CANCELLED" || ord.status === "INVALID" || ord.platformStatus === "CANCELLED";
       if (!isCancelled) {
-        // Đường doanh thu màu cam tính trên đơn hợp lệ (không hủy) -> khớp 100% KPI 6
+        // Đường doanh thu màu cam tính trên đơn hợp lệ (không hủy)
         b.revenue += (Number(ord.quantity) || 1) * (Number(ord.unitPrice) || 0);
         if (ord.status === "ALLOCATED") {
           b.exported += 1;

@@ -55,9 +55,9 @@ Thanh điều hướng Sidebar bên trái được sắp xếp khoa học thành
 ---
 
 ### 4. Kịch bản Thuyết trình & Demo 4 Bước FIFO (Trên mã `SP-AO-POLO-01`, Tồn ban đầu = 10 cái)
-Bấm nút **`📥 Nạp Bảng Gom 5 Kênh (11 Đơn)`** hoặc **`▶️ Chạy Mô Phỏng FIFO (4 Bước)`** trên thanh Topbar:
-1. **FIFO #1 (`08:15:10` - Shopee - `SP261022001`):** Đặt 4 cái $\rightarrow$ Giữ 4 cái (Lô `LO-2026-A1`). Tồn khả dụng còn **6**.
-2. **FIFO #2 (`08:16:05` - TikTok Shop - `TT261022101`):** Đặt 4 cái $\rightarrow$ Giữ 4 cái (2 cái Lô `LO-2026-A1` + 2 cái Lô `LO-2026-A2`). Tồn khả dụng còn **2**.
-3. **FIFO #3 (`08:17:20` - Cửa hàng POS - `POS261022301`):** Đặt 2 cái $\rightarrow$ Giữ 2 cái cuối (Lô `LO-2026-A2`). Tồn khả dụng về **0**!
-4. **FIFO #4 (`08:18:45` - Lazada - `LZ261022201`):** Đặt 3 cái (đến trễ hơn) $\rightarrow$ Tồn khả dụng $= 0 < 3$ $\rightarrow$ Hệ thống tự động chuyển sang **`⚠ Thiếu tồn (Chặn bán lố)`**, bảo vệ hệ thống không bị xuất âm!
+Bấm nút **`📥 Đồng bộ đơn 5 kênh (30 Đơn Thời trang 2026)`** hoặc **`▶️ Chạy Mô Phỏng FIFO (4 Bước)`** trên thanh Topbar:
+1. **FIFO #1 (`08:15:10` - Shopee - `SP261122001`):** Đặt 4 cái $\rightarrow$ Giữ 4 cái (Lô `LO-2026-A1`). Tồn khả dụng còn **6**.
+2. **FIFO #2 (`08:16:05` - TikTok Shop - `TT261122101`):** Đặt 4 cái $\rightarrow$ Giữ 4 cái (2 cái Lô `LO-2026-A1` + 2 cái Lô `LO-2026-A2`). Tồn khả dụng còn **2**.
+3. **FIFO #3 (`08:17:20` - Cửa hàng POS - `POS261122301`):** Đặt 2 cái $\rightarrow$ Giữ 2 cái cuối (Lô `LO-2026-A2`). Tồn khả dụng về **0**!
+4. **FIFO #4 (`08:18:45` - Lazada - `LZ261122201`):** Đặt 3 cái (đến trễ hơn) $\rightarrow$ Tồn khả dụng $= 0 < 3$ $\rightarrow$ Hệ thống tự động chuyển sang **`⚠ Thiếu tồn (Chặn bán lố)`**, bảo vệ hệ thống không bị xuất âm!
 5. **Nhập bù giải cứu đơn chờ:** Bấm nút **`➕ Nhập bù +5`** tại cảnh báo hoặc dòng `SP-AO-POLO-01`, hệ thống lập tức cấp 3 cái cho đơn Lazada và cập nhật tồn khả dụng còn **2** đồng bộ lên 5 kênh.

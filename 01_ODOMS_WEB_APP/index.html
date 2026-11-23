@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ODOMS — Hệ thống quản lý đơn hàng đa kênh thông minh</title>
-  <link rel="stylesheet" href="css/style.css?v=20261108_4" />
+  <link rel="stylesheet" href="css/style.css?v=20261123_v5" />
   <!-- Thư viện SheetJS hỗ trợ đọc/xuất trực tiếp file Excel .xlsx -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -344,7 +344,7 @@
             <div class="dash-7kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('revenue_analytics')" title="Xem chi tiết Doanh thu &amp; Phân tích">
               <div class="dash-7kpi-title">Doanh thu tạm tính</div>
               <div class="dash-7kpi-main">
-                <span id="dashKpiEstRevenue" class="dash-7kpi-num blue">0 đ</span>
+                <span id="dashKpiEstRevenue" class="dash-7kpi-num blue">0 VND</span>
               </div>
               <div id="dashKpiEstRevenueSub" class="dash-7kpi-sub">Tính trên đơn hợp lệ</div>
             </div>
@@ -371,9 +371,9 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 </div>
               </div>
-              <div id="kpiInventoryTotal" class="kpi-card-number">59 SP</div>
+              <div id="kpiInventoryTotal" class="kpi-card-number">889 SP</div>
               <div id="kpiInventorySub" class="kpi-card-sub green">
-                Sẵn sàng bán: 31 SP · Đã xác nhận: 28 SP
+                Sẵn sàng bán: 889 SP · Đã xác nhận: 0 SP
               </div>
             </div>
 
@@ -385,9 +385,9 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
                 </div>
               </div>
-              <div id="kpiOrdersTotal" class="kpi-card-number" style="font-variant-numeric:tabular-nums;">0 đơn</div>
+              <div id="kpiOrdersTotal" class="kpi-card-number" style="font-variant-numeric:tabular-nums;">32 đơn</div>
               <div id="kpiOrdersSub" class="kpi-card-sub blue" style="color:#2563eb;">
-                Đã xác nhận: 8 · Chờ xác nhận: 2 · Đã hủy: 1
+                Đã xác nhận: 28 · Chờ xác nhận: 2 · Đã hủy: 1
               </div>
             </div>
 
@@ -399,9 +399,9 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/></svg>
                 </div>
               </div>
-              <div id="kpiWaybillTotal" class="kpi-card-number">1 vận đơn</div>
+              <div id="kpiWaybillTotal" class="kpi-card-number">12 vận đơn</div>
               <div id="kpiWaybillSub" class="kpi-card-sub orange" style="color:#ea580c;">
-                Đã cấp mã vận đơn: 1 · Sẵn sàng in phiếu QR: 1
+                Đã cấp mã vận đơn: 12 · Sẵn sàng in phiếu QR: 12
               </div>
             </div>
 
@@ -413,9 +413,9 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 </div>
               </div>
-              <div id="kpiShippingTotal" class="kpi-card-number">5 đơn</div>
+              <div id="kpiShippingTotal" class="kpi-card-number">12 đơn</div>
               <div id="kpiShippingSub" class="kpi-card-sub purple" style="color:#7c3aed;">
-                Đang vận chuyển: 3 đơn · Đã giao thành công: 1 đơn
+                Đang vận chuyển: 5 đơn · Đã giao thành công: 4 đơn
               </div>
             </div>
           </div>
@@ -432,9 +432,9 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 </div>
               </div>
-              <div id="invKpiPhysical" class="kpi-card-number">5 mặt hàng</div>
+              <div id="invKpiPhysical" class="kpi-card-number">25 mặt hàng</div>
               <div id="invKpiPhysicalSub" class="kpi-card-sub green">
-                Thuộc 4 danh mục
+                Thuộc 5 danh mục
               </div>
             </div>
 
@@ -446,7 +446,7 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
               </div>
-              <div id="invKpiAvailable" class="kpi-card-number">31 SP</div>
+              <div id="invKpiAvailable" class="kpi-card-number">889 SP</div>
               <div id="invKpiAvailableSub" class="kpi-card-sub blue" style="color:#2563eb;">
                 Đang đồng bộ mở bán trên 5 kênh
               </div>
@@ -460,7 +460,7 @@
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
                 </div>
               </div>
-              <div id="invKpiReserved" class="kpi-card-number">28 SP</div>
+              <div id="invKpiReserved" class="kpi-card-number">0 SP</div>
               <div id="invKpiReservedSub" class="kpi-card-sub orange" style="color:#ea580c;">
                 Hàng chờ đóng gói xuất đi
               </div>
@@ -489,7 +489,7 @@
             <!-- Cột Trái: Xu hướng Đơn hàng & Doanh thu -->
             <div class="wms-card dash-panel-card">
               <div class="dash-panel-header">
-                <div class="dash-panel-title">Xu hướng Đơn hàng &amp; Doanh thu</div>
+                <div class="dash-panel-title">Xu hướng Đơn hàng &amp; Doanh thu <span id="comboChartRangeNote" style="font-weight:600;font-size:11.5px;opacity:0.8;">(6 tháng gần nhất)</span></div>
                 <div class="dash-combo-legend">
                   <span><i class="legend-dot blue"></i>Tiếp nhận</span>
                   <span><i class="legend-dot orange"></i>Xuất đơn</span>
@@ -1988,10 +1988,10 @@
   </div>
 
   <!-- Nạp các module JavaScript -->
-  <script src="js/mock_data.js"></script>
-  <script src="js/oms_engine.js"></script>
-  <script src="js/excel_handler.js"></script>
-  <script src="js/app.js?v=20261108_4"></script>
+  <script src="js/mock_data.js?v=20261123_v5"></script>
+  <script src="js/oms_engine.js?v=20261123_v5"></script>
+  <script src="js/excel_handler.js?v=20261123_v5"></script>
+  <script src="js/app.js?v=20261123_v5"></script>
 
   <!-- MODAL XEM GOOGLE MAPS HÀNH TRÌNH GIAO NHẬN TRỰC QUAN -->
   <div id="shippingMapModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeShippingMapModal()">

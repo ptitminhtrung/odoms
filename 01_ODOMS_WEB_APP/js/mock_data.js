@@ -746,6 +746,30 @@ window.INITIAL_INVENTORY = [
   }
 ];
 
+// Bổ sung 24 lô nhập dự trữ cao điểm (15/11/2026 – 22/11/2026, +20 SP/lô) cho 24 mã từ SP-AO-THUN-02 đến SP-TAT-CO-25
+// TUYỆT ĐỐI bảo toàn nguyên vẹn SP-AO-POLO-01 (index 0: đúng 10 cái, 2 lô LO-2026-A1 & LO-2026-A2)
+(function enrichInitialInventoryBatches2026() {
+  const list = window.INITIAL_INVENTORY || [];
+  for (let idx = 1; idx < list.length; idx++) {
+    const item = list[idx];
+    const numStr = String(idx + 1).padStart(2, "0");
+    const importDay = 15 + ((idx - 1) % 8); // 15/11/2026 -> 22/11/2026
+    const dayStr = String(importDay).padStart(2, "0");
+    const extraQty = 20;
+    item.physicalStock += extraQty;
+    item.availableStock += extraQty;
+    item.maxCapacity = Math.max(Number(item.maxCapacity || 30), item.physicalStock + 10);
+    item.batches.push({
+      batchCode: "LO-2026-B" + numStr,
+      qrCode: "OD-RESV-11" + numStr,
+      importDate: "2026-11-" + dayStr,
+      expiryDate: "2028-11-" + dayStr,
+      initialQty: extraQty,
+      remainingQty: extraQty
+    });
+  }
+})();
+
 // 3. Thông tin cấu hình 5 kênh bán hàng (Front-end Sales Channels)
 window.CHANNELS_CONFIG = {
   SHOPEE: {
@@ -1653,3 +1677,291 @@ window.SAMPLE_SHIPMENTS_DATA = [
     ]
   }
 ];
+
+// 8. Bộ sinh tất định (Deterministic PRNG — Seed 20262027) mở rộng thêm 72 đơn hàng & 25 vận đơn (23/11/2026 – 30/06/2027)
+//    Đồng bộ 1:1 với ODOMS_Backend_API.gs (tổng 102 đơn hàng, 35 vận đơn; bảo toàn tuyệt đối SP-AO-POLO-01)
+(function appendExtendedFashion2026To2027MockData() {
+  const catalog24 = (window.INITIAL_INVENTORY || []).slice(1).map(function (it, idx) {
+    return {
+      skuCode: it.sku,
+      name: it.name,
+      price: it.price,
+      batch: "LO-2026-B" + String(idx + 2).padStart(2, "0")
+    };
+  });
+
+  const channels = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
+  const prefixMap = { SHOPEE: "SP", TIKTOK: "TT", LAZADA: "LZ", POS: "POS", FACEBOOK: "FB" };
+  const defaultCarrierMap = {
+    SHOPEE: "SPX Express",
+    TIKTOK: "J&T Express",
+    LAZADA: "GHN (Giao Hàng Nhanh)",
+    POS: "Tại quầy",
+    FACEBOOK: ""
+  };
+  const customers = [
+    "Nguyễn Hoàng Phúc", "Trần Ngọc Mai", "Lê Quang Khải", "Phạm Thanh Hà", "Võ Minh Khôi",
+    "Đặng Bích Phương", "Bùi Quốc Tuấn", "Hoàng Yến Nhi", "Đỗ Gia Bảo", "Ngô Phương Thảo",
+    "Dương Tuấn Kiệt", "Lý Khánh Linh", "Trương Minh Quân", "Phan Bảo Ngọc", "Huỳnh Tấn Tài",
+    "Mai Thanh Trúc", "Đinh Quốc Việt", "Vương Thảo Vy", "Hồ Anh Dũng", "Châu Minh Thư",
+    "Tạ Quang Huy", "Lương Mỹ Duyên", "Cao Tuấn Anh", "Đoàn Ngọc Ánh"
+  ];
+  const addresses = [
+    "245 Nguyễn Thị Minh Khai, Phường Nguyễn Cư Trinh, TP.HCM",
+    "118 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM",
+    "56 Hoàng Diệu, Phường Hải Châu, TP.Đà Nẵng",
+    "102 Phố Huế, Phường Hai Bà Trưng, TP.Hà Nội",
+    "89 Nguyễn Văn Linh, Phường Hưng Lợi, TP.Cần Thơ",
+    "34 Trần Phú, Phường Lộc Thọ, tỉnh Khánh Hòa",
+    "19 Đại lộ Bình Dương, Phường Thủ Dầu Một, tỉnh Bình Dương",
+    "77 Điện Biên Phủ, Phường Đa Kao, TP.HCM",
+    "150 Cầu Giấy, Phường Quan Hoa, TP.Hà Nội",
+    "62 Phan Chu Trinh, Phường Minh An, tỉnh Quảng Nam",
+    "208 Võ Văn Ngân, Phường Linh Chiểu, TP.HCM",
+    "41 Lê Hồng Phong, Phường Đông Khê, TP.Hải Phòng"
+  ];
+
+  const slots = [
+    // 1. Giai đoạn 23/11/2026 – 30/11/2026 (6 đơn: đúng 2 đơn sáng 23/11 trước 12:00, 4 đơn từ 24/11 đến 30/11)
+    { d: "23/11/2026", t: "08:35:00", yy: "26", mm: "11", dd: "23" },
+    { d: "23/11/2026", t: "10:15:00", yy: "26", mm: "11", dd: "23" },
+    { d: "24/11/2026", t: "14:20:00", yy: "26", mm: "11", dd: "24" },
+    { d: "26/11/2026", t: "09:45:00", yy: "26", mm: "11", dd: "26" },
+    { d: "28/11/2026", t: "16:10:00", yy: "26", mm: "11", dd: "28" },
+    { d: "30/11/2026", t: "19:30:00", yy: "26", mm: "11", dd: "30" },
+    // 2. Tháng 12/2026 (12 đơn)
+    { d: "02/12/2026", t: "09:10:00", yy: "26", mm: "12", dd: "02" },
+    { d: "05/12/2026", t: "11:25:00", yy: "26", mm: "12", dd: "05" },
+    { d: "07/12/2026", t: "15:40:00", yy: "26", mm: "12", dd: "07" },
+    { d: "10/12/2026", t: "10:05:00", yy: "26", mm: "12", dd: "10" },
+    { d: "12/12/2026", t: "13:50:00", yy: "26", mm: "12", dd: "12" },
+    { d: "15/12/2026", t: "17:15:00", yy: "26", mm: "12", dd: "15" },
+    { d: "18/12/2026", t: "08:50:00", yy: "26", mm: "12", dd: "18" },
+    { d: "20/12/2026", t: "14:30:00", yy: "26", mm: "12", dd: "20" },
+    { d: "22/12/2026", t: "19:05:00", yy: "26", mm: "12", dd: "22" },
+    { d: "25/12/2026", t: "10:45:00", yy: "26", mm: "12", dd: "25" },
+    { d: "28/12/2026", t: "16:20:00", yy: "26", mm: "12", dd: "28" },
+    { d: "30/12/2026", t: "20:10:00", yy: "26", mm: "12", dd: "30" },
+    // 3. Tháng 01/2027 (9 đơn)
+    { d: "03/01/2027", t: "09:15:00", yy: "27", mm: "01", dd: "03" },
+    { d: "06/01/2027", t: "11:30:00", yy: "27", mm: "01", dd: "06" },
+    { d: "10/01/2027", t: "14:45:00", yy: "27", mm: "01", dd: "10" },
+    { d: "14/01/2027", t: "16:00:00", yy: "27", mm: "01", dd: "14" },
+    { d: "17/01/2027", t: "10:20:00", yy: "27", mm: "01", dd: "17" },
+    { d: "21/01/2027", t: "13:35:00", yy: "27", mm: "01", dd: "21" },
+    { d: "24/01/2027", t: "15:50:00", yy: "27", mm: "01", dd: "24" },
+    { d: "27/01/2027", t: "18:25:00", yy: "27", mm: "01", dd: "27" },
+    { d: "30/01/2027", t: "20:00:00", yy: "27", mm: "01", dd: "30" },
+    // 4. Tháng 02/2027 (9 đơn)
+    { d: "02/02/2027", t: "08:40:00", yy: "27", mm: "02", dd: "02" },
+    { d: "05/02/2027", t: "10:55:00", yy: "27", mm: "02", dd: "05" },
+    { d: "09/02/2027", t: "14:10:00", yy: "27", mm: "02", dd: "09" },
+    { d: "12/02/2027", t: "16:30:00", yy: "27", mm: "02", dd: "12" },
+    { d: "15/02/2027", t: "09:25:00", yy: "27", mm: "02", dd: "15" },
+    { d: "18/02/2027", t: "13:15:00", yy: "27", mm: "02", dd: "18" },
+    { d: "22/02/2027", t: "15:45:00", yy: "27", mm: "02", dd: "22" },
+    { d: "25/02/2027", t: "17:50:00", yy: "27", mm: "02", dd: "25" },
+    { d: "28/02/2027", t: "19:20:00", yy: "27", mm: "02", dd: "28" },
+    // 5. Tháng 03/2027 (9 đơn)
+    { d: "03/03/2027", t: "09:05:00", yy: "27", mm: "03", dd: "03" },
+    { d: "07/03/2027", t: "11:40:00", yy: "27", mm: "03", dd: "07" },
+    { d: "10/03/2027", t: "14:25:00", yy: "27", mm: "03", dd: "10" },
+    { d: "13/03/2027", t: "16:15:00", yy: "27", mm: "03", dd: "13" },
+    { d: "15/03/2027", t: "10:30:00", yy: "27", mm: "03", dd: "15" },
+    { d: "19/03/2027", t: "13:45:00", yy: "27", mm: "03", dd: "19" },
+    { d: "23/03/2027", t: "15:20:00", yy: "27", mm: "03", dd: "23" },
+    { d: "27/03/2027", t: "18:10:00", yy: "27", mm: "03", dd: "27" },
+    { d: "30/03/2027", t: "20:05:00", yy: "27", mm: "03", dd: "30" },
+    // 6. Tháng 04/2027 (9 đơn)
+    { d: "02/04/2027", t: "08:50:00", yy: "27", mm: "04", dd: "02" },
+    { d: "06/04/2027", t: "10:35:00", yy: "27", mm: "04", dd: "06" },
+    { d: "10/04/2027", t: "14:00:00", yy: "27", mm: "04", dd: "10" },
+    { d: "14/04/2027", t: "16:25:00", yy: "27", mm: "04", dd: "14" },
+    { d: "18/04/2027", t: "09:30:00", yy: "27", mm: "04", dd: "18" },
+    { d: "21/04/2027", t: "13:55:00", yy: "27", mm: "04", dd: "21" },
+    { d: "25/04/2027", t: "15:40:00", yy: "27", mm: "04", dd: "25" },
+    { d: "28/04/2027", t: "17:30:00", yy: "27", mm: "04", dd: "28" },
+    { d: "30/04/2027", t: "19:15:00", yy: "27", mm: "04", dd: "30" },
+    // 7. Tháng 05/2027 (9 đơn)
+    { d: "03/05/2027", t: "09:20:00", yy: "27", mm: "05", dd: "03" },
+    { d: "07/05/2027", t: "11:10:00", yy: "27", mm: "05", dd: "07" },
+    { d: "11/05/2027", t: "14:35:00", yy: "27", mm: "05", dd: "11" },
+    { d: "15/05/2027", t: "16:50:00", yy: "27", mm: "05", dd: "15" },
+    { d: "19/05/2027", t: "10:05:00", yy: "27", mm: "05", dd: "19" },
+    { d: "22/05/2027", t: "13:25:00", yy: "27", mm: "05", dd: "22" },
+    { d: "26/05/2027", t: "15:30:00", yy: "27", mm: "05", dd: "26" },
+    { d: "29/05/2027", t: "18:00:00", yy: "27", mm: "05", dd: "29" },
+    { d: "31/05/2027", t: "20:20:00", yy: "27", mm: "05", dd: "31" },
+    // 8. Tháng 06/2027 (9 đơn - kết thúc đúng 30/06/2027)
+    { d: "02/06/2027", t: "08:45:00", yy: "27", mm: "06", dd: "02" },
+    { d: "06/06/2027", t: "10:50:00", yy: "27", mm: "06", dd: "06" },
+    { d: "10/06/2027", t: "14:15:00", yy: "27", mm: "06", dd: "10" },
+    { d: "14/06/2027", t: "16:40:00", yy: "27", mm: "06", dd: "14" },
+    { d: "18/06/2027", t: "09:35:00", yy: "27", mm: "06", dd: "18" },
+    { d: "21/06/2027", t: "13:20:00", yy: "27", mm: "06", dd: "21" },
+    { d: "25/06/2027", t: "15:55:00", yy: "27", mm: "06", dd: "25" },
+    { d: "28/06/2027", t: "18:10:00", yy: "27", mm: "06", dd: "28" },
+    { d: "30/06/2027", t: "19:45:00", yy: "27", mm: "06", dd: "30" }
+  ];
+
+  let seed = 20262027;
+  const nextRand = function (mod) {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed % mod;
+  };
+
+  const getTierLabel = function (t) {
+    if (t === "HOA_TOC") return "⚡ Hỏa Tốc (2H)";
+    if (t === "NHANH") return "🚀 Giao Nhanh (24H)";
+    return "📦 Tiêu Chuẩn";
+  };
+  const getStLabel = function (st) {
+    if (st === "IN_TRANSIT") return "🚚 Đang giao hàng";
+    if (st === "DELIVERED") return "✅ Giao thành công";
+    if (st === "FAILED_RETURNING") return "❌ Giao thất bại / Chờ chuyển hoàn";
+    return "⏳ Chờ lấy hàng";
+  };
+
+  const phonePrefixes = ["090", "091", "093", "094", "096", "097", "098", "035", "038", "077"];
+  let newShipCount = 0;
+
+  for (let i = 0; i < slots.length; i++) {
+    const sl = slots[i];
+    const channel = channels[i % channels.length];
+    const prefix = prefixMap[channel];
+    const seqStr = String(501 + i);
+    const orderId = prefix + sl.yy + sl.mm + sl.dd + seqStr;
+    const item = catalog24[i % catalog24.length];
+    const quantity = (i % 2) + 1;
+    const custName = customers[(i + nextRand(5)) % customers.length];
+    const phoneBody = String(1000000 + ((i * 137911 + nextRand(899999)) % 8999999)).slice(0, 7);
+    const custPhone = phonePrefixes[i % phonePrefixes.length] + phoneBody;
+    const addr =
+      channel === "POS"
+        ? "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)"
+        : addresses[(i + nextRand(3)) % addresses.length];
+
+    let platformStatus = "CONFIRMED";
+    let rawStatusLabel = "Đã xác nhận";
+    if (i === 17 || i === 44) {
+      platformStatus = "CANCELLED";
+      rawStatusLabel = "Đã hủy đơn";
+    } else if (i === 5 || i === 35 || i === 68) {
+      platformStatus = "UNCONFIRMED";
+      rawStatusLabel = "Chờ xác nhận";
+    }
+
+    let paymentMethod = "COD (Thanh toán khi nhận hàng)";
+    if (channel === "POS") {
+      paymentMethod = i % 2 === 0 ? "Tiền mặt tại quầy" : "Chuyển khoản VietQR";
+    } else if (channel === "SHOPEE") {
+      paymentMethod = i % 2 === 0 ? "Ví ShopeePay" : "COD (Thanh toán khi nhận hàng)";
+    } else if (channel === "TIKTOK") {
+      paymentMethod = i % 2 === 0 ? "COD (Thanh toán khi nhận hàng)" : "Ví ZaloPay";
+    } else if (channel === "LAZADA") {
+      paymentMethod = i % 2 === 0 ? "Thẻ Visa / Mastercard" : "COD (Thanh toán khi nhận hàng)";
+    } else if (channel === "FACEBOOK") {
+      paymentMethod = i % 2 === 0 ? "Chuyển khoản VietQR" : "COD (Thu hộ khi giao)";
+    }
+
+    let carrier = defaultCarrierMap[channel];
+    let trackingCode = "";
+
+    const shouldCreateShipment =
+      platformStatus === "CONFIRMED" &&
+      channel !== "POS" &&
+      (i === 0 || i === 1 || i % 2 === 0);
+
+    if (shouldCreateShipment && newShipCount < 25) {
+      const shPrefix = channel.slice(0, 2);
+      trackingCode = "VD-" + shPrefix + "-" + sl.yy + sl.mm + sl.dd + "-" + String(7101 + newShipCount);
+      const effectiveCarrier =
+        channel === "FACEBOOK"
+          ? i % 2 === 0
+            ? "GHTK (Giao Hàng Tiết Kiệm)"
+            : "Viettel Post"
+          : carrier;
+      carrier = effectiveCarrier;
+
+      const shipStatuses = ["DELIVERED", "IN_TRANSIT", "PENDING_PICKUP", "DELIVERED", "IN_TRANSIT"];
+      const shipStatus = i <= 1 ? "IN_TRANSIT" : shipStatuses[newShipCount % shipStatuses.length];
+      const shipTiers = ["NHANH", "TIEU_CHUAN", "HOA_TOC"];
+      const tier = shipTiers[newShipCount % shipTiers.length];
+      const fee = newShipCount % 2 === 0 ? 0 : 25000;
+      const isCod = paymentMethod.indexOf("COD") !== -1;
+      const totalCod = isCod ? quantity * item.price : 0;
+      const orderTimeFull = sl.d + " " + sl.t;
+      const progressPct = shipStatus === "DELIVERED" ? 100 : shipStatus === "IN_TRANSIT" ? 75 : 25;
+
+      window.SAMPLE_SHIPMENTS_DATA.push({
+        trackingCode: trackingCode,
+        orderId: orderId,
+        channel: channel,
+        carrier: effectiveCarrier,
+        shippingTier: tier,
+        shippingTierLabel: getTierLabel(tier),
+        shippingFee: fee,
+        isFreeship: fee === 0,
+        totalCod: totalCod,
+        status: shipStatus,
+        statusLabel: getStLabel(shipStatus),
+        sender: {
+          name: "ODOMS Store — Kho Phường Bình Phú",
+          phone: "02877776868",
+          address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+        },
+        receiver: {
+          name: custName,
+          phone: custPhone,
+          address: addr
+        },
+        itemsSummary: item.name + " × " + quantity,
+        batchCode: item.batch,
+        handoverTime: orderTimeFull,
+        lastUpdateTime: orderTimeFull,
+        currentLocation:
+          shipStatus === "DELIVERED"
+            ? "Đã giao thành công — Người nhận đã ký nhận đủ kiện hàng"
+            : shipStatus === "IN_TRANSIT"
+            ? "Đang trên tuyến đường giao đến " + addr
+            : "Đã đóng gói tại Kho Phường Bình Phú — Chờ bưu tá nhận hàng",
+        shipperName: "Bưu tá điều phối (" + effectiveCarrier + ")",
+        shipperPhone: "0908" + String(200000 + newShipCount * 1423).slice(0, 6),
+        progressPercent: progressPct,
+        timeline: [
+          {
+            time: sl.t,
+            title: "Xuất kho ODOMS & Đóng gói",
+            desc: "Đã đóng gói " + quantity + " " + item.name + " từ lô " + item.batch + ".",
+            location: "Kho ODOMS Phường Bình Phú"
+          }
+        ]
+      });
+      newShipCount++;
+    }
+
+    const rowObj = {
+      "Mã đơn hàng": orderId,
+      "Sàn TMĐT": channel,
+      "Thời gian đặt hàng": sl.d + " " + sl.t,
+      "SKU phân loại": item.skuCode,
+      "Tên sản phẩm": item.name,
+      "Số lượng": quantity,
+      "Đơn giá": item.price,
+      "Người Mua": custName,
+      "Số điện thoại": custPhone,
+      "Địa chỉ nhận hàng": addr,
+      "Trạng thái đơn hàng": rawStatusLabel,
+      "Phương thức thanh toán": paymentMethod,
+      "Đơn vị vận chuyển": carrier,
+      "Mã vận đơn": trackingCode
+    };
+
+    if (channel === "SHOPEE") window.SAMPLE_EXCEL_DATASETS.SHOPEE.push(rowObj);
+    else if (channel === "TIKTOK") window.SAMPLE_EXCEL_DATASETS.TIKTOK.push(rowObj);
+    else if (channel === "LAZADA") window.SAMPLE_EXCEL_DATASETS.LAZADA.push(rowObj);
+    else window.SAMPLE_EXCEL_DATASETS.FACEBOOK_POS.push(rowObj);
+
+    window.UNIFIED_SAMPLE_DATASET.push(rowObj);
+  }
+})();

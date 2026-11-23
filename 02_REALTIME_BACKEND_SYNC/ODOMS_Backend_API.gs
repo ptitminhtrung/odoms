@@ -144,7 +144,27 @@ const ODOMS_CONFIG = {
     address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
   },
   LOCK_TIMEOUT_MS: 30000,
-  DEFAULT_SECRET_TOKEN: "ODOMS_SECURE_TOKEN_2026"
+  DEFAULT_SECRET_TOKEN: "ODOMS_SECURE_TOKEN_2026",
+  DATASET_VERSION: "FASHION_2026_V4",
+  MIN_FASHION_SKU_COUNT: 25,
+  MAX_ALLOWED_INVALID_ORDERS: 3,
+  // Danh sách đen (blocklist) duy nhất dùng để chặn các bản Web/Vercel cũ đẩy 4 nhóm mã phi thời trang & 11 đơn tháng 10 (261022)
+  LEGACY_BLOCKED_SKUS: [
+    "SP-TAI-NGHE-02",
+    "SP-BALO-LAP-03",
+    "SP-BALO-LAP-04",
+    "SP-BINH-NHIET-04",
+    "SP-BINH-NHIET-05",
+    "SP-BAN-PHIM-03",
+    "SP-BAN-PHIM-05"
+  ],
+  LEGACY_BLOCKED_ORDER_PREFIXES: [
+    "SP261022",
+    "TT261022",
+    "LZ261022",
+    "POS261022",
+    "FB261022"
+  ]
 };
 
 /**
@@ -394,6 +414,7 @@ function doGet(e) {
     return jsonResponse({
       status: "SUCCESS",
       action: action,
+      datasetVersion: ODOMS_CONFIG.DATASET_VERSION,
       serverTime: formatNowVN(),
       data: state
     });
@@ -441,10 +462,22 @@ function doPost(e) {
     }
 
     if (action === "SYNC_ALL" || action === "PUSH_STATE") {
+      const guardRes = validateIncomingSyncPayload_(ss, payload, action);
+      if (!guardRes.allowed) {
+        return jsonResponse({
+          status: guardRes.status || "REJECTED_LEGACY_DATA",
+          action: action,
+          reason: guardRes.reason || "BLOCKED_BY_SERVER_GUARD",
+          message: guardRes.message,
+          serverTime: formatNowVN()
+        });
+      }
+
       const syncResult = writeFullStateToSheets(ss, payload);
       return jsonResponse({
         status: "SUCCESS",
         action: action,
+        datasetVersion: ODOMS_CONFIG.DATASET_VERSION,
         message:
           "Đã đồng bộ đầy đủ 6 trang tính lên Sổ Google Sheets (DatHang, TonKho, LuuKho, VanDon, NhanSu, NhatKy) thành công.",
         details: syncResult,
@@ -467,17 +500,21 @@ function doPost(e) {
       });
     }
 
-    if (action === "SYNC_USERS") {
-      if (Array.isArray(payload.users)) {
-        writeUsersSheet(ss, payload.users);
+    if (action === "SYNC_USERS" || action === "AUDIT_LOGS_SYNC" || action === "USERS_RBAC_SYNC") {
+      // Chỉ ghi riêng bảng NhanSu và NhatKy, tuyệt đối không chạm vào DatHang, TonKho, LuuKho, VanDon
+      let userCount = 0;
+      let logCount = 0;
+      if (Array.isArray(payload.users) && payload.users.length > 0) {
+        userCount = writeUsersSheet(ss, payload.users);
       }
-      if (Array.isArray(payload.auditLogs)) {
-        writeAuditLogsSheet(ss, payload.auditLogs);
+      if (Array.isArray(payload.auditLogs) && payload.auditLogs.length > 0) {
+        logCount = writeAuditLogsSheet(ss, payload.auditLogs);
       }
       return jsonResponse({
         status: "SUCCESS",
-        action: "SYNC_USERS",
-        message: "Đã đồng bộ danh sách Nhân sự và Nhật ký hoạt động lên Google Sheets.",
+        action: action,
+        details: { users: userCount, auditLogs: logCount },
+        message: "Đã đồng bộ riêng danh sách Nhân sự và Nhật ký hoạt động lên Google Sheets (bảo toàn nguyên vẹn Đặt hàng & Tồn kho).",
         serverTime: formatNowVN()
       });
     }
@@ -984,11 +1021,145 @@ function readAllSheetsState(ss) {
   });
 
   return {
+    datasetVersion: ODOMS_CONFIG.DATASET_VERSION,
     orders: orders,
     inventory: inventory,
     shipments: shipments,
     users: users,
     auditLogs: auditLogs
+  };
+}
+
+/**
+ * Tường lửa kiểm định dữ liệu phía máy chủ trước khi cho phép SYNC_ALL / PUSH_STATE ghi đè Google Sheets:
+ *  1. Bắt buộc payload.datasetVersion === "FASHION_2026_V4" (từ chối mọi bản Web/Vercel cũ chưa nâng cấp).
+ *  2. Từ chối 100% nếu chứa bất kỳ mã sản phẩm phi thời trang cũ nào trong LEGACY_BLOCKED_SKUS.
+ *  3. Từ chối 100% nếu chứa bất kỳ mã đơn tháng 10 cũ nào (261022 / LEGACY_BLOCKED_ORDER_PREFIXES).
+ *  4. Từ chối nếu danh mục tồn kho gửi lên < 25 mã Thời trang hoặc số đơn bị đánh dấu INVALID > 3 đơn.
+ *  5. Chặn xóa trắng bảng DatHang khi trên Sổ Google Sheets đang có dữ liệu đơn hàng mà payload gửi mảng rỗng.
+ */
+function validateIncomingSyncPayload_(ss, payload, action) {
+  const data = payload || {};
+  const expectedVer = ODOMS_CONFIG.DATASET_VERSION;
+
+  // 1. Kiểm tra cờ phiên bản bộ dữ liệu chuẩn FASHION_2026_V4
+  if (String(data.datasetVersion || "").trim() !== expectedVer) {
+    return {
+      allowed: false,
+      status: "REJECTED_OUTDATED_CLIENT",
+      reason: "MISSING_OR_MISMATCHED_DATASET_VERSION",
+      message:
+        "Từ chối đồng bộ: Phiên bản trang Web đang mở đã cũ (thiếu định danh " +
+        expectedVer +
+        "). Vui lòng tải lại trang để nhận dữ liệu mới nhất từ Sổ Google Sheets."
+    };
+  }
+
+  const blockedSkus = ODOMS_CONFIG.LEGACY_BLOCKED_SKUS || [];
+  const blockedOrderPrefixes = ODOMS_CONFIG.LEGACY_BLOCKED_ORDER_PREFIXES || [];
+  const incomingInv = Array.isArray(data.inventory) ? data.inventory : [];
+  const incomingOrders = Array.isArray(data.orders) ? data.orders : [];
+
+  // 2. Quét danh sách đen mã sản phẩm cũ trong tồn kho & đơn hàng
+  for (let i = 0; i < incomingInv.length; i++) {
+    const sku = String((incomingInv[i] && (incomingInv[i].sku || incomingInv[i].MaSanPhamSKU)) || "")
+      .trim()
+      .toUpperCase();
+    if (blockedSkus.indexOf(sku) !== -1) {
+      return {
+        allowed: false,
+        status: "REJECTED_LEGACY_DATA",
+        reason: "LEGACY_SKU_IN_INVENTORY:" + sku,
+        message: "Từ chối đồng bộ: Phát hiện mã hàng ngành cũ (" + sku + ") không thuộc danh mục Thời trang 2026."
+      };
+    }
+  }
+
+  let invalidOrderCount = 0;
+  for (let j = 0; j < incomingOrders.length; j++) {
+    const ord = incomingOrders[j] || {};
+    const ordId = String(ord.orderId || ord.MaDonGoc || "").trim().toUpperCase();
+    const ordSku = String(ord.sku || ord.MaSanPhamSKU || "").trim().toUpperCase();
+    const ordStatus = String(ord.status || ord.TrangThaiDieuPhoi || "").trim().toUpperCase();
+
+    if (blockedSkus.indexOf(ordSku) !== -1) {
+      return {
+        allowed: false,
+        status: "REJECTED_LEGACY_DATA",
+        reason: "LEGACY_SKU_IN_ORDERS:" + ordSku,
+        message: "Từ chối đồng bộ: Đơn hàng chứa mã sản phẩm cũ (" + ordSku + ") không hợp lệ."
+      };
+    }
+
+    const hasLegacyOrderPrefix =
+      ordId.indexOf("261022") !== -1 ||
+      blockedOrderPrefixes.some(function (prefix) {
+        return ordId.indexOf(prefix) === 0;
+      });
+    if (hasLegacyOrderPrefix) {
+      return {
+        allowed: false,
+        status: "REJECTED_LEGACY_DATA",
+        reason: "LEGACY_ORDER_ID:" + ordId,
+        message: "Từ chối đồng bộ: Phát hiện mã đơn hàng mẫu cũ tháng 10 (" + ordId + "). Đã khóa bảo vệ Sổ Google Sheets."
+      };
+    }
+
+    if (ordStatus === "INVALID") {
+      invalidOrderCount++;
+    }
+  }
+
+  // 3. Kiểm tra số lượng danh mục tồn kho Thời trang tối thiểu (>= 25 mã)
+  const minSkuCount = ODOMS_CONFIG.MIN_FASHION_SKU_COUNT || 25;
+  if (incomingInv.length < minSkuCount) {
+    return {
+      allowed: false,
+      status: "REJECTED_INVENTORY_DOWNGRADE",
+      reason: "INVENTORY_COUNT_TOO_LOW:" + incomingInv.length,
+      message:
+        "Từ chối đồng bộ: Số lượng mã sản phẩm gửi lên (" +
+        incomingInv.length +
+        ") nhỏ hơn chuẩn 25 mã Thời trang 2026. Đã chặn ghi đè bảng TonKho."
+    };
+  }
+
+  // 4. Chặn lỗi lệch kho biến hàng loạt đơn Thời trang thành INVALID (> 3 đơn)
+  const maxInvalid = ODOMS_CONFIG.MAX_ALLOWED_INVALID_ORDERS || 3;
+  if (invalidOrderCount > maxInvalid) {
+    return {
+      allowed: false,
+      status: "REJECTED_MASS_INVALID_ORDERS",
+      reason: "TOO_MANY_INVALID_ORDERS:" + invalidOrderCount,
+      message:
+        "Từ chối đồng bộ: Phát hiện " +
+        invalidOrderCount +
+        " đơn hàng bị đánh dấu sai mã sản phẩm. Đã chặn ghi đè để bảo vệ bảng DatHang."
+    };
+  }
+
+  // 5. Chặn xóa trắng bảng DatHang khi trên Sổ Google Sheets đang có đơn hàng mà gói đẩy lên bị rỗng
+  if (ss && typeof ss.getSheetByName === "function") {
+    const orderSheet = ss.getSheetByName(ODOMS_CONFIG.SHEETS.ORDERS);
+    const existingOrderRows = orderSheet ? Math.max(0, orderSheet.getLastRow() - 1) : 0;
+    if (existingOrderRows >= 15 && incomingOrders.length === 0 && !data.allowEmptyOrdersReset) {
+      return {
+        allowed: false,
+        status: "REJECTED_EMPTY_ORDERS_WIPE",
+        reason: "EMPTY_ORDERS_AGAINST_POPULATED_SHEET:" + existingOrderRows,
+        message:
+          "Từ chối đồng bộ: Sổ Google Sheets đang có " +
+          existingOrderRows +
+          " đơn hàng, không cho phép ghi đè danh sách đơn rỗng."
+      };
+    }
+  }
+
+  return {
+    allowed: true,
+    status: "ALLOWED",
+    reason: "VALID_FASHION_2026_V4_PAYLOAD",
+    message: "Dữ liệu đồng bộ hợp lệ chuẩn Thời trang 2026."
   };
 }
 
@@ -1596,7 +1767,7 @@ function getFashion2026InventoryCatalog_() {
   const mkHold = function () {
     return { SHOPEE: 0, TIKTOK: 0, LAZADA: 0, FACEBOOK: 0, POS: 0 };
   };
-  return [
+  const catalog = [
     // DANH MỤC 1: ÁO (5 SẢN PHẨM)
     {
       sku: "SP-AO-POLO-01",
@@ -1993,6 +2164,28 @@ function getFashion2026InventoryCatalog_() {
       ]
     }
   ];
+
+  // Bổ sung 24 lô nhập dự trữ cao điểm (15/11/2026 – 22/11/2026, +20 SP/lô) cho 24 mã từ SP-AO-THUN-02 đến SP-TAT-CO-25
+  // TUYỆT ĐỐI bảo toàn nguyên vẹn SP-AO-POLO-01 (index 0: đúng 10 cái, 2 lô LO-2026-A1 & LO-2026-A2)
+  for (let idx = 1; idx < catalog.length; idx++) {
+    const item = catalog[idx];
+    const numStr = String(idx + 1).padStart(2, "0");
+    const importDay = 15 + ((idx - 1) % 8); // 15/11/2026 -> 22/11/2026
+    const dayStr = String(importDay).padStart(2, "0");
+    const extraQty = 20;
+    item.physicalStock += extraQty;
+    item.availableStock += extraQty;
+    item.maxCapacity = Math.max(Number(item.maxCapacity || 30), item.physicalStock + 10);
+    item.batches.push({
+      batchCode: "LO-2026-B" + numStr,
+      qrCode: "OD-RESV-11" + numStr,
+      importDate: "2026-11-" + dayStr,
+      expiryDate: "2028-11-" + dayStr,
+      initialQty: extraQty,
+      remainingQty: extraQty
+    });
+  }
+  return catalog;
 }
 
 function getFashion2026OrdersSeed_() {
@@ -2031,7 +2224,304 @@ function getFashion2026OrdersSeed_() {
     { orderId: "FB261102403", channel: "FACEBOOK", orderTime: "02/11/2026 19:40:00", sku: "SP-KINH-MAT-24", productName: "Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)", quantity: 4, unitPrice: 280000, customerName: "Bùi Anh Tuấn (Chốt đơn Livestream FB)", customerPhone: "0928112233", shippingAddress: "34 Lý Thường Kiệt, Phường Cửa Nam, TP.Hà Nội", platformStatus: "CONFIRMED", paymentMethod: "Chuyển khoản VietQR", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "VD-FB-261102-3351" },
     { orderId: "FB261118404", channel: "FACEBOOK", orderTime: "18/11/2026 20:30:00", sku: "SP-AO-THUN-02", productName: "Áo Thun Cotton Oversize Unisex (Trắng - Size M)", quantity: 4, unitPrice: 190000, customerName: "Lê Ngọc Bích (Inbox Fanpage)", customerPhone: "0965334411", shippingAddress: "112 Cách Mạng Tháng 8, Phường Xuân Hòa, TP.HCM", platformStatus: "CONFIRMED", paymentMethod: "COD (Thu hộ khi giao)", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "" },
     { orderId: "FB261122405", channel: "FACEBOOK", orderTime: "22/11/2026 08:24:00", sku: "SP-MA-LOI-999", productName: "Áo Khoác Gió — Sai mã sản phẩm", quantity: 2, unitPrice: 350000, customerName: "Đỗ Mỹ Linh", customerPhone: "0938111222", shippingAddress: "15 Hai Bà Trưng, Phường Tân Định, TP.HCM", platformStatus: "CANCELLED", paymentMethod: "COD (Thu hộ khi giao)", sourceMethod: "EXCEL_IMPORT", carrier: "", trackingCode: "" }
+  ].concat(generateExtendedFashion2026To2027Seed_().orders);
+}
+
+/**
+ * Bộ sinh ngẫu nhiên tất định (Deterministic PRNG — Seed cố định 20262027):
+ * - Sinh đúng 72 đơn hàng từ 23/11/2026 đến hết 30/06/2027 (nâng tổng đơn từ 30 lên 102 đơn):
+ *   + 23/11/2026 – 30/11/2026: 6 đơn (đúng 2 đơn sáng 23/11/2026 lúc 08:35 & 10:15, 4 đơn từ 24/11 đến 30/11/2026)
+ *   + 01/12/2026 – 31/12/2026: 12 đơn (cao điểm cuối năm)
+ *   + 01/01/2027 – 30/06/2027: 54 đơn (9 đơn/tháng × 6 tháng, kết thúc đúng ngày 30/06/2027)
+ * - Chỉ sử dụng 24 mã Thời trang từ SP-AO-THUN-02 đến SP-TAT-CO-25 (TUYỆT ĐỐI không chạm vào SP-AO-POLO-01).
+ * - Sinh kèm 25 vận đơn tương ứng (nâng tổng vận đơn từ 10 lên 35 vận đơn).
+ */
+function generateExtendedFashion2026To2027Seed_() {
+  const catalog24 = [
+    { sku: "SP-AO-THUN-02", name: "Áo Thun Cotton Oversize Unisex (Trắng - Size M)", price: 190000, batch: "LO-2026-B02" },
+    { sku: "SP-AO-SOMI-03", name: "Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L)", price: 320000, batch: "LO-2026-B03" },
+    { sku: "SP-AO-KHOAC-04", name: "Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL)", price: 420000, batch: "LO-2026-B04" },
+    { sku: "SP-AO-HOODIE-05", name: "Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L)", price: 390000, batch: "LO-2026-B05" },
+    { sku: "SP-QUAN-JEANS-06", name: "Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31)", price: 450000, batch: "LO-2026-B06" },
+    { sku: "SP-QUAN-KAKI-07", name: "Quần Kaki Chinos Công Sở (Be - Size 30)", price: 380000, batch: "LO-2026-B07" },
+    { sku: "SP-QUAN-SHORT-08", name: "Quần Short Thể Thao Vải Gió (Đen - Size L)", price: 180000, batch: "LO-2026-B08" },
+    { sku: "SP-QUAN-TAY-09", name: "Quần Tây Âu Ống Đứng Cao Cấp (Xám Than - Size 31)", price: 490000, batch: "LO-2026-B09" },
+    { sku: "SP-QUAN-JOGGER-10", name: "Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M)", price: 290000, batch: "LO-2026-B10" },
+    { sku: "SP-DAM-MIDI-11", name: "Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S)", price: 550000, batch: "LO-2026-B11" },
+    { sku: "SP-CHAN-VAY-12", name: "Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M)", price: 260000, batch: "LO-2026-B12" },
+    { sku: "SP-DAM-MAXI-13", name: "Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M)", price: 480000, batch: "LO-2026-B13" },
+    { sku: "SP-SET-BLAZER-14", name: "Set Vest Blazer Nữ & Chân Váy (Trắng Kem - Size S)", price: 720000, batch: "LO-2026-B14" },
+    { sku: "SP-DAM-THUN-15", name: "Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M)", price: 240000, batch: "LO-2026-B15" },
+    { sku: "SP-GIAY-SNEAKER-16", name: "Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41)", price: 620000, batch: "LO-2026-B16" },
+    { sku: "SP-GIAY-CHAYBO-17", name: "Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42)", price: 750000, batch: "LO-2026-B17" },
+    { sku: "SP-GIAY-LOAFER-18", name: "Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40)", price: 890000, batch: "LO-2026-B18" },
+    { sku: "SP-SANDAL-NU-19", name: "Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37)", price: 390000, batch: "LO-2026-B19" },
+    { sku: "SP-DEP-DUC-20", name: "Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41)", price: 150000, batch: "LO-2026-B20" },
+    { sku: "SP-TUI-DEO-21", name: "Túi Đeo Chéo Da PU Chống Nước (Đen)", price: 340000, batch: "LO-2026-B21" },
+    { sku: "SP-THAT-LUNG-22", name: "Thắt Lưng Nam Da Thật Khóa Tự Động (Đen)", price: 320000, batch: "LO-2026-B22" },
+    { sku: "SP-NON-KET-23", name: "Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu)", price: 160000, batch: "LO-2026-B23" },
+    { sku: "SP-KINH-MAT-24", name: "Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)", price: 280000, batch: "LO-2026-B24" },
+    { sku: "SP-TAT-CO-25", name: "Set 5 Đôi Tất Cổ Ngắn Khử Mùi Bamboo (Mix Màu)", price: 120000, batch: "LO-2026-B25" }
   ];
+
+  const channels = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
+  const prefixMap = { SHOPEE: "SP", TIKTOK: "TT", LAZADA: "LZ", POS: "POS", FACEBOOK: "FB" };
+  const defaultCarrierMap = {
+    SHOPEE: "SPX Express",
+    TIKTOK: "J&T Express",
+    LAZADA: "GHN (Giao Hàng Nhanh)",
+    POS: "Tại quầy",
+    FACEBOOK: ""
+  };
+  const customers = [
+    "Nguyễn Hoàng Phúc", "Trần Ngọc Mai", "Lê Quang Khải", "Phạm Thanh Hà", "Võ Minh Khôi",
+    "Đặng Bích Phương", "Bùi Quốc Tuấn", "Hoàng Yến Nhi", "Đỗ Gia Bảo", "Ngô Phương Thảo",
+    "Dương Tuấn Kiệt", "Lý Khánh Linh", "Trương Minh Quân", "Phan Bảo Ngọc", "Huỳnh Tấn Tài",
+    "Mai Thanh Trúc", "Đinh Quốc Việt", "Vương Thảo Vy", "Hồ Anh Dũng", "Châu Minh Thư",
+    "Tạ Quang Huy", "Lương Mỹ Duyên", "Cao Tuấn Anh", "Đoàn Ngọc Ánh"
+  ];
+  const addresses = [
+    "245 Nguyễn Thị Minh Khai, Phường Nguyễn Cư Trinh, TP.HCM",
+    "118 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM",
+    "56 Hoàng Diệu, Phường Hải Châu, TP.Đà Nẵng",
+    "102 Phố Huế, Phường Hai Bà Trưng, TP.Hà Nội",
+    "89 Nguyễn Văn Linh, Phường Hưng Lợi, TP.Cần Thơ",
+    "34 Trần Phú, Phường Lộc Thọ, tỉnh Khánh Hòa",
+    "19 Đại lộ Bình Dương, Phường Thủ Dầu Một, tỉnh Bình Dương",
+    "77 Điện Biên Phủ, Phường Đa Kao, TP.HCM",
+    "150 Cầu Giấy, Phường Quan Hoa, TP.Hà Nội",
+    "62 Phan Chu Trinh, Phường Minh An, tỉnh Quảng Nam",
+    "208 Võ Văn Ngân, Phường Linh Chiểu, TP.HCM",
+    "41 Lê Hồng Phong, Phường Đông Khê, TP.Hải Phòng"
+  ];
+
+  // 72 mốc ngày giờ cụ thể từ 23/11/2026 đến 30/06/2027
+  const slots = [
+    // 1. Giai đoạn 23/11/2026 – 30/11/2026 (6 đơn: đúng 2 đơn sáng 23/11 trước 12:00, 4 đơn từ 24/11 đến 30/11)
+    { d: "23/11/2026", t: "08:35:00", yy: "26", mm: "11", dd: "23" },
+    { d: "23/11/2026", t: "10:15:00", yy: "26", mm: "11", dd: "23" },
+    { d: "24/11/2026", t: "14:20:00", yy: "26", mm: "11", dd: "24" },
+    { d: "26/11/2026", t: "09:45:00", yy: "26", mm: "11", dd: "26" },
+    { d: "28/11/2026", t: "16:10:00", yy: "26", mm: "11", dd: "28" },
+    { d: "30/11/2026", t: "19:30:00", yy: "26", mm: "11", dd: "30" },
+    // 2. Tháng 12/2026 (12 đơn cao điểm cuối năm)
+    { d: "02/12/2026", t: "09:10:00", yy: "26", mm: "12", dd: "02" },
+    { d: "05/12/2026", t: "11:25:00", yy: "26", mm: "12", dd: "05" },
+    { d: "07/12/2026", t: "15:40:00", yy: "26", mm: "12", dd: "07" },
+    { d: "10/12/2026", t: "10:05:00", yy: "26", mm: "12", dd: "10" },
+    { d: "12/12/2026", t: "13:50:00", yy: "26", mm: "12", dd: "12" },
+    { d: "15/12/2026", t: "17:15:00", yy: "26", mm: "12", dd: "15" },
+    { d: "18/12/2026", t: "08:50:00", yy: "26", mm: "12", dd: "18" },
+    { d: "20/12/2026", t: "14:30:00", yy: "26", mm: "12", dd: "20" },
+    { d: "22/12/2026", t: "19:05:00", yy: "26", mm: "12", dd: "22" },
+    { d: "25/12/2026", t: "10:45:00", yy: "26", mm: "12", dd: "25" },
+    { d: "28/12/2026", t: "16:20:00", yy: "26", mm: "12", dd: "28" },
+    { d: "30/12/2026", t: "20:10:00", yy: "26", mm: "12", dd: "30" },
+    // 3. Tháng 01/2027 (9 đơn)
+    { d: "03/01/2027", t: "09:15:00", yy: "27", mm: "01", dd: "03" },
+    { d: "06/01/2027", t: "11:30:00", yy: "27", mm: "01", dd: "06" },
+    { d: "10/01/2027", t: "14:45:00", yy: "27", mm: "01", dd: "10" },
+    { d: "14/01/2027", t: "16:00:00", yy: "27", mm: "01", dd: "14" },
+    { d: "17/01/2027", t: "10:20:00", yy: "27", mm: "01", dd: "17" },
+    { d: "21/01/2027", t: "13:35:00", yy: "27", mm: "01", dd: "21" },
+    { d: "24/01/2027", t: "15:50:00", yy: "27", mm: "01", dd: "24" },
+    { d: "27/01/2027", t: "18:25:00", yy: "27", mm: "01", dd: "27" },
+    { d: "30/01/2027", t: "20:00:00", yy: "27", mm: "01", dd: "30" },
+    // 4. Tháng 02/2027 (9 đơn - tháng 2 có 28 ngày)
+    { d: "02/02/2027", t: "08:40:00", yy: "27", mm: "02", dd: "02" },
+    { d: "05/02/2027", t: "10:55:00", yy: "27", mm: "02", dd: "05" },
+    { d: "09/02/2027", t: "14:10:00", yy: "27", mm: "02", dd: "09" },
+    { d: "12/02/2027", t: "16:30:00", yy: "27", mm: "02", dd: "12" },
+    { d: "15/02/2027", t: "09:25:00", yy: "27", mm: "02", dd: "15" },
+    { d: "18/02/2027", t: "13:15:00", yy: "27", mm: "02", dd: "18" },
+    { d: "22/02/2027", t: "15:45:00", yy: "27", mm: "02", dd: "22" },
+    { d: "25/02/2027", t: "17:50:00", yy: "27", mm: "02", dd: "25" },
+    { d: "28/02/2027", t: "19:20:00", yy: "27", mm: "02", dd: "28" },
+    // 5. Tháng 03/2027 (9 đơn)
+    { d: "03/03/2027", t: "09:05:00", yy: "27", mm: "03", dd: "03" },
+    { d: "07/03/2027", t: "11:40:00", yy: "27", mm: "03", dd: "07" },
+    { d: "10/03/2027", t: "14:25:00", yy: "27", mm: "03", dd: "10" },
+    { d: "13/03/2027", t: "16:15:00", yy: "27", mm: "03", dd: "13" },
+    { d: "15/03/2027", t: "10:30:00", yy: "27", mm: "03", dd: "15" },
+    { d: "19/03/2027", t: "13:45:00", yy: "27", mm: "03", dd: "19" },
+    { d: "23/03/2027", t: "15:20:00", yy: "27", mm: "03", dd: "23" },
+    { d: "27/03/2027", t: "18:10:00", yy: "27", mm: "03", dd: "27" },
+    { d: "30/03/2027", t: "20:05:00", yy: "27", mm: "03", dd: "30" },
+    // 6. Tháng 04/2027 (9 đơn - tháng 4 có 30 ngày)
+    { d: "02/04/2027", t: "08:50:00", yy: "27", mm: "04", dd: "02" },
+    { d: "06/04/2027", t: "10:35:00", yy: "27", mm: "04", dd: "06" },
+    { d: "10/04/2027", t: "14:00:00", yy: "27", mm: "04", dd: "10" },
+    { d: "14/04/2027", t: "16:25:00", yy: "27", mm: "04", dd: "14" },
+    { d: "18/04/2027", t: "09:30:00", yy: "27", mm: "04", dd: "18" },
+    { d: "21/04/2027", t: "13:55:00", yy: "27", mm: "04", dd: "21" },
+    { d: "25/04/2027", t: "15:40:00", yy: "27", mm: "04", dd: "25" },
+    { d: "28/04/2027", t: "17:30:00", yy: "27", mm: "04", dd: "28" },
+    { d: "30/04/2027", t: "19:15:00", yy: "27", mm: "04", dd: "30" },
+    // 7. Tháng 05/2027 (9 đơn)
+    { d: "03/05/2027", t: "09:20:00", yy: "27", mm: "05", dd: "03" },
+    { d: "07/05/2027", t: "11:10:00", yy: "27", mm: "05", dd: "07" },
+    { d: "11/05/2027", t: "14:35:00", yy: "27", mm: "05", dd: "11" },
+    { d: "15/05/2027", t: "16:50:00", yy: "27", mm: "05", dd: "15" },
+    { d: "19/05/2027", t: "10:05:00", yy: "27", mm: "05", dd: "19" },
+    { d: "22/05/2027", t: "13:25:00", yy: "27", mm: "05", dd: "22" },
+    { d: "26/05/2027", t: "15:30:00", yy: "27", mm: "05", dd: "26" },
+    { d: "29/05/2027", t: "18:00:00", yy: "27", mm: "05", dd: "29" },
+    { d: "31/05/2027", t: "20:20:00", yy: "27", mm: "05", dd: "31" },
+    // 8. Tháng 06/2027 (9 đơn - tháng 6 có đúng 30 ngày, kết thúc 30/06/2027)
+    { d: "02/06/2027", t: "08:45:00", yy: "27", mm: "06", dd: "02" },
+    { d: "06/06/2027", t: "10:50:00", yy: "27", mm: "06", dd: "06" },
+    { d: "10/06/2027", t: "14:15:00", yy: "27", mm: "06", dd: "10" },
+    { d: "14/06/2027", t: "16:40:00", yy: "27", mm: "06", dd: "14" },
+    { d: "18/06/2027", t: "09:35:00", yy: "27", mm: "06", dd: "18" },
+    { d: "21/06/2027", t: "13:20:00", yy: "27", mm: "06", dd: "21" },
+    { d: "25/06/2027", t: "15:55:00", yy: "27", mm: "06", dd: "25" },
+    { d: "28/06/2027", t: "18:10:00", yy: "27", mm: "06", dd: "28" },
+    { d: "30/06/2027", t: "19:45:00", yy: "27", mm: "06", dd: "30" }
+  ];
+
+  // PRNG tất định (LCG seed 20262027)
+  let seed = 20262027;
+  const nextRand = function (mod) {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed % mod;
+  };
+
+  const orders = [];
+  const shipments = [];
+  const phonePrefixes = ["090", "091", "093", "094", "096", "097", "098", "035", "038", "077"];
+
+  for (let i = 0; i < slots.length; i++) {
+    const sl = slots[i];
+    const channel = channels[i % channels.length];
+    const prefix = prefixMap[channel];
+    const seqStr = String(501 + i);
+    const orderId = prefix + sl.yy + sl.mm + sl.dd + seqStr;
+    const item = catalog24[i % catalog24.length];
+    const quantity = (i % 2) + 1; // 1 hoặc 2 SP/đơn (tổng mỗi SKU chỉ ~4-5 SP xuyên 72 đơn, luôn nhỏ hơn lượng tồn +20 SP)
+    const custName = customers[(i + nextRand(5)) % customers.length];
+    const phoneBody = String(1000000 + ((i * 137911 + nextRand(899999)) % 8999999)).slice(0, 7);
+    const custPhone = phonePrefixes[i % phonePrefixes.length] + phoneBody;
+    const addr =
+      channel === "POS"
+        ? "186 An Dương Vương, Phường Bình Phú, TP.HCM (Nhận trực tiếp tại kho)"
+        : addresses[(i + nextRand(3)) % addresses.length];
+
+    let platformStatus = "CONFIRMED";
+    if (i === 17 || i === 44) {
+      platformStatus = "CANCELLED";
+    } else if (i === 5 || i === 35 || i === 68) {
+      platformStatus = "UNCONFIRMED";
+    }
+
+    let paymentMethod = "COD (Thanh toán khi nhận hàng)";
+    if (channel === "POS") {
+      paymentMethod = i % 2 === 0 ? "Tiền mặt tại quầy" : "Chuyển khoản VietQR";
+    } else if (channel === "SHOPEE") {
+      paymentMethod = i % 2 === 0 ? "Ví ShopeePay" : "COD (Thanh toán khi nhận hàng)";
+    } else if (channel === "TIKTOK") {
+      paymentMethod = i % 2 === 0 ? "COD (Thanh toán khi nhận hàng)" : "Ví ZaloPay";
+    } else if (channel === "LAZADA") {
+      paymentMethod = i % 2 === 0 ? "Thẻ Visa / Mastercard" : "COD (Thanh toán khi nhận hàng)";
+    } else if (channel === "FACEBOOK") {
+      paymentMethod = i % 2 === 0 ? "Chuyển khoản VietQR" : "COD (Thu hộ khi giao)";
+    }
+
+    let carrier = defaultCarrierMap[channel];
+    let trackingCode = "";
+
+    // Sinh 25 vận đơn cho các đơn CONFIRMED ngoài POS (bao gồm cả đơn sáng 23/11/2026 và trải đều đến 30/06/2027)
+    const shouldCreateShipment =
+      platformStatus === "CONFIRMED" &&
+      channel !== "POS" &&
+      (i === 0 || i === 1 || i % 2 === 0);
+
+    if (shouldCreateShipment && shipments.length < 25) {
+      const shPrefix = channel.slice(0, 2);
+      trackingCode = "VD-" + shPrefix + "-" + sl.yy + sl.mm + sl.dd + "-" + String(7101 + shipments.length);
+      const effectiveCarrier =
+        channel === "FACEBOOK"
+          ? i % 2 === 0
+            ? "GHTK (Giao Hàng Tiết Kiệm)"
+            : "Viettel Post"
+          : carrier;
+      carrier = effectiveCarrier;
+
+      const shipStatuses = ["DELIVERED", "IN_TRANSIT", "PENDING_PICKUP", "DELIVERED", "IN_TRANSIT"];
+      const shipStatus = i <= 1 ? "IN_TRANSIT" : shipStatuses[shipments.length % shipStatuses.length];
+      const shipTiers = ["NHANH", "TIEU_CHUAN", "HOA_TOC"];
+      const tier = shipTiers[shipments.length % shipTiers.length];
+      const fee = shipments.length % 2 === 0 ? 0 : 25000;
+      const isCod = paymentMethod.indexOf("COD") !== -1;
+      const totalCod = isCod ? quantity * item.price : 0;
+      const orderTimeFull = sl.d + " " + sl.t;
+      const progressPct = shipStatus === "DELIVERED" ? 100 : shipStatus === "IN_TRANSIT" ? 75 : 25;
+
+      shipments.push({
+        trackingCode: trackingCode,
+        orderId: orderId,
+        channel: channel,
+        carrier: effectiveCarrier,
+        shippingTier: tier,
+        shippingTierLabel: getShippingTierLabelBackend(tier),
+        shippingFee: fee,
+        isFreeship: fee === 0,
+        totalCod: totalCod,
+        status: shipStatus,
+        statusLabel: getShipmentStatusLabelBackend(shipStatus),
+        sender: {
+          name: "ODOMS Store — Kho Phường Bình Phú",
+          phone: "02877776868",
+          address: "186 An Dương Vương, Phường Bình Phú, TP.HCM"
+        },
+        receiver: {
+          name: custName,
+          phone: custPhone,
+          address: addr
+        },
+        itemsSummary: item.name + " × " + quantity,
+        batchCode: item.batch,
+        shipperName: "Bưu tá điều phối (" + effectiveCarrier + ")",
+        shipperPhone: "0908" + String(200000 + shipments.length * 1423).slice(0, 6),
+        currentLocation:
+          shipStatus === "DELIVERED"
+            ? "Đã giao thành công — Người nhận đã ký nhận đủ kiện hàng"
+            : shipStatus === "IN_TRANSIT"
+            ? "Đang trên tuyến đường giao đến " + addr
+            : "Đã đóng gói tại Kho Phường Bình Phú — Chờ bưu tá nhận hàng",
+        progressPercent: progressPct,
+        handoverTime: orderTimeFull,
+        lastUpdateTime: orderTimeFull,
+        timeline: [
+          {
+            time: sl.t,
+            title: "Xuất kho ODOMS & Đóng gói",
+            desc: "Đã đóng gói " + quantity + " " + item.name + " từ lô " + item.batch + ".",
+            location: "Kho ODOMS Phường Bình Phú"
+          }
+        ]
+      });
+    }
+
+    orders.push({
+      orderId: orderId,
+      channel: channel,
+      orderTime: sl.d + " " + sl.t,
+      sku: item.sku,
+      productName: item.name,
+      quantity: quantity,
+      unitPrice: item.price,
+      customerName: custName,
+      customerPhone: custPhone,
+      shippingAddress: addr,
+      platformStatus: platformStatus,
+      paymentMethod: paymentMethod,
+      sourceMethod: "EXCEL_IMPORT",
+      carrier: carrier,
+      trackingCode: trackingCode
+    });
+  }
+
+  return { orders: orders, shipments: shipments };
 }
 
 function getFashion2026ShipmentsSeed_() {
@@ -2287,5 +2777,5 @@ function getFashion2026ShipmentsSeed_() {
         { time: "28/06 16:15", title: "Giao thành công", desc: "Khách hàng Phạm Quang Vinh đã nhận đủ hàng và thanh toán thu hộ.", location: "85 Cộng Hòa, Phường Bảy Hiền, TP.HCM" }
       ]
     }
-  ];
+  ].concat(generateExtendedFashion2026To2027Seed_().shipments);
 }
