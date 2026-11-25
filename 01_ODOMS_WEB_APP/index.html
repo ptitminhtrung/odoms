@@ -1,18 +1,28 @@
 <!DOCTYPE html>
-<html lang="vi" data-theme="navy">
+<html lang="vi" data-theme="vivo">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ODOMS — Hệ thống quản lý đơn hàng đa kênh thông minh</title>
-  <link rel="stylesheet" href="css/style.css?v=20261123_v5" />
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("ODOMS_ACTIVE_THEME_V3");
+        var resolved = saved === "dark" ? "dark" : "vivo";
+        document.documentElement.setAttribute("data-theme", resolved);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "vivo");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=20261124_v23" />
   <!-- Thư viện SheetJS hỗ trợ đọc/xuất trực tiếp file Excel .xlsx -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
   <!-- ==========================================================================
-       MÀN HÌNH 1: GIAO DIỆN ĐĂNG NHẬP HỆ THỐNG CĂN GIỮA
-       Màu mặc định cố định: #0A2947, #F3E4C9, #D3D4C0, #8B5E3C
+       MÀN HÌNH 1: GIAO DIỆN ĐĂNG NHẬP HỆ THỐNG CĂN GIỮA (2 CHẾ ĐỘ SÁNG / TỐI)
        ========================================================================== -->
   <div id="loginScreenWrapper" class="login-screen-wrapper">
     <div class="login-center-container">
@@ -245,21 +255,35 @@
         </div>
 
         <div class="topbar-actions">
-          <span class="topbar-live-pill" data-action-views="dashboard">
+          <span
+            id="topbarSandboxPill"
+            class="topbar-sandbox-pill hidden no-print"
+            title="Đang bật Chế độ thử nghiệm — mọi thao tác chỉ chạy tạm trên trình duyệt, không ghi lên Google Sheets"
+          >
+            <span class="sandbox-pill-dot"></span>
+            <span class="sandbox-pill-full">Chế độ thử nghiệm — Không ghi Google Sheets</span>
+            <span class="sandbox-pill-compact">Thử nghiệm · Chặn ghi</span>
+          </span>
+          <span id="topbarLivePill" class="topbar-live-pill" data-action-views="dashboard">
             <span class="banner-dot" style="width:7px;height:7px;"></span>
             Dữ liệu trực tuyến
           </span>
-          <button class="btn btn-primary hidden" data-action-views="ingest shipping fifo backorder qr_api" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
-            📥 Đồng bộ đơn 5 kênh
+          <button class="btn btn-primary odoms-btn-34 hidden" data-action-views="ingest shipping fifo backorder qr_api" onclick="AppUI.loadSampleChannelData('ALL_UNIFIED')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Đồng bộ đơn 5 kênh
           </button>
-          <button class="btn btn-outline" onclick="window.ExcelHandler.exportContextReport()">
-            📊 Xuất Báo Cáo (.xlsx)
+          <button
+            type="button"
+            id="btnTopbarExportReport"
+            class="btn btn-outline odoms-btn-34"
+            data-action-views="dashboard inventory ingest qr_api shipping fifo backorder revenue_analytics"
+            onclick="window.ExcelHandler.exportContextReport()"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Xuất Báo Cáo (.xlsx)
           </button>
-          <button class="btn btn-outline" onclick="AppUI.resetAll()">
-            🔄 Đặt lại
-          </button>
-          <button class="btn-qr-quick hidden" data-action-views="ingest inventory shipping fifo backorder qr_api" onclick="AppUI.switchSidebarTab('qr_api')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <button class="btn-qr-quick odoms-btn-34 hidden" data-action-views="ingest inventory shipping fifo backorder qr_api" onclick="AppUI.switchSidebarTab('qr_api')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             Quét QR
           </button>
         </div>
@@ -267,6 +291,82 @@
 
       <!-- NỘI DUNG CUỘN CHÍNH -->
       <div class="wms-content-container">
+        <!-- THANH CẢNH BÁO MỎNG KHÔNG VIỀN KHI TẮT CHẾ ĐỘ THỬ NGHIỆM CÓ THAY ĐỔI CHƯA ĐỒNG BỘ (HIỂN THỊ XUYÊN SUỐT MỌI MÀN HÌNH) -->
+        <div id="sandboxUnsyncedBanner" class="sandbox-unsynced-banner hidden no-print" role="status" aria-live="polite">
+          <div id="sandboxUnsyncedBannerHead" class="sandbox-banner-head" onclick="AppUI.toggleSandboxUnsyncedBanner()">
+            <div class="sandbox-banner-title-wrap">
+              <span class="sandbox-banner-dot" aria-hidden="true"></span>
+              <span id="sandboxUnsyncedTitle" class="sandbox-banner-title">Đã tắt thử nghiệm</span>
+              <span id="sandboxUnsyncedCount" class="sandbox-banner-count"></span>
+            </div>
+            <div class="sandbox-banner-controls">
+              <button
+                type="button"
+                id="btnToggleSandboxUnsynced"
+                class="sandbox-banner-icon-btn"
+                onclick="event.stopPropagation(); AppUI.toggleSandboxUnsyncedBanner()"
+                title="Mở rộng / Thu gọn chi tiết"
+                aria-expanded="false"
+                aria-label="Mở rộng chi tiết cảnh báo"
+              >
+                <span id="sandboxUnsyncedChevron">▾</span>
+              </button>
+              <button
+                type="button"
+                id="btnCloseSandboxUnsynced"
+                class="sandbox-banner-icon-btn"
+                onclick="event.stopPropagation(); AppUI.dismissSandboxUnsyncedBanner()"
+                title="Đóng cảnh báo"
+                aria-label="Đóng cảnh báo"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          <div id="sandboxUnsyncedDetails" class="sandbox-banner-body hidden">
+            <span id="sandboxUnsyncedDesc" class="sandbox-banner-desc">
+              Các thay đổi vừa thao tác không được tự động gửi lên Google Sheets.
+            </span>
+            <button
+              type="button"
+              id="btnPushSandboxUnsynced"
+              class="btn btn-primary btn-sm sandbox-banner-push-btn"
+              onclick="AppUI.handlePushSandboxUnsyncedChanges()"
+            >
+              Đồng bộ dữ liệu lên Google Sheets
+            </button>
+          </div>
+        </div>
+        <!-- THANH ĐỐI CHIẾU TRƯỚC → SAU & HOÀN TÁC 1 BƯỚC (HOẠT ĐỘNG ĐỘC LẬP, MẶC ĐỊNH ẨN KHI CHƯA CÓ THAO TÁC) -->
+        <div id="actionDiffUndoBar" class="action-diff-undo-bar hidden no-print" role="status" aria-live="polite">
+          <div class="action-diff-left">
+            <span class="action-diff-tag" id="actionDiffBadge">Đối chiếu vừa làm</span>
+            <span id="actionDiffText" class="action-diff-text"></span>
+          </div>
+          <div class="action-diff-right">
+            <button
+              type="button"
+              id="btnUndoLastAction"
+              class="btn btn-outline btn-sm action-undo-btn"
+              onclick="AppUI.handleUndoLastAction()"
+              disabled
+            >
+              ↩ Hoàn tác bước vừa làm
+            </button>
+            <button
+              type="button"
+              id="btnCloseActionDiffBar"
+              class="action-diff-close-btn hidden"
+              onclick="AppUI.dismissActionDiffBar()"
+              title="Đóng thông báo này"
+              aria-label="Đóng thông báo"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        <!-- THANH ẨN CẢNH BÁO THIẾU HÀNG TRONG KHO (CHỈ HIỆN TRÊN TỔNG QUAN & TIẾP NHẬN KHI CÓ ĐƠN THIẾU TỒN) -->
+        <div id="stockShortageCornerPopup" class="stock-shortage-top-banner hidden no-print" role="status" aria-live="polite"></div>
         <!-- 2.0. HÀNG 1 DASHBOARD P2: THANH LỌC KHO/NGÀY & 7 THẺ CHỈ SỐ KPI -->
         <section class="oms-view-section" data-views="dashboard">
           <div class="dash-filter-bar">
@@ -360,15 +460,15 @@
           </div>
         </section>
 
-        <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI CHIẾN LƯỢC (Hiển thị ở FIFO, Backorder, Kho, Gom đơn) -->
-        <section class="oms-view-section hidden" data-views="fifo backorder inventory ingest">
-          <div class="kpi-cards-grid">
+        <!-- 2. KHỐI 4 THẺ CHỈ SỐ KPI CHIẾN LƯỢC (Hiển thị ở FIFO, Backorder, Gom đơn) -->
+        <section class="oms-view-section hidden" data-views="fifo backorder ingest">
+          <div class="kpi-cards-grid odoms-kpi-strip-4">
             <!-- Khối 1: Kho hàng / Tổng Quan (Liên kết động giữa Kho và Tổng Quan) -->
             <div id="kpiFirstCard" class="wms-kpi-card kpi-card-interactive" onclick="AppUI.onFirstKpiCardClick()" title="Bấm để vào xem Kho hàng">
               <div class="kpi-card-top">
                 <span id="kpiInventoryLabel" class="kpi-card-label">Kho hàng</span>
                 <div class="kpi-icon-box green">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="0"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 </div>
               </div>
               <div id="kpiInventoryTotal" class="kpi-card-number">889 SP</div>
@@ -381,40 +481,40 @@
             <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('ingest')" title="Bấm để xem Đơn hàng các kênh (Tiếp nhận / Gom đơn)">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Đơn hàng các kênh</span>
-                <div class="kpi-icon-box blue" style="background:rgba(37,99,235,0.12);color:#2563eb;">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
+                <div class="kpi-icon-box blue">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
                 </div>
               </div>
-              <div id="kpiOrdersTotal" class="kpi-card-number" style="font-variant-numeric:tabular-nums;">32 đơn</div>
-              <div id="kpiOrdersSub" class="kpi-card-sub blue" style="color:#2563eb;">
+              <div id="kpiOrdersTotal" class="kpi-card-number">32 đơn</div>
+              <div id="kpiOrdersSub" class="kpi-card-sub blue">
                 Đã xác nhận: 28 · Chờ xác nhận: 2 · Đã hủy: 1
               </div>
             </div>
 
             <!-- Khối 3: Quản lý Vận đơn (Liên kết với Vận đơn) -->
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('qr_api')" title="Bấm để vào Quản lý Vận đơn & In QR">
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('qr_api')" title="Bấm để vào Quản lý Vận đơn &amp; In QR">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Quản lý Vận đơn</span>
-                <div class="kpi-icon-box orange" style="background:rgba(249,115,22,0.12);color:#ea580c;">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/></svg>
+                <div class="kpi-icon-box orange">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/></svg>
                 </div>
               </div>
               <div id="kpiWaybillTotal" class="kpi-card-number">12 vận đơn</div>
-              <div id="kpiWaybillSub" class="kpi-card-sub orange" style="color:#ea580c;">
+              <div id="kpiWaybillSub" class="kpi-card-sub orange">
                 Đã cấp mã vận đơn: 12 · Sẵn sàng in phiếu QR: 12
               </div>
             </div>
 
             <!-- Khối 4: Vận chuyển đơn (Liên kết với Vận chuyển đơn) -->
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('shipping')" title="Bấm để xem Vận chuyển đơn & Giám sát hành trình">
+            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.switchSidebarTab('shipping')" title="Bấm để xem Vận chuyển đơn &amp; Giám sát hành trình">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Vận chuyển đơn</span>
-                <div class="kpi-icon-box purple" style="background:rgba(124,58,237,0.12);color:#7c3aed;">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <div class="kpi-icon-box purple">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="0"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 </div>
               </div>
               <div id="kpiShippingTotal" class="kpi-card-number">12 đơn</div>
-              <div id="kpiShippingSub" class="kpi-card-sub purple" style="color:#7c3aed;">
+              <div id="kpiShippingSub" class="kpi-card-sub purple">
                 Đang vận chuyển: 5 đơn · Đã giao thành công: 4 đơn
               </div>
             </div>
@@ -423,13 +523,13 @@
 
         <!-- 2.1. KHỐI 4 THẺ CHỈ SỐ CỦA KHO (Hiển thị riêng ở tab Kho) -->
         <section class="oms-view-section hidden" data-views="inventory">
-          <div class="kpi-cards-grid">
+          <div class="kpi-cards-grid odoms-kpi-strip-4 inv-kpi-strip">
             <!-- Thẻ 1: Danh mục mặt hàng -->
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('ALL')" title="Bấm để lọc hiển thị tất cả mặt hàng">
+            <div class="wms-kpi-card kpi-card-interactive is-active-kpi" data-inv-card="ALL" onclick="AppUI.filterInventoryByCard('ALL')" title="Bấm để lọc hiển thị tất cả mặt hàng">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Danh mục mặt hàng</span>
                 <div class="kpi-icon-box green">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="0"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 </div>
               </div>
               <div id="invKpiPhysical" class="kpi-card-number">25 mặt hàng</div>
@@ -439,39 +539,39 @@
             </div>
 
             <!-- Thẻ 2: Sẵn sàng bán -->
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('AVAILABLE')" title="Bấm để lọc các mặt hàng sẵn sàng bán">
+            <div class="wms-kpi-card kpi-card-interactive" data-inv-card="AVAILABLE" onclick="AppUI.filterInventoryByCard('AVAILABLE')" title="Bấm để lọc các mặt hàng sẵn sàng bán">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Sẵn sàng bán</span>
-                <div class="kpi-icon-box blue" style="background:rgba(37,99,235,0.12);color:#2563eb;">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <div class="kpi-icon-box blue">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                 </div>
               </div>
               <div id="invKpiAvailable" class="kpi-card-number">889 SP</div>
-              <div id="invKpiAvailableSub" class="kpi-card-sub blue" style="color:#2563eb;">
+              <div id="invKpiAvailableSub" class="kpi-card-sub blue">
                 Đang đồng bộ mở bán trên 5 kênh
               </div>
             </div>
 
             <!-- Thẻ 3: Đã xác nhận -->
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('RESERVED')" title="Bấm để lọc các mặt hàng đang có hàng chờ đóng gói">
+            <div class="wms-kpi-card kpi-card-interactive" data-inv-card="RESERVED" onclick="AppUI.filterInventoryByCard('RESERVED')" title="Bấm để lọc các mặt hàng đang có hàng chờ đóng gói">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Đã xác nhận</span>
-                <div class="kpi-icon-box orange" style="background:rgba(249,115,22,0.12);color:#ea580c;">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
+                <div class="kpi-icon-box orange">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10"/></svg>
                 </div>
               </div>
               <div id="invKpiReserved" class="kpi-card-number">0 SP</div>
-              <div id="invKpiReservedSub" class="kpi-card-sub orange" style="color:#ea580c;">
+              <div id="invKpiReservedSub" class="kpi-card-sub orange">
                 Hàng chờ đóng gói xuất đi
               </div>
             </div>
 
             <!-- Thẻ 4: Cảnh báo cần nhập -->
-            <div class="wms-kpi-card kpi-card-interactive" onclick="AppUI.filterInventoryByCard('ALERT')" title="Bấm để lọc mặt hàng Hết hàng hoặc Sắp hết hàng">
+            <div class="wms-kpi-card kpi-card-interactive" data-inv-card="ALERT" onclick="AppUI.filterInventoryByCard('ALERT')" title="Bấm để lọc mặt hàng Hết hàng hoặc Sắp hết hàng">
               <div class="kpi-card-top">
                 <span class="kpi-card-label">Cảnh báo cần nhập</span>
                 <div class="kpi-icon-box red">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 </div>
               </div>
               <div id="invKpiAlert" class="kpi-card-number">0 mặt hàng</div>
@@ -914,7 +1014,7 @@
                     <span>Xuất hàng</span>
                   </button>
                 </div>
-                <button type="button" class="btn btn-outline btn-xs" id="btnToggleAllMonthlyDots" onclick="AppUI.toggleAllMonthlyTrendsNumbers()" title="Bấm để hiện hoặc ẩn toàn bộ con số trên cả 2 đường" style="font-size:11px;padding:4px 10px;border-radius:6px;font-weight:700;">
+                <button type="button" class="btn btn-outline btn-xs" id="btnToggleAllMonthlyDots" onclick="AppUI.toggleAllMonthlyTrendsNumbers()" title="Bấm để hiện hoặc ẩn toàn bộ con số trên cả 2 đường" style="font-size:11px;padding:4px 10px;border-radius:0px;box-shadow:none;font-weight:700;">
                   👁️ Xem tất cả số
                 </button>
               </div>
@@ -1105,22 +1205,22 @@
 
                 <!-- Các điểm chấm tương tác trên Đường Trên (Đơn tiếp nhận) -->
                 <g id="chartDotsImport" fill="#F97316">
-                  <circle cx="65" cy="92" r="5" class="chart-interactive-dot" data-type="import" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="14" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th5/26 (14 đơn)" />
-                  <circle cx="155" cy="54" r="5" class="chart-interactive-dot" data-type="import" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="20" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th6/26 (20 đơn)" />
-                  <circle cx="245" cy="66" r="5" class="chart-interactive-dot" data-type="import" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="18" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th7/26 (18 đơn)" />
-                  <circle cx="335" cy="26" r="5.5" class="chart-interactive-dot" data-type="import" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="25" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th8/26 (25 đơn)" />
-                  <circle cx="425" cy="50" r="5" class="chart-interactive-dot" data-type="import" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="21" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th9/26 (21 đơn)" />
-                  <circle cx="515" cy="34" r="5.5" class="chart-interactive-dot" data-type="import" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="24" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Đơn tiếp nhận Th10/26 (24 đơn)" />
+                  <circle cx="65" cy="92" r="5" class="chart-interactive-dot" data-type="import" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="14" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Đơn tiếp nhận Th5/26 (14 đơn)" />
+                  <circle cx="155" cy="54" r="5" class="chart-interactive-dot" data-type="import" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="20" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Đơn tiếp nhận Th6/26 (20 đơn)" />
+                  <circle cx="245" cy="66" r="5" class="chart-interactive-dot" data-type="import" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="18" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Đơn tiếp nhận Th7/26 (18 đơn)" />
+                  <circle cx="335" cy="26" r="5.5" class="chart-interactive-dot" data-type="import" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="25" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Đơn tiếp nhận Th8/26 (25 đơn)" />
+                  <circle cx="425" cy="50" r="5" class="chart-interactive-dot" data-type="import" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="21" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Đơn tiếp nhận Th9/26 (21 đơn)" />
+                  <circle cx="515" cy="34" r="5.5" class="chart-interactive-dot" data-type="import" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="24" data-series="Đơn tiếp nhận" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Đơn tiếp nhận Th10/26 (24 đơn)" />
                 </g>
 
                 <!-- Các điểm chấm tương tác trên Đường Dưới (Xuất giữ hàng) -->
                 <g id="chartDotsExportGroup" fill="#2563EB">
-                  <circle cx="65" cy="152" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="4" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th5/26 (4 đơn)" />
-                  <circle cx="155" cy="118" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="9" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th6/26 (9 đơn)" />
-                  <circle cx="245" cy="138" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="6" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th7/26 (6 đơn)" />
-                  <circle cx="335" cy="96" r="5.2" class="chart-interactive-dot" data-type="export" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="13" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th8/26 (13 đơn)" />
-                  <circle cx="425" cy="126" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="8" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th9/26 (8 đơn)" />
-                  <circle id="chartDotExport" cx="515" cy="106" r="5.2" class="chart-interactive-dot" data-type="export" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="11" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Click để xem: Xuất giữ hàng Th10/26 (11 đơn)" />
+                  <circle cx="65" cy="152" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th5/26" data-month-name="Tháng 05/2026" data-val="4" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Xuất giữ hàng Th5/26 (4 đơn)" />
+                  <circle cx="155" cy="118" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th6/26" data-month-name="Tháng 06/2026" data-val="9" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Xuất giữ hàng Th6/26 (9 đơn)" />
+                  <circle cx="245" cy="138" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th7/26" data-month-name="Tháng 07/2026" data-val="6" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Xuất giữ hàng Th7/26 (6 đơn)" />
+                  <circle cx="335" cy="96" r="5.2" class="chart-interactive-dot" data-type="export" data-month="Th8/26" data-month-name="Tháng 08/2026" data-val="13" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Xuất giữ hàng Th8/26 (13 đơn)" />
+                  <circle cx="425" cy="126" r="4.8" class="chart-interactive-dot" data-type="export" data-month="Th9/26" data-month-name="Tháng 09/2026" data-val="8" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Xuất giữ hàng Th9/26 (8 đơn)" />
+                  <circle id="chartDotExport" cx="515" cy="106" r="5.2" class="chart-interactive-dot" data-type="export" data-month="Th10/26" data-month-name="Tháng 10/2026" data-val="11" data-series="Xuất giữ hàng" onclick="AppUI.handleMonthlyChartDotClick(this)" title="Nhấn để xem: Xuất giữ hàng Th10/26 (11 đơn)" />
                 </g>
 
                 <!-- Nhóm hiển thị nhãn số trực tiếp khi người dùng click vào đường hoặc điểm chấm -->
@@ -1141,204 +1241,237 @@
 
         </section>
 
-        <!-- 4. THANH ĐỒNG BỘ 5 KÊNH BÁN HÀNG -->
-        <section class="oms-view-section hidden" data-views="ingest fifo" style="margin-top:16px;">
-          <div class="wms-card">
-            <div class="wms-card-header">
-              <div>
-                <div class="wms-card-title">Theo dõi trạng thái các sàn</div>
-                <div class="wms-card-subtitle">Giám sát trạng thái kết nối vào thời điểm cập nhật số lượng đơn</div>
-              </div>
-            </div>
-            <div id="channelStripContainer" class="channel-strip-grid"></div>
-          </div>
-        </section>
-
-        <!-- 5. PHÂN HỆ TIẾP NHẬN EXCEL & TẠO ĐƠN TRỰC TIẾP -->
+        <!-- 4 & 5. THẺ TIẾP NHẬN ĐƠN HÀNG MỚI HỢP NHẤT EXCEL (1 THẺ PHẲNG 0PX — 2 HÀNG GỌN) -->
         <section class="oms-view-section hidden" data-views="ingest">
-          <div class="charts-grid-2col">
-            <!-- Khối trái: Tạo & Tiếp nhận đơn hàng mới -->
-            <div class="wms-card" style="margin-bottom:0;display:flex;flex-direction:column;">
-              <div class="wms-card-header">
-                <div>
-                  <div class="wms-card-title">Tiếp Nhận Đơn Hàng Mới</div>
-                  <div class="wms-card-subtitle">Nhập trực tiếp hoặc nhận đơn từ các kênh</div>
+          <div class="odoms-page-wrap ingest-section-wrap">
+            <div class="settings-group ingest-unified-group">
+              <div class="ingest-unified-head-bar">
+                <div class="odoms-group-head">
+                  <h3 class="settings-group-title">Tiếp nhận đơn hàng mới</h3>
+                  <p class="odoms-group-subtitle">Nhập trực tiếp đơn hàng theo kênh hoặc tải tệp danh sách đơn hàng Excel (.xlsx, .xls, .csv)</p>
+                </div>
+
+                <div
+                  class="settings-segmented-control ingest-excel-actions-seg no-print"
+                  role="group"
+                  aria-label="Tải mẫu và nhập tệp Excel đơn hàng"
+                >
+                  <button
+                    type="button"
+                    id="btnDownloadSampleExcel"
+                    class="settings-seg-btn settings-action-icon-btn"
+                    title="Tải tệp mẫu đơn hàng đa kênh (.xlsx)"
+                    aria-label="Tải tệp mẫu đơn hàng đa kênh (.xlsx)"
+                    onclick="window.ExcelHandler.downloadAllSampleExcelWorkbook()"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    id="btnTriggerExcelUpload"
+                    class="settings-seg-btn settings-action-icon-btn"
+                    title="Nhập danh sách đơn hàng từ tệp Excel (.xlsx, .xls, .csv)"
+                    aria-label="Nhập danh sách đơn hàng từ tệp Excel (.xlsx, .xls, .csv)"
+                    onclick="document.getElementById('excelFileInput').click()"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </button>
+                  <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" multiple class="hidden" />
                 </div>
               </div>
 
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                <div>
-                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Kênh bán hàng</label>
-                  <select id="simChannel" class="form-control">
-                    <option value="SHOPEE">Shopee</option>
-                    <option value="TIKTOK">TikTok Shop</option>
-                    <option value="LAZADA">Lazada</option>
-                    <option value="POS">Cửa hàng POS</option>
-                    <option value="FACEBOOK">Facebook</option>
-                  </select>
+              <div id="uploadDropZone" class="settings-group-box ingest-unified-box">
+                <div class="ingest-unified-row-1">
+                  <div class="odoms-field">
+                    <label class="odoms-field-label" for="simChannel">Kênh bán hàng</label>
+                    <select id="simChannel" class="form-control odoms-ctrl-34">
+                      <option value="SHOPEE">Shopee</option>
+                      <option value="TIKTOK">TikTok Shop</option>
+                      <option value="LAZADA">Lazada</option>
+                      <option value="POS">Cửa hàng POS</option>
+                      <option value="FACEBOOK">Facebook</option>
+                    </select>
+                  </div>
+                  <div class="odoms-field">
+                    <label class="odoms-field-label" for="simSku">Sản phẩm đặt mua</label>
+                    <select id="simSku" class="form-control odoms-ctrl-34">
+                      <optgroup label="Áo (5 mã)">
+                        <option value="SP-AO-POLO-01">SP-AO-POLO-01 — Áo Polo Nam Coolmate Pro (Đen - Size L)</option>
+                        <option value="SP-AO-THUN-02">SP-AO-THUN-02 — Áo Thun Cotton Oversize Unisex (Trắng - Size M)</option>
+                        <option value="SP-AO-SOMI-03">SP-AO-SOMI-03 — Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L)</option>
+                        <option value="SP-AO-KHOAC-04">SP-AO-KHOAC-04 — Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL)</option>
+                        <option value="SP-AO-HOODIE-05">SP-AO-HOODIE-05 — Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L)</option>
+                      </optgroup>
+                      <optgroup label="Quần (5 mã)">
+                        <option value="SP-QUAN-JEANS-06">SP-QUAN-JEANS-06 — Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31)</option>
+                        <option value="SP-QUAN-KAKI-07">SP-QUAN-KAKI-07 — Quần Kaki Chinos Công Sở (Be - Size 30)</option>
+                        <option value="SP-QUAN-SHORT-08">SP-QUAN-SHORT-08 — Quần Short Thể Thao Vải Gió (Đen - Size L)</option>
+                        <option value="SP-QUAN-TAY-09">SP-QUAN-TAY-09 — Quần Tây Âu Ống Đứng Cao Cấp (Xám Than - Size 31)</option>
+                        <option value="SP-QUAN-JOGGER-10">SP-QUAN-JOGGER-10 — Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M)</option>
+                      </optgroup>
+                      <optgroup label="Váy &amp; Đầm (5 mã)">
+                        <option value="SP-DAM-MIDI-11">SP-DAM-MIDI-11 — Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S)</option>
+                        <option value="SP-CHAN-VAY-12">SP-CHAN-VAY-12 — Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M)</option>
+                        <option value="SP-DAM-MAXI-13">SP-DAM-MAXI-13 — Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M)</option>
+                        <option value="SP-SET-BLAZER-14">SP-SET-BLAZER-14 — Set Vest Blazer Nữ &amp; Chân Váy (Trắng Kem - Size S)</option>
+                        <option value="SP-DAM-THUN-15">SP-DAM-THUN-15 — Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M)</option>
+                      </optgroup>
+                      <optgroup label="Giày &amp; Dép (5 mã)">
+                        <option value="SP-GIAY-SNEAKER-16">SP-GIAY-SNEAKER-16 — Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41)</option>
+                        <option value="SP-GIAY-CHAYBO-17">SP-GIAY-CHAYBO-17 — Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42)</option>
+                        <option value="SP-GIAY-LOAFER-18">SP-GIAY-LOAFER-18 — Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40)</option>
+                        <option value="SP-SANDAL-NU-19">SP-SANDAL-NU-19 — Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37)</option>
+                        <option value="SP-DEP-DUC-20">SP-DEP-DUC-20 — Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41)</option>
+                      </optgroup>
+                      <optgroup label="Phụ kiện thời trang (5 mã)">
+                        <option value="SP-TUI-DEO-21">SP-TUI-DEO-21 — Túi Đeo Chéo Da PU Chống Nước (Đen)</option>
+                        <option value="SP-THAT-LUNG-22">SP-THAT-LUNG-22 — Thắt Lưng Nam Da Thật Khóa Tự Động (Đen)</option>
+                        <option value="SP-NON-KET-23">SP-NON-KET-23 — Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu)</option>
+                        <option value="SP-KINH-MAT-24">SP-KINH-MAT-24 — Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)</option>
+                        <option value="SP-TAT-CO-25">SP-TAT-CO-25 — Set 5 Đôi Tất Cổ Ngắn Khử Mùi Bamboo (Mix Màu)</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div class="odoms-field">
+                    <label class="odoms-field-label" for="simQty">Số lượng</label>
+                    <input type="number" id="simQty" class="form-control odoms-ctrl-34" value="2" min="1" max="50" />
+                  </div>
+                  <div class="odoms-field">
+                    <label class="odoms-field-label" for="simCustomer">Tên khách hàng</label>
+                    <input type="text" id="simCustomer" class="form-control odoms-ctrl-34" value="Khách mua hàng" />
+                  </div>
                 </div>
-                <div>
-                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Sản phẩm đặt mua</label>
-                  <select id="simSku" class="form-control" style="border-radius:0px;box-shadow:none;">
-                    <optgroup label="Áo (5 mã)">
-                      <option value="SP-AO-POLO-01">SP-AO-POLO-01 — Áo Polo Nam Coolmate Pro (Đen - Size L)</option>
-                      <option value="SP-AO-THUN-02">SP-AO-THUN-02 — Áo Thun Cotton Oversize Unisex (Trắng - Size M)</option>
-                      <option value="SP-AO-SOMI-03">SP-AO-SOMI-03 — Áo Sơ Mi Oxford Dài Tay Chống Nhăn (Xanh Nhạt - Size L)</option>
-                      <option value="SP-AO-KHOAC-04">SP-AO-KHOAC-04 — Áo Khoác Dù Chống UV 2 Lớp (Xám - Size XL)</option>
-                      <option value="SP-AO-HOODIE-05">SP-AO-HOODIE-05 — Áo Hoodie Nỉ Bông Form Rộng (Nâu - Size L)</option>
-                    </optgroup>
-                    <optgroup label="Quần (5 mã)">
-                      <option value="SP-QUAN-JEANS-06">SP-QUAN-JEANS-06 — Quần Jeans Nam Slim-fit Co Giãn (Xanh Đậm - Size 31)</option>
-                      <option value="SP-QUAN-KAKI-07">SP-QUAN-KAKI-07 — Quần Kaki Chinos Công Sở (Be - Size 30)</option>
-                      <option value="SP-QUAN-SHORT-08">SP-QUAN-SHORT-08 — Quần Short Thể Thao Vải Gió (Đen - Size L)</option>
-                      <option value="SP-QUAN-TAY-09">SP-QUAN-TAY-09 — Quần Tây Âu Ống Đứng Cao Cấp (Xám Than - Size 31)</option>
-                      <option value="SP-QUAN-JOGGER-10">SP-QUAN-JOGGER-10 — Quần Jogger Thun Nỉ Thể Thao (Ghi Sáng - Size M)</option>
-                    </optgroup>
-                    <optgroup label="Váy &amp; Đầm (5 mã)">
-                      <option value="SP-DAM-MIDI-11">SP-DAM-MIDI-11 — Đầm Midi Lụa Xếp Ly Dự Tiệc (Kem - Size S)</option>
-                      <option value="SP-CHAN-VAY-12">SP-CHAN-VAY-12 — Chân Váy Chữ A Công Sở Dáng Ngắn (Đen - Size M)</option>
-                      <option value="SP-DAM-MAXI-13">SP-DAM-MAXI-13 — Đầm Maxi Hoa Nhí Voan Mềm (Hồng Pastel - Size M)</option>
-                      <option value="SP-SET-BLAZER-14">SP-SET-BLAZER-14 — Set Vest Blazer Nữ &amp; Chân Váy (Trắng Kem - Size S)</option>
-                      <option value="SP-DAM-THUN-15">SP-DAM-THUN-15 — Đầm Thun Suông Dáng Ngắn Basic (Xanh Navy - Size M)</option>
-                    </optgroup>
-                    <optgroup label="Giày &amp; Dép (5 mã)">
-                      <option value="SP-GIAY-SNEAKER-16">SP-GIAY-SNEAKER-16 — Giày Sneaker Da Trắng Cổ Thấp (Trắng - Size 41)</option>
-                      <option value="SP-GIAY-CHAYBO-17">SP-GIAY-CHAYBO-17 — Giày Chạy Bộ Đế Đệm Siêu Nhẹ (Xám Xanh - Size 42)</option>
-                      <option value="SP-GIAY-LOAFER-18">SP-GIAY-LOAFER-18 — Giày Lười Da Bò Nam Công Sở (Nâu Bò - Size 40)</option>
-                      <option value="SP-SANDAL-NU-19">SP-SANDAL-NU-19 — Giày Sandal Cao Gót Quai Mảnh 5cm (Be - Size 37)</option>
-                      <option value="SP-DEP-DUC-20">SP-DEP-DUC-20 — Dép Quai Ngang Đúc Nguyên Khối EVA (Đen - Size 41)</option>
-                    </optgroup>
-                    <optgroup label="Phụ kiện thời trang (5 mã)">
-                      <option value="SP-TUI-DEO-21">SP-TUI-DEO-21 — Túi Đeo Chéo Da PU Chống Nước (Đen)</option>
-                      <option value="SP-THAT-LUNG-22">SP-THAT-LUNG-22 — Thắt Lưng Nam Da Thật Khóa Tự Động (Đen)</option>
-                      <option value="SP-NON-KET-23">SP-NON-KET-23 — Nón Kết Lưỡi Trai Vải Kaki Thêu Chữ (Xanh Rêu)</option>
-                      <option value="SP-KINH-MAT-24">SP-KINH-MAT-24 — Kính Mát Thời Trang Chống Tia UV400 (Đen Bóng)</option>
-                      <option value="SP-TAT-CO-25">SP-TAT-CO-25 — Set 5 Đôi Tất Cổ Ngắn Khử Mùi Bamboo (Mix Màu)</option>
-                    </optgroup>
-                  </select>
-                </div>
-              </div>
 
-              <div style="display:grid;grid-template-columns:110px 1fr;gap:10px;margin-bottom:10px;">
-                <div>
-                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Số lượng</label>
-                  <input type="number" id="simQty" class="form-control" value="2" min="1" max="50" />
+                <div class="ingest-unified-row-2">
+                  <div class="odoms-field">
+                    <label class="odoms-field-label" for="simAddress">Địa chỉ giao hàng</label>
+                    <input
+                      type="text"
+                      id="simAddress"
+                      class="form-control odoms-ctrl-34"
+                      value=""
+                      placeholder="Nhập địa chỉ giao hàng (hoặc kéo thả tệp Excel .xlsx, .csv trực tiếp vào khung này)..."
+                    />
+                  </div>
+                  <div class="ingest-unified-btns no-print">
+                    <button type="button" class="btn btn-outline odoms-btn-34" onclick="AppUI.fillRandomWebhookOrder()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="16 3 21 3 21 8"/>
+                        <line x1="4" y1="20" x2="21" y2="3"/>
+                        <polyline points="21 16 21 21 16 21"/>
+                        <line x1="15" y1="15" x2="21" y2="21"/>
+                        <line x1="4" y1="4" x2="9" y2="9"/>
+                      </svg>
+                      Tạo ngẫu nhiên
+                    </button>
+                    <button type="button" class="btn btn-primary odoms-btn-34" onclick="AppUI.simulateWebhookOrder()">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Tiếp nhận đơn hàng
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Tên khách hàng</label>
-                  <input type="text" id="simCustomer" class="form-control" value="Khách mua hàng" />
-                </div>
-              </div>
 
-              <div style="margin-bottom:12px;">
-                <label style="font-size:11.5px;font-weight:700;color:var(--text-secondary);">Địa chỉ giao hàng</label>
-                <input type="text" id="simAddress" class="form-control" value="" placeholder="Nhập địa chỉ giao hàng..." />
-              </div>
-
-              <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">
-                <button type="button" class="btn btn-outline" style="width:100%;" onclick="AppUI.fillRandomWebhookOrder()">
-                  🎲 Tạo ngẫu nhiên
-                </button>
-                <button class="btn btn-primary" style="width:100%;" onclick="AppUI.simulateWebhookOrder()">
-                  ➕ Tiếp nhận đơn hàng
-                </button>
-              </div>
-            </div>
-
-            <!-- Khối phải: Nhập danh sách đơn hàng từ File Excel -->
-            <div class="wms-card" style="margin-bottom:0;display:flex;flex-direction:column;">
-              <div class="wms-card-header">
-                <div>
-                  <div class="wms-card-title">Nhập Danh Sách Đơn Hàng Từ File Excel</div>
-                  <div class="wms-card-subtitle">Gom nhanh đơn hàng hàng loạt từ file xuất của các sàn</div>
-                </div>
-                <button class="btn btn-outline btn-sm" onclick="window.ExcelHandler.downloadAllSampleExcelWorkbook()">
-                  ⬇️ Tải mẫu về
-                </button>
-              </div>
-
-              <div id="uploadDropZone" class="upload-dropzone" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" multiple class="hidden" />
-                <div style="font-weight:700;color:var(--theme-primary);font-size:14px;">
-                  📂 Kéo thả / Chọn file Excel của các sàn vào đây
-                </div>
+                <div id="excelUploadFeedback" class="settings-sync-feedback ingest-upload-feedback hidden" role="status" aria-live="polite"></div>
               </div>
             </div>
           </div>
         </section>
 
         <!-- 6. KHỐI CẢNH BÁO CẦN XỬ LÝ (Actionable Alerts) -->
-        <section class="oms-view-section hidden" data-views="fifo backorder" style="margin-top:20px;">
-          <div class="wms-card">
-            <div class="wms-card-header">
-              <div>
-                <div class="wms-card-title">Cảnh báo cần xử lý (Chặn bán lố & Đơn lỗi hợp lệ)</div>
-                <div class="wms-card-subtitle">Các đơn hàng bị chặn để bảo vệ tồn kho vật lý và yêu cầu nhập bù</div>
+        <section class="oms-view-section hidden" data-views="fifo backorder">
+          <div class="odoms-page-wrap ingest-section-wrap">
+            <div class="settings-group">
+              <div class="odoms-group-head">
+                <h3 class="settings-group-title">Cảnh báo cần xử lý (Chặn bán lố &amp; Đơn lỗi hợp lệ)</h3>
+                <p class="odoms-group-subtitle">Các đơn hàng bị chặn để bảo vệ tồn kho vật lý và yêu cầu nhập bù</p>
+              </div>
+              <div class="settings-group-box actionable-alerts-box">
+                <div id="actionableAlertsContainer" class="alerts-list"></div>
               </div>
             </div>
-            <div id="actionableAlertsContainer" class="alerts-list"></div>
           </div>
         </section>
 
         <!-- 7. BẢNG QUẢN LÝ & GOM ĐƠN HÀNG ĐA KÊNH -->
         <section class="oms-view-section hidden" data-views="ingest backorder">
-          <div class="wms-card">
-            <div class="wms-card-header">
-              <div>
-                <div class="wms-card-title">Bảng Theo Dõi Đơn Hàng Đã Tiếp Nhận</div>
-                <div class="wms-card-subtitle">Theo dõi toàn bộ đơn đã nhập và xác nhận xử lý · <span id="orderCountLabel">Hiển thị 0 / 0 đơn hàng</span></div>
+          <div class="odoms-page-wrap ingest-section-wrap">
+            <div class="settings-group orders-list-group">
+              <div class="orders-header-bar">
+                <div class="orders-header-left">
+                  <h3 class="settings-group-title">Bảng theo dõi đơn hàng đã tiếp nhận</h3>
+                  <p class="odoms-group-subtitle">Theo dõi toàn bộ đơn đã nhập và xác nhận xử lý · <span id="orderCountLabel">Hiển thị 0 / 0 đơn hàng</span></p>
+                </div>
+
+                <div class="orders-header-tools no-print">
+                  <select id="allocationRuleSelect" class="form-control odoms-ctrl-34 orders-filter-select" aria-label="Thứ tự sắp xếp đơn hàng">
+                    <option value="NEWEST_FIRST" selected>Hiển thị: Mới nhất lên trên</option>
+                    <option value="OLDEST_FIRST">Hiển thị: Cũ nhất lên trên</option>
+                  </select>
+                  <select id="statusFilterSelect" class="form-control odoms-ctrl-34 orders-filter-select" aria-label="Lọc theo trạng thái đơn">
+                    <option value="ALL">Tất cả trạng thái</option>
+                    <option value="CONFIRMED">Đã xác nhận</option>
+                    <option value="UNCONFIRMED">Chờ xác nhận</option>
+                    <option value="CANCELLED">Đã hủy</option>
+                  </select>
+                  <div class="logs-search-box orders-search-box">
+                    <svg class="logs-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="11" cy="11" r="8"/>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input
+                      type="text"
+                      id="orderSearchInput"
+                      class="logs-search-input"
+                      placeholder="Tìm mã đơn, sản phẩm, khách..."
+                      aria-label="Tìm mã đơn, sản phẩm hoặc khách hàng"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <select id="allocationRuleSelect" class="form-control" style="width:auto;font-weight:600;">
-                  <option value="NEWEST_FIRST" selected>Hiển thị: Mới nhất lên trên</option>
-                  <option value="OLDEST_FIRST">Hiển thị: Cũ nhất lên trên</option>
-                </select>
-                <select id="statusFilterSelect" class="form-control" style="width:auto;">
-                  <option value="ALL">Tất cả trạng thái</option>
-                  <option value="CONFIRMED">✔️ Đã xác nhận</option>
-                  <option value="UNCONFIRMED">⏳ Chờ xác nhận</option>
-                  <option value="CANCELLED">✖️ Đã hủy</option>
-                </select>
-                <input
-                  type="text"
-                  id="orderSearchInput"
-                  class="form-control"
-                  style="width:200px;max-width:100%;flex:1 1 160px;"
-                  placeholder="🔍 Tìm mã đơn, sản phẩm, khách..."
-                />
+              <div class="orders-channel-filter-row no-print">
+                <div class="settings-segmented-control orders-channel-seg" role="group" aria-label="Lọc đơn hàng theo kênh bán">
+                  <button type="button" class="settings-seg-btn settings-seg-text-btn tab-btn active" data-channel="ALL" aria-pressed="true" onclick="AppUI.setChannelFilter('ALL')">Tất cả 5 kênh</button>
+                  <button type="button" class="settings-seg-btn settings-seg-text-btn tab-btn" data-channel="SHOPEE" aria-pressed="false" onclick="AppUI.setChannelFilter('SHOPEE')">Shopee</button>
+                  <button type="button" class="settings-seg-btn settings-seg-text-btn tab-btn" data-channel="TIKTOK" aria-pressed="false" onclick="AppUI.setChannelFilter('TIKTOK')">TikTok Shop</button>
+                  <button type="button" class="settings-seg-btn settings-seg-text-btn tab-btn" data-channel="LAZADA" aria-pressed="false" onclick="AppUI.setChannelFilter('LAZADA')">Lazada</button>
+                  <button type="button" class="settings-seg-btn settings-seg-text-btn tab-btn" data-channel="POS" aria-pressed="false" onclick="AppUI.setChannelFilter('POS')">Cửa hàng POS</button>
+                  <button type="button" class="settings-seg-btn settings-seg-text-btn tab-btn" data-channel="FACEBOOK" aria-pressed="false" onclick="AppUI.setChannelFilter('FACEBOOK')">Facebook</button>
+                </div>
               </div>
-            </div>
 
-            <div class="filter-tabs-bar">
-              <div class="tab-pills-group">
-                <button class="tab-btn active" data-channel="ALL" onclick="AppUI.setChannelFilter('ALL')">Tất cả 5 kênh</button>
-                <button class="tab-btn" data-channel="SHOPEE" onclick="AppUI.setChannelFilter('SHOPEE')">Shopee</button>
-                <button class="tab-btn" data-channel="TIKTOK" onclick="AppUI.setChannelFilter('TIKTOK')">TikTok Shop</button>
-                <button class="tab-btn" data-channel="LAZADA" onclick="AppUI.setChannelFilter('LAZADA')">Lazada</button>
-                <button class="tab-btn" data-channel="POS" onclick="AppUI.setChannelFilter('POS')">Cửa hàng POS</button>
-                <button class="tab-btn" data-channel="FACEBOOK" onclick="AppUI.setChannelFilter('FACEBOOK')">Facebook</button>
+              <div class="settings-group-box orders-table-box">
+                <div class="odoms-table-scroll">
+                  <table class="wms-table odoms-flat-table orders-flat-table">
+                    <thead>
+                      <tr>
+                        <th class="col-ord-prio">Thứ tự ưu tiên</th>
+                        <th class="col-ord-id">Mã đơn hàng</th>
+                        <th class="col-ord-channel">Kênh bán</th>
+                        <th class="col-ord-time">Thời gian đặt</th>
+                        <th class="col-ord-product">Sản phẩm</th>
+                        <th class="col-ord-qty">Số lượng</th>
+                        <th class="col-ord-hold">Tình trạng giữ hàng</th>
+                        <th class="col-ord-status">Trạng thái đơn</th>
+                        <th class="col-ord-payment">Thanh toán</th>
+                        <th class="col-ord-actions">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ordersTableBody"></tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-
-            <div class="table-responsive">
-              <table class="wms-table">
-                <thead>
-                  <tr>
-                    <th>Thứ tự ưu tiên</th>
-                    <th>Mã đơn hàng</th>
-                    <th>Kênh bán</th>
-                    <th>Thời gian đặt</th>
-                    <th>Sản phẩm</th>
-                    <th>Số lượng</th>
-                    <th>Tình trạng giữ hàng</th>
-                    <th>Trạng thái đơn</th>
-                    <th>Thanh toán</th>
-                    <th>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody id="ordersTableBody"></tbody>
-              </table>
             </div>
           </div>
         </section>
@@ -1367,7 +1500,7 @@
                 <span class="kpi-icon-box orange">📦</span>
               </div>
               <div id="shippingKpiPending" class="kpi-card-value">0</div>
-              <div class="kpi-card-hint">Đã đóng gói tại kho, chờ shipper đến lấy</div>
+              <div class="kpi-card-hint">Đã đóng gói tại kho, chờ bưu tá đến lấy</div>
             </div>
 
             <div class="wms-kpi-card">
@@ -1376,7 +1509,7 @@
                 <span class="kpi-icon-box" style="background:rgba(37,99,235,0.15);color:#2563eb;">🚚</span>
               </div>
               <div id="shippingKpiInTransit" class="kpi-card-value" style="color:#2563eb;">0</div>
-              <div class="kpi-card-hint">Shipper đang trên đường giao đến khách</div>
+              <div class="kpi-card-hint">Bưu tá đang trên đường giao đến khách</div>
             </div>
 
             <div class="wms-kpi-card">
@@ -1385,7 +1518,7 @@
                 <span class="kpi-icon-box green">✔</span>
               </div>
               <div id="shippingKpiDelivered" class="kpi-card-value" style="color:var(--theme-primary);">0</div>
-              <div class="kpi-card-hint">Khách đã nhận hàng & hoàn tất ký e-POD</div>
+              <div class="kpi-card-hint">Khách đã nhận hàng & hoàn tất ký nhận điện tử</div>
             </div>
 
             <div class="wms-kpi-card">
@@ -1458,30 +1591,61 @@
 
         <!-- 8. BẢNG QUẢN LÝ TỒN KHO HÀNG HÓA -->
         <section class="oms-view-section hidden" data-views="inventory backorder">
-          <div class="wms-card" style="position:relative;">
-            <div class="wms-card-header" style="flex-wrap:wrap;gap:12px;">
-              <div>
-                <div class="wms-card-title">Bảng Quản Lý Tồn Kho Hàng Hóa</div>
-                <div class="wms-card-subtitle">Theo dõi tồn kho thực tế, lượng sẵn sàng bán và hạn sử dụng theo từng lô hàng</div>
-              </div>
-
-              <!-- Thanh Tìm kiếm & Bộ lọc nhanh ngay trên bảng Kho -->
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <label for="invCategoryFilter" style="font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap;">Danh mục:</label>
-                  <select id="invCategoryFilter" class="form-control" style="width:auto;font-weight:600;border-radius:0px;box-shadow:none;" onchange="AppUI.onInventoryFilterChange()">
-                    <option value="ALL">Tất cả (5 danh mục)</option>
-                    <option value="Áo">Áo</option>
-                    <option value="Quần">Quần</option>
-                    <option value="Váy & Đầm">Váy &amp; Đầm</option>
-                    <option value="Giày & Dép">Giày &amp; Dép</option>
-                    <option value="Phụ kiện thời trang">Phụ kiện thời trang</option>
-                  </select>
+          <div class="odoms-page-wrap inv-page-wrap">
+            <div class="settings-group inv-list-group">
+              <div class="inv-header-bar">
+                <div class="inv-header-left">
+                  <h3 class="settings-group-title">Bảng quản lý tồn kho hàng hóa</h3>
+                  <p class="odoms-group-subtitle">Theo dõi tồn kho thực tế, lượng sẵn sàng bán và hạn sử dụng theo từng lô hàng</p>
                 </div>
 
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <label for="invStatusFilter" style="font-size:12px;font-weight:700;color:var(--text-secondary);white-space:nowrap;">Tình trạng:</label>
-                  <select id="invStatusFilter" class="form-control" style="width:auto;font-weight:600;" onchange="AppUI.onInventoryFilterChange()">
+                <!-- Thanh Tìm kiếm & Bộ lọc nhanh cao 34px ngay trên bảng Kho -->
+                <div class="inv-header-tools no-print">
+                  <div
+                    id="invStatusSegmented"
+                    class="settings-segmented-control inv-status-seg"
+                    role="group"
+                    aria-label="Lọc nhanh tình trạng tồn kho"
+                  >
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn active"
+                      data-inv-status="ALL"
+                      aria-pressed="true"
+                      onclick="AppUI.setInventoryStatusFilter('ALL')"
+                    >
+                      Tất cả
+                    </button>
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn"
+                      data-inv-status="ENOUGH"
+                      aria-pressed="false"
+                      onclick="AppUI.setInventoryStatusFilter('ENOUGH')"
+                    >
+                      Đủ hàng
+                    </button>
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn"
+                      data-inv-status="LOW"
+                      aria-pressed="false"
+                      onclick="AppUI.setInventoryStatusFilter('LOW')"
+                    >
+                      Sắp hết
+                    </button>
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn"
+                      data-inv-status="OUT"
+                      aria-pressed="false"
+                      onclick="AppUI.setInventoryStatusFilter('OUT')"
+                    >
+                      Hết hàng
+                    </button>
+                  </div>
+
+                  <select id="invStatusFilter" class="form-control odoms-ctrl-34 hidden" aria-label="Tình trạng tồn kho" onchange="AppUI.onInventoryFilterChange()">
                     <option value="ALL">Tất cả</option>
                     <option value="AVAILABLE">Có hàng sẵn sàng bán</option>
                     <option value="RESERVED">Có hàng chờ đóng gói (Đã xác nhận)</option>
@@ -1490,41 +1654,58 @@
                     <option value="LOW">Sắp hết hàng</option>
                     <option value="OUT">Hết hàng</option>
                   </select>
-                </div>
 
-                <input
-                  type="text"
-                  id="invSearchInput"
-                  class="form-control"
-                  style="width:220px;max-width:100%;flex:1 1 180px;"
-                  placeholder="🔍 Tìm tên sản phẩm, mã SKU..."
-                  oninput="AppUI.onInventoryFilterChange()"
-                />
+                  <select id="invCategoryFilter" class="form-control odoms-ctrl-34 inv-category-select" aria-label="Lọc theo danh mục hàng hóa" onchange="AppUI.onInventoryFilterChange()">
+                    <option value="ALL">Tất cả (5 danh mục)</option>
+                    <option value="Áo">Áo</option>
+                    <option value="Quần">Quần</option>
+                    <option value="Váy & Đầm">Váy &amp; Đầm</option>
+                    <option value="Giày & Dép">Giày &amp; Dép</option>
+                    <option value="Phụ kiện thời trang">Phụ kiện thời trang</option>
+                  </select>
+
+                  <div class="logs-search-box inv-search-box">
+                    <svg class="logs-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="11" cy="11" r="8"/>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input
+                      type="text"
+                      id="invSearchInput"
+                      class="logs-search-input"
+                      placeholder="Tìm tên, mã sản phẩm..."
+                      aria-label="Tìm tên hoặc mã sản phẩm"
+                      oninput="AppUI.onInventoryFilterChange()"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-group-box inv-table-box">
+                <div class="odoms-table-scroll">
+                  <table class="wms-table odoms-flat-table inv-flat-table">
+                    <thead>
+                      <tr>
+                        <th class="col-inv-cat">Danh mục</th>
+                        <th class="col-inv-prod">Sản phẩm</th>
+                        <th class="col-inv-phys">Tồn kho thực tế</th>
+                        <th class="col-inv-resv">Hàng chờ đóng gói</th>
+                        <th class="col-inv-avail">Sẵn sàng bán</th>
+                        <th class="col-inv-status">Tình trạng</th>
+                        <th class="col-inv-actions">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody"></tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
-            <div class="table-responsive">
-              <table class="wms-table">
-                <thead>
-                  <tr>
-                    <th>Danh mục</th>
-                    <th>Sản phẩm</th>
-                    <th>Tồn kho thực tế</th>
-                    <th>Hàng chờ đóng gói</th>
-                    <th>Sẵn sàng bán</th>
-                    <th>Tình trạng</th>
-                    <th>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody id="inventoryTableBody"></tbody>
-              </table>
-            </div>
-
-            <!-- Bảng thông báo nhỏ Xem chi tiết: Lô hàng & Hạn sử dụng + Nhập hàng -->
+            <!-- Hộp thoại phẳng cố định giữa màn hình: Chi tiết Lô hàng & Hạn sử dụng + Nhập hàng -->
             <div
               id="invRestockPopover"
-              class="hidden"
-              style="position:fixed;z-index:1050;width:420px;max-width:calc(100vw - 24px);max-height:calc(100vh - 32px);overflow-y:auto;background:var(--bg-card, #ffffff);border:1.5px solid var(--theme-primary, #0A2947);border-radius:12px;box-shadow:0 12px 28px rgba(10,41,71,0.18);padding:16px;"
+              class="modal-backdrop odoms-flat-modal-backdrop inv-restock-modal-backdrop hidden"
+              onclick="if(event.target===this) AppUI.closeRestockPopover()"
             ></div>
           </div>
         </section>
@@ -1540,12 +1721,12 @@
                   <div class="wms-card-title">📦 Tạo Mã Vận Đơn & Sinh Mã QR Đơn Hàng</div>
                   <div class="wms-card-subtitle">Chọn đơn hàng từ hệ thống hoặc nhập thông tin để tạo mã vận đơn, sinh mã QR và in phiếu giao hàng</div>
                 </div>
-                <span class="status-badge st-ALLOCATED">ODOMS Waybill & QR</span>
+                <span class="status-badge st-ALLOCATED">Phiếu Vận Đơn & Mã QR</span>
               </div>
 
               <div style="display:flex;flex-direction:column;gap:12px;">
                 <!-- Nơi Gửi Hàng Cố Định -->
-                <div style="background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:9px;padding:10px 12px;">
+                <div style="background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;padding:10px 12px;">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">
                     <span style="font-size:11px;font-weight:800;color:var(--theme-primary);text-transform:uppercase;">🏢 Nơi gửi hàng (Kho bán hàng ODOMS)</span>
                     <span style="font-size:11px;font-weight:700;color:var(--text-muted);">Mã kho: KHO-Q6-01</span>
@@ -1581,10 +1762,10 @@
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <div>
-                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã vận đơn (Waybill Code)</label>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã vận đơn</label>
                     <div style="display:flex;gap:6px;">
                       <input type="text" id="wbTrackingCode" class="form-control" style="font-family:monospace;font-weight:700;" placeholder="Tự động tạo theo ngày thực tế..." value="" />
-                      <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.regenerateTrackingCodeOnly()" title="Đổi mã vận đơn ngẫu nhiên mới">🎲 Đổi mã</button>
+                      <button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;flex-shrink:0;" onclick="AppUI.regenerateTrackingCodeOnly()" title="Đổi mã vận đơn ngẫu nhiên mới">🎲 Đổi mã</button>
                     </div>
                   </div>
                   <div>
@@ -1617,7 +1798,7 @@
 
                 <div style="display:grid;grid-template-columns:1.1fr 1.3fr 0.6fr;gap:10px;">
                   <div>
-                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã SKU</label>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã sản phẩm</label>
                     <input type="text" id="wbSku" class="form-control" value="SP-AO-POLO-01" />
                   </div>
                   <div>
@@ -1632,7 +1813,7 @@
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                   <div>
-                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã Lô Xuất Hàng (Batch FEFO)</label>
+                    <label style="font-size:12px;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:4px;">Mã Lô Xuất Hàng (Ưu tiên lô gần hạn)</label>
                     <input type="text" id="wbBatchCode" class="form-control" value="LO-2026-A1" />
                   </div>
                   <div>
@@ -1657,7 +1838,7 @@
               <div class="wms-card-header">
                 <div>
                   <div class="wms-card-title">🎫 Phiếu Mã Vận Đơn & Mã QR Đơn Hàng (Bản In Nhiệt A6)</div>
-                  <div class="wms-card-subtitle">Tự động nhúng thông tin đơn + mã vận đơn vào QR Code chuẩn SVG sắc nét</div>
+                  <div class="wms-card-subtitle">Tự động nhúng thông tin đơn + mã vận đơn vào Mã QR sắc nét</div>
                 </div>
                 <button type="button" class="btn btn-primary btn-sm" onclick="AppUI.printWaybillQrTicket()">
                   🖨️ In ngay
@@ -1688,8 +1869,8 @@
                     <th>Kênh Bán</th>
                     <th>ĐV Vận Chuyển</th>
                     <th>Khách Hàng Nhận</th>
-                    <th>Sản Phẩm (SKU × SL)</th>
-                    <th>Mã Lô Xuất (FEFO)</th>
+                    <th>Sản Phẩm (Mã SP × SL)</th>
+                    <th>Mã Lô Xuất (Ưu tiên gần hạn)</th>
                     <th>Thu Tiền Người Nhận (VND)</th>
                     <th>Thời Gian Tạo</th>
                     <th>Thao Tác In</th>
@@ -1700,19 +1881,19 @@
             </div>
           </div>
 
-          <!-- Khối 9.3: Tra cứu QR tức thì & Đối chiếu Lô hàng / Tồn ATP -->
+          <!-- Khối 9.3: Tra cứu Mã QR tức thì & Đối chiếu Lô hàng / Tồn khả dụng -->
           <div class="wms-card">
             <div class="wms-card-header">
               <div>
-                <div class="wms-card-title">Tra cứu QR tức thì & Đối chiếu Lô hàng / Tồn ATP</div>
-                <div class="wms-card-subtitle">Nhập mã QR định danh lô (VD: OD-POLO-1001), mã SKU hoặc mã lô để kiểm tra tồn kho khả dụng</div>
+                <div class="wms-card-title">Tra cứu Mã QR tức thì & Đối chiếu Lô hàng / Tồn khả dụng</div>
+                <div class="wms-card-subtitle">Nhập mã QR định danh lô (VD: OD-POLO-1001), mã sản phẩm hoặc mã lô để kiểm tra tồn kho khả dụng</div>
               </div>
               <input
                 type="text"
                 id="qrSearchInput"
                 class="form-control"
                 style="width:280px;max-width:100%;flex:1 1 180px;"
-                placeholder="🔍 Nhập mã QR, SKU hoặc mã lô..."
+                placeholder="🔍 Nhập mã QR, mã sản phẩm hoặc mã lô..."
               />
             </div>
 
@@ -1721,11 +1902,11 @@
                 <thead>
                   <tr>
                     <th>Mã QR Định Danh Lô</th>
-                    <th>Sản Phẩm (SKU)</th>
-                    <th>Mã Lô (Batch)</th>
+                    <th>Sản Phẩm (Mã SP)</th>
+                    <th>Mã Lô Hàng</th>
                     <th>Hạn Sử Dụng</th>
                     <th>Tồn Lô (Còn / Gốc)</th>
-                    <th>Đối Chiếu ATP</th>
+                    <th>Đối Chiếu Tồn Khả Dụng</th>
                   </tr>
                 </thead>
                 <tbody id="qrLookupTableBody"></tbody>
@@ -1734,137 +1915,271 @@
           </div>
         </section>
 
-        <!-- 10. PHÂN HỆ NHÂN SỰ & THÊM USER TÙY Ý (Nhóm HỆ THỐNG) -->
+        <!-- 10. PHÂN HỆ NHÂN SỰ & THÊM TÀI KHOẢN TÙY Ý (Nhóm HỆ THỐNG) -->
         <section class="oms-view-section hidden" data-views="staff">
-          <div class="charts-grid-2col">
-            <div class="wms-card" style="margin-bottom:0;">
-              <div class="wms-card-header">
-                <div>
-                  <div class="wms-card-title">Danh sách Nhân sự & Tài khoản Truy cập OMS</div>
-                  <div class="wms-card-subtitle">Quản trị người dùng và phân quyền truy cập chức năng hệ thống ODOMS</div>
+          <div class="odoms-page-wrap staff-page-wrap">
+            <div class="staff-layout-grid">
+              <!-- Cột trái: Danh sách nhân sự -->
+              <div class="settings-group staff-list-group">
+                <div class="odoms-group-head">
+                  <h3 class="settings-group-title">Danh sách nhân sự</h3>
+                  <p class="odoms-group-subtitle">Quản lý tài khoản và phân quyền truy cập hệ thống ODOMS</p>
+                </div>
+                <div class="settings-group-box staff-table-box">
+                  <div class="odoms-table-scroll">
+                    <table class="wms-table odoms-flat-table staff-table">
+                      <thead>
+                        <tr>
+                          <th class="col-stt">STT</th>
+                          <th class="col-staff-name">Họ và tên / Phòng ban</th>
+                          <th class="col-staff-login">Tên đăng nhập</th>
+                          <th class="col-staff-role">Vai trò</th>
+                          <th class="col-staff-shift">Ca trực</th>
+                          <th class="col-staff-status">Trạng thái</th>
+                          <th class="col-staff-actions">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody id="staffUsersTableBody"></tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
-              <div class="table-responsive">
-                <table class="wms-table">
-                  <thead>
-                    <tr>
-                      <th>STT</th>
-                      <th>Họ và Tên / Phòng Ban</th>
-                      <th>Tên Đăng Nhập</th>
-                      <th>Vai Trò</th>
-                      <th>Ca Trực</th>
-                      <th>Trạng Thái</th>
-                      <th>Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody id="staffUsersTableBody"></tbody>
-                </table>
+              <!-- Cột phải: Biểu mẫu thêm tài khoản mới -->
+              <div class="settings-group staff-form-group no-print">
+                <div class="odoms-group-head">
+                  <h3 class="settings-group-title">Thêm tài khoản mới</h3>
+                  <p class="odoms-group-subtitle">Tài khoản tạo mới có thể đăng nhập ODOMS ngay</p>
+                </div>
+                <div class="settings-group-box staff-form-box">
+                  <div id="userFormFeedback" class="settings-sync-feedback staff-form-feedback hidden" role="status" aria-live="polite"></div>
+
+                  <form id="addNewUserForm" class="staff-create-form" autocomplete="off">
+                    <div class="odoms-field">
+                      <label class="odoms-field-label" for="newUserFullName">Họ và tên nhân sự *</label>
+                      <input type="text" id="newUserFullName" class="form-control odoms-ctrl-34" placeholder="VD: Nguyễn Văn Hải" required />
+                    </div>
+
+                    <div class="odoms-form-row-2">
+                      <div class="odoms-field">
+                        <label class="odoms-field-label" for="newUserUsername">Tên đăng nhập *</label>
+                        <input type="text" id="newUserUsername" class="form-control odoms-ctrl-34" placeholder="VD: nvhai" required />
+                      </div>
+                      <div class="odoms-field">
+                        <label class="odoms-field-label" for="newUserPassword">Mật khẩu *</label>
+                        <input type="text" id="newUserPassword" class="form-control odoms-ctrl-34" placeholder="VD: nvhai123" required />
+                      </div>
+                    </div>
+
+                    <div class="odoms-field">
+                      <label class="odoms-field-label" for="newUserRole">Vai trò</label>
+                      <select id="newUserRole" class="form-control odoms-ctrl-34" onchange="AppUI.handleRoleSelectChange(this.value)">
+                        <option value="Chuyên viên Điều phối">Chuyên viên Điều phối</option>
+                        <option value="Chuyên viên Vận hành">Chuyên viên Vận hành</option>
+                        <option value="Quản lý kho">Quản lý kho</option>
+                        <option value="Chuyên viên CSKH">Chuyên viên CSKH</option>
+                        <option value="Chuyên viên Đổi trả">Chuyên viên Đổi trả</option>
+                        <option value="Kế toán">Kế toán</option>
+                        <option value="Khác">Khác</option>
+                      </select>
+                      <div id="customRoleWrap" class="hidden odoms-sub-field">
+                        <input
+                          type="text"
+                          id="newUserCustomRole"
+                          class="form-control odoms-ctrl-34"
+                          placeholder="Nhập chức danh khác"
+                          aria-label="Nhập chức danh khác"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="odoms-field">
+                      <label class="odoms-field-label" for="newUserDept">Bộ phận</label>
+                      <input type="text" id="newUserDept" class="form-control odoms-ctrl-34" value="Phòng Vận hành Đa kênh" />
+                    </div>
+
+                    <div class="odoms-field">
+                      <label class="odoms-field-label" for="newUserShift">Ca làm việc</label>
+                      <input type="text" id="newUserShift" class="form-control odoms-ctrl-34" value="Ca Hành chính (08:00 - 17:00)" />
+                    </div>
+
+                    <button type="submit" class="btn btn-primary odoms-btn-34 staff-submit-btn">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Lưu &amp; kích hoạt tài khoản
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div class="wms-card" style="margin-bottom:0;">
-              <div class="wms-card-header">
-                <div>
-                  <div class="wms-card-title">➕ Thêm Tài Khoản Nhân Sự Mới</div>
-                  <div class="wms-card-subtitle">User mới tạo có thể dùng để đăng nhập vào hệ thống OMS ngay lập tức</div>
+        <!-- 11. PHÂN HỆ NHẬT KÝ HỆ THỐNG THỐNG NHẤT 1 BẢNG, MÃ 5 CHỮ SỐ & CHI TIẾT TẠI CHỖ (Nhóm HỆ THỐNG) -->
+        <section class="oms-view-section hidden" data-views="logs" data-admin-only="true">
+          <div class="odoms-page-wrap logs-page-wrap">
+            <div class="settings-group logs-unified-group">
+              <!-- Hàng tiêu đề ngoài khung: Tiêu đề + Phụ đề (Trái) & Lọc 4 nhóm + Tìm nhanh + Nút ? (Phải) -->
+              <div class="logs-header-bar">
+                <div class="logs-header-left">
+                  <h3 class="settings-group-title">Nhật ký hệ thống</h3>
+                  <p class="odoms-group-subtitle">Ghi nhận lịch sử truy cập và tiến trình xử lý nghiệp vụ</p>
                 </div>
-              </div>
-
-              <div id="userFormFeedback" class="hidden" style="padding:10px 12px;border-radius:8px;font-size:12.5px;font-weight:600;margin-bottom:12px;"></div>
-
-              <form id="addNewUserForm" autocomplete="off">
-                <div style="margin-bottom:12px;">
-                  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Họ và tên nhân sự *</label>
-                  <input type="text" id="newUserFullName" class="form-control" placeholder="VD: Nguyễn Văn Hải" required />
-                </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-                  <div>
-                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Tên đăng nhập *</label>
-                    <input type="text" id="newUserUsername" class="form-control" placeholder="VD: nvhai" required />
+                <div class="logs-header-tools no-print">
+                  <div
+                    id="logsGroupFilterBar"
+                    class="settings-segmented-control logs-group-filter-bar"
+                    role="group"
+                    aria-label="Lọc nhanh nhóm sự kiện nhật ký"
+                  >
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn active"
+                      data-log-group="ALL"
+                      aria-pressed="true"
+                      onclick="AppUI.setLogsGroupFilter('ALL')"
+                    >
+                      Tất cả
+                    </button>
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn"
+                      data-log-group="ACCESS"
+                      aria-pressed="false"
+                      onclick="AppUI.setLogsGroupFilter('ACCESS')"
+                    >
+                      Truy cập
+                    </button>
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn"
+                      data-log-group="OPS"
+                      aria-pressed="false"
+                      onclick="AppUI.setLogsGroupFilter('OPS')"
+                    >
+                      Nghiệp vụ
+                    </button>
+                    <button
+                      type="button"
+                      class="settings-seg-btn settings-seg-text-btn"
+                      data-log-group="ALERT"
+                      aria-pressed="false"
+                      onclick="AppUI.setLogsGroupFilter('ALERT')"
+                    >
+                      Cảnh báo
+                    </button>
                   </div>
-                  <div>
-                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Mật khẩu *</label>
-                    <input type="text" id="newUserPassword" class="form-control" placeholder="VD: nvhai123" required />
-                  </div>
-                </div>
-
-                <div style="margin-bottom:12px;">
-                  <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Vai trò</label>
-                  <select id="newUserRole" class="form-control" onchange="AppUI.handleRoleSelectChange(this.value)">
-                    <option value="Chuyên viên Điều phối">Chuyên viên Điều phối</option>
-                    <option value="Chuyên viên Vận hành">Chuyên viên Vận hành</option>
-                    <option value="Quản lý kho">Quản lý kho</option>
-                    <option value="Chuyên viên CSKH">Chuyên viên CSKH</option>
-                    <option value="Chuyên viên RMA">Chuyên viên RMA</option>
-                    <option value="Kế toán">Kế toán</option>
-                    <option value="Khác">Khác</option>
-                  </select>
-                  <div id="customRoleWrap" class="hidden" style="margin-top:8px;">
+                  <div class="logs-search-box">
+                    <svg class="logs-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="11" cy="11" r="8"/>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
                     <input
                       type="text"
-                      id="newUserCustomRole"
-                      class="form-control"
-                      placeholder="Nhập chức danh &quot;Khác&quot;"
+                      id="unifiedLogsSearchInput"
+                      class="logs-search-input"
+                      placeholder="Tìm mã 5 số, mã đơn..."
+                      aria-label="Tìm nhanh theo mã 5 chữ số, mã đơn hoặc nhân sự"
+                      autocomplete="off"
+                      oninput="AppUI.handleLogsSearchInput(this.value)"
                     />
+                    <button
+                      type="button"
+                      id="btnClearLogsSearch"
+                      class="logs-search-clear-btn hidden"
+                      onclick="AppUI.clearLogsSearch()"
+                      title="Xóa từ khóa tìm kiếm"
+                      aria-label="Xóa từ khóa tìm kiếm"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    id="btnToggleLogsCodeLegend"
+                    class="logs-legend-toggle-btn"
+                    onclick="AppUI.toggleLogsCodeLegend()"
+                    title="Chú thích bảng mã sự kiện 5 chữ số"
+                    aria-label="Chú thích bảng mã sự kiện 5 chữ số"
+                    aria-expanded="false"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Ngăn chú thích bảng mã 5 chữ số (mặc định ẩn, bấm ? để bật/tắt) -->
+              <div id="logsCodeLegendDrawer" class="logs-legend-drawer hidden no-print" role="region" aria-label="Bảng mã sự kiện 5 chữ số">
+                <div class="logs-legend-head">
+                  <span class="logs-legend-title">Bảng mã sự kiện 5 chữ số</span>
+                  <span class="logs-legend-hint">Nhấn vào mã bất kỳ để lọc nhanh danh sách bên dưới</span>
+                </div>
+                <div id="logsCodeLegendGrid" class="logs-legend-grid"></div>
+              </div>
+
+              <!-- Chế độ 1: Bảng danh sách gọn 5 cột (phân trang cố định 10 dòng / trang) -->
+              <div id="logsListViewBox" class="settings-group-box logs-table-box">
+                <div class="odoms-table-scroll">
+                  <table class="wms-table odoms-flat-table unified-logs-table">
+                    <thead>
+                      <tr>
+                        <th class="col-ulog-code">Mã</th>
+                        <th class="col-ulog-event">Sự kiện</th>
+                        <th class="col-ulog-actor">Người thực hiện</th>
+                        <th class="col-ulog-time">Thời gian</th>
+                        <th class="col-ulog-status">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody id="accessLogsTableBody"></tbody>
+                  </table>
+                </div>
+                <div id="logsPaginationBar" class="logs-pagination-bar no-print">
+                  <span id="logsPaginationInfo" class="logs-pagination-info">Hiển thị 0 / tổng 0 sự kiện</span>
+                  <div class="settings-segmented-control logs-pagination-ctrl" role="navigation" aria-label="Phân trang nhật ký hệ thống">
+                    <button
+                      type="button"
+                      id="btnLogsPrevPage"
+                      class="settings-seg-btn settings-action-icon-btn"
+                      onclick="AppUI.changeLogsPage(-1)"
+                      title="Trang trước"
+                      aria-label="Trang trước"
+                      disabled
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
+                    </button>
+                    <span id="logsPaginationCurrent" class="logs-pagination-page">Trang 1 / 1</span>
+                    <button
+                      type="button"
+                      id="btnLogsNextPage"
+                      class="settings-seg-btn settings-action-icon-btn"
+                      onclick="AppUI.changeLogsPage(1)"
+                      title="Trang sau"
+                      aria-label="Trang sau"
+                      disabled
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="9 18 15 12 9 6"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
-
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-                  <div>
-                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Bộ phận</label>
-                    <input type="text" id="newUserDept" class="form-control" value="Phòng Vận hành Đa kênh" />
-                  </div>
-                  <div>
-                    <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Ca làm việc</label>
-                    <input type="text" id="newUserShift" class="form-control" value="Ca Hành chính (08:00 - 17:00)" />
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="width:100%;">
-                  ➕ Lưu & Kích Hoạt Tài Khoản Mới
-                </button>
-              </form>
-            </div>
-          </div>
-        </section>
-
-        <!-- 11. PHÂN HỆ LỊCH SỬ ĐĂNG NHẬP & NHẬT KÝ HỆ THỐNG (Nhóm HỆ THỐNG) -->
-        <section class="oms-view-section hidden" data-views="logs" data-admin-only="true">
-          <div class="wms-card">
-            <div class="wms-card-header">
-              <div>
-                <div class="wms-card-title">Nhật ký nghiệp vụ</div>
-                <div class="wms-card-subtitle">Ghi nhận tiến trình xử lý đơn hàng</div>
               </div>
-            </div>
-            <div id="logConsole" class="log-console"></div>
-          </div>
-        </section>
 
-        <section class="oms-view-section hidden" data-views="logs" data-admin-only="true">
-          <div class="wms-card">
-            <div class="wms-card-header">
-              <div>
-                <div class="wms-card-title">Nhật ký hệ thống</div>
-                <div class="wms-card-subtitle">Ghi nhận lịch sử đăng nhập</div>
+              <!-- Chế độ 2: Khung chi tiết chuyển đổi tại chỗ (chỉ mở cho quản trị hệ thống dttd / lhmt) -->
+              <div id="logsDetailViewBox" class="settings-group-box logs-detail-box hidden" role="region" aria-label="Chi tiết sự kiện nhật ký hệ thống">
+                <div id="logsDetailContent"></div>
               </div>
-            </div>
-            <div class="table-responsive">
-              <table class="wms-table">
-                <thead>
-                  <tr>
-                    <th>Thời Gian</th>
-                    <th>Nhân Sự (Username)</th>
-                    <th>Vai Trò</th>
-                    <th>Hoạt Động</th>
-                    <th>Thiết Bị / IP</th>
-                    <th>Trạng Thái</th>
-                  </tr>
-                </thead>
-                <tbody id="accessLogsTableBody"></tbody>
-              </table>
             </div>
           </div>
         </section>
@@ -1887,7 +2202,7 @@
                   <tr>
                     <th>Kênh Bán Hàng</th>
                     <th>Tổng Đơn Tiếp Nhận</th>
-                    <th>Đã Giữ Hàng (FIFO)</th>
+                    <th>Đã Giữ Hàng (Ưu tiên đặt trước)</th>
                     <th>Chặn Bán Lố (Thiếu Tồn)</th>
                     <th>Đơn Lỗi Hợp Lệ</th>
                     <th>Tổng SP Đang Giữ</th>
@@ -1900,48 +2215,156 @@
           </div>
         </section>
 
+        <!-- === [LOCKED: SETTINGS_UI_HTML_START - DO NOT MODIFY] === -->
         <section class="oms-view-section hidden" data-views="settings">
-          <div class="wms-card" style="border-radius:0px;box-shadow:none;">
-            <div class="wms-card-header">
-              <div>
-                <div class="wms-card-title">Cài đặt Chủ đề & Tham số Hệ thống ODOMS</div>
-                <div class="wms-card-subtitle">Điều chỉnh chủ đề màu sắc, quy tắc vận hành và đồng bộ Sổ dữ liệu Google Sheets</div>
+          <div class="settings-minimal-wrap">
+            <!-- NHÓM 1: GIAO DIỆN & VẬN HÀNH -->
+            <div class="settings-group">
+              <h3 class="settings-group-title">Giao diện &amp; Vận hành</h3>
+              <div class="settings-group-box">
+                <div class="settings-row">
+                  <span class="settings-row-label">Chế độ hiển thị</span>
+                  <div
+                    id="settingsThemePickerBar"
+                    class="settings-segmented-control"
+                    role="group"
+                    aria-label="Chế độ hiển thị"
+                  ></div>
+                </div>
+
+                <div class="settings-row">
+                  <div class="settings-row-label-group">
+                    <span class="settings-row-label">Chế độ thử nghiệm</span>
+                    <span class="settings-row-hint">Mọi thao tác tạo/duyệt/hủy đơn, nhập kho hoặc cập nhật vận đơn không đồng bộ lên Google Sheets.</span>
+                  </div>
+                  <div
+                    id="sandboxModeSegmented"
+                    class="settings-segmented-control"
+                    role="group"
+                    aria-label="Chế độ thử nghiệm"
+                  >
+                    <button
+                      type="button"
+                      id="btnSandboxModeOff"
+                      class="settings-seg-btn settings-seg-text-btn active"
+                      aria-pressed="true"
+                      onclick="AppUI.handleToggleSandboxMode(false)"
+                    >
+                      Tắt
+                    </button>
+                    <button
+                      type="button"
+                      id="btnSandboxModeOn"
+                      class="settings-seg-btn settings-seg-text-btn is-sandbox-on-btn"
+                      aria-pressed="false"
+                      onclick="AppUI.handleToggleSandboxMode(true)"
+                    >
+                      Bật
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;grid-column:span 2;">
-                <h4 style="margin-bottom:8px;">1. Chủ đề</h4>
-                <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:10px;">
-                  Nhấp chọn một chủ đề bên dưới để đổi màu giao diện thực hiện các chức năng ngay lập tức:
-                </p>
-                <div id="settingsThemePickerBar" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"></div>
+            <!-- NHÓM 2: SỔ DỮ LIỆU GOOGLE SHEETS -->
+            <div class="settings-group">
+              <h3 class="settings-group-title">Sổ dữ liệu Google Sheets</h3>
+              <div id="cloudSyncConfigBox" class="settings-group-box">
+                <div class="settings-row settings-row-connection">
+                  <span class="settings-row-label">Kết nối Google Sheets</span>
+                  <div class="settings-sync-meta-right">
+                    <span id="cloudSyncStatusBadge" class="status-badge st-ALLOCATED">● Sẵn sàng kết nối</span>
+                    <span id="cloudLastSyncLabel" class="settings-last-sync-label">Cập nhật: Chưa đồng bộ</span>
+                    <button
+                      type="button"
+                      id="btnToggleCloudUrlDrawer"
+                      class="settings-drawer-toggle-btn"
+                      onclick="AppUI.toggleCloudUrlDrawer()"
+                      title="Chỉnh sửa liên kết sổ dữ liệu"
+                      aria-label="Chỉnh sửa liên kết sổ dữ liệu"
+                      aria-expanded="false"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                      </svg>
+                      <span id="cloudUrlDrawerChevron" class="settings-drawer-chevron" aria-hidden="true">▾</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="cloudUrlDrawer" class="settings-url-drawer hidden">
+                  <div class="settings-url-drawer-row">
+                    <input
+                      type="url"
+                      id="cloudEndpointUrlInput"
+                      class="form-control settings-url-input"
+                      placeholder="Dán liên kết kết nối Sổ dữ liệu Google Sheets của cửa hàng tại đây"
+                      value=""
+                    />
+                    <button
+                      type="button"
+                      id="btnSaveCloudConfig"
+                      class="btn btn-primary btn-sm settings-url-save-btn"
+                      onclick="AppUI.handleSaveCloudConfig()"
+                    >
+                      Lưu liên kết
+                    </button>
+                  </div>
+                </div>
+
+                <div class="settings-row">
+                  <span class="settings-row-label">Đồng bộ dữ liệu</span>
+                  <div
+                    id="cloudSyncActionsBar"
+                    class="settings-segmented-control"
+                    role="group"
+                    aria-label="Đồng bộ dữ liệu"
+                  >
+                    <button
+                      type="button"
+                      id="btnManualCloudPull"
+                      class="settings-seg-btn settings-action-icon-btn"
+                      title="Đồng bộ dữ liệu từ Google Sheets"
+                      aria-label="Đồng bộ dữ liệu từ Google Sheets"
+                      onclick="AppUI.handleManualCloudPull()"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+                        <path d="M12 12v9"/>
+                        <path d="m8 17 4 4 4-4"/>
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      id="btnManualCloudPush"
+                      class="settings-seg-btn settings-action-icon-btn"
+                      title="Đồng bộ dữ liệu lên Google Sheets"
+                      aria-label="Đồng bộ dữ liệu lên Google Sheets"
+                      onclick="AppUI.handleManualCloudPush()"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+                        <path d="M12 12v9"/>
+                        <path d="m16 16-4-4-4 4"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;">
-                <h4 style="margin-bottom:8px;">2. Nguyên tắc giữ hàng mặc định</h4>
-                <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
-                  Hệ thống ưu tiên giữ hàng cho đơn đặt trước theo thời gian đặt hàng và xuất kho ưu tiên các lô có hạn sử dụng gần nhất.
-                </p>
-                <button class="btn btn-outline btn-sm" style="border-radius:0px;box-shadow:none;" onclick="AppUI.resetAll()">Đặt lại dữ liệu đơn & tồn kho về ban đầu</button>
-              </div>
-              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;">
-                <h4 style="margin-bottom:8px;">3. Quản trị Danh sách Tài khoản</h4>
-                <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
-                  Khôi phục danh sách người dùng về cấu hình tài khoản phân quyền mặc định của hệ thống ODOMS.
-                </p>
-                <button class="btn btn-danger-outline btn-sm" style="border-radius:0px;box-shadow:none;" onclick="window.userAuth.resetUsersToDefault(); AppUI.renderStaffManagement(); AppUI.renderLoginQuickAccounts(); alert('Đã khôi phục danh sách tài khoản về mặc định!');">
-                  Khôi phục tài khoản mặc định
-                </button>
-              </div>
-              <div class="settings-flat-card" style="padding:16px;background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:0px;box-shadow:none;grid-column:span 2;">
-                <h4 style="margin-bottom:8px;">4. Cài đặt chạy mô phỏng</h4>
-                <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;">
-                  Tự động chạy kịch bản tiếp nhận đơn hàng tuần tự từ 5 kênh bán để kiểm tra quy trình xác nhận và giữ hàng.
-                </p>
-                <button id="btnRunDemo" class="btn btn-warning btn-sm" style="border-radius:0px;box-shadow:none;" onclick="AppUI.runStepByStepFifoDemo()">
-                  Chạy mô phỏng
-                </button>
-              </div>
+
+              <div id="cloudSyncFeedbackMsg" class="settings-sync-feedback hidden"></div>
+            </div>
+          </div>
+        </section>
+        <!-- === [LOCKED: SETTINGS_UI_HTML_END] === -->
+
+        <!-- NHÓM 3 TRANG CÀI ĐẶT (NGOÀI KHỐI KHÓA SHA-256): THEO DÕI TRẠNG THÁI 5 SÀN BÁN HÀNG -->
+        <section class="oms-view-section hidden" data-views="settings">
+          <div class="settings-minimal-wrap settings-channels-wrap">
+            <div class="settings-group">
+              <h3 class="settings-group-title">Theo dõi trạng thái các sàn</h3>
+              <div id="channelStripContainer" class="settings-group-box settings-channels-box"></div>
             </div>
           </div>
         </section>
@@ -1971,27 +2394,35 @@
         <span>Menu</span>
       </button>
     </nav>
-
-    <!-- POP-UP GÓC NHỎ VIỀN ĐỎ CẢNH BÁO THIẾU TỒN KHO (KHÔNG CHẶN THAO TÁC) -->
-    <div id="stockShortageCornerPopup" class="stock-shortage-corner-popup hidden"></div>
   </div>
 
   <!-- MODAL XEM CHI TIẾT LƯU VẾT 4 BƯỚC XỬ LÝ ĐƠN HÀNG -->
-  <div id="orderAuditModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeModal()">
-    <div class="modal-dialog">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <h3 style="font-size:17px;font-weight:800;">Thông Tin Chi Tiết & Lịch Sử Xử Lý Đơn Hàng</h3>
-        <button class="btn btn-outline btn-sm" onclick="AppUI.closeModal()">✖ Đóng</button>
+  <div id="orderAuditModal" class="modal-backdrop odoms-flat-modal-backdrop" onclick="if(event.target===this) AppUI.closeModal()">
+    <div class="modal-dialog odoms-flat-modal order-audit-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="orderAuditModalTitle">
+      <div class="odoms-modal-header">
+        <div class="odoms-modal-title-group">
+          <h3 id="orderAuditModalTitle" class="odoms-modal-title">Thông tin chi tiết &amp; lịch sử xử lý đơn hàng</h3>
+          <p class="odoms-modal-subtitle">Đối chiếu thông tin tiếp nhận, kiểm tra tồn kho khả dụng và phân bổ lô hàng</p>
+        </div>
+        <button type="button" class="odoms-modal-close-btn" onclick="AppUI.closeModal()" title="Đóng hộp thoại" aria-label="Đóng hộp thoại">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
-      <div id="orderAuditModalBody"></div>
+      <div id="orderAuditModalBody" class="odoms-modal-body"></div>
+      <div class="odoms-modal-footer">
+        <button type="button" class="btn btn-outline odoms-btn-34" onclick="AppUI.closeModal()">Đóng</button>
+      </div>
     </div>
   </div>
 
   <!-- Nạp các module JavaScript -->
-  <script src="js/mock_data.js?v=20261123_v5"></script>
-  <script src="js/oms_engine.js?v=20261123_v5"></script>
-  <script src="js/excel_handler.js?v=20261123_v5"></script>
-  <script src="js/app.js?v=20261123_v5"></script>
+  <script src="js/mock_data.js?v=20261124_v23"></script>
+  <script src="js/oms_engine.js?v=20261124_v23"></script>
+  <script src="js/excel_handler.js?v=20261124_v23"></script>
+  <script src="js/app.js?v=20261124_v23"></script>
 
   <!-- MODAL XEM GOOGLE MAPS HÀNH TRÌNH GIAO NHẬN TRỰC QUAN -->
   <div id="shippingMapModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeShippingMapModal()">
@@ -2009,141 +2440,175 @@
       <div id="shippingMapModalBody"></div>
     </div>
   </div>
-  <!-- MODAL XÁC NHẬN TẠM NGỪNG HOẠT ĐỘNG TÀI KHOẢN (OFF / INACTIVE) -->
-  <div id="userSuspendModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeUserSuspendModal()">
-    <div class="modal-dialog" style="max-width:480px;width:92%;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;border-radius:10px;background:#fef2f2;color:#ef4444;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;">⏸️</div>
-          <div>
-            <h3 style="font-size:16px;font-weight:800;color:var(--text-main);margin:0;">Tạm Ngừng Hoạt Động Tài Khoản</h3>
-            <div id="suspendModalSubtitle" style="font-size:12px;color:var(--text-muted);margin-top:2px;">Chuyển tài khoản sang trạng thái Inactive (Khóa tạm thời)</div>
-          </div>
+  <!-- MODAL XÁC NHẬN TẠM KHÓA TÀI KHOẢN -->
+  <div id="userSuspendModal" class="modal-backdrop odoms-flat-modal-backdrop" onclick="if(event.target===this) AppUI.closeUserSuspendModal()">
+    <div class="modal-dialog odoms-flat-modal odoms-flat-modal-md" role="dialog" aria-modal="true" aria-labelledby="suspendModalTitle">
+      <div class="odoms-modal-header">
+        <div class="odoms-modal-title-group">
+          <h3 id="suspendModalTitle" class="odoms-modal-title">Tạm khóa tài khoản</h3>
+          <p id="suspendModalSubtitle" class="odoms-modal-subtitle">Chuyển tài khoản sang trạng thái Tạm khóa (ngưng đăng nhập tạm thời)</p>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="AppUI.closeUserSuspendModal()">✖</button>
+        <button type="button" class="odoms-modal-close-btn" onclick="AppUI.closeUserSuspendModal()" title="Đóng hộp thoại" aria-label="Đóng hộp thoại">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
-      <div style="margin-bottom:14px;">
-        <div style="padding:10px 12px;background:var(--bg-subtle);border-radius:8px;border:1px solid var(--border-color);margin-bottom:12px;">
-          <div style="font-size:12.5px;color:var(--text-secondary);">Tài khoản nhân sự:</div>
-          <div id="suspendTargetUserInfo" style="font-size:14px;font-weight:700;color:var(--text-main);margin-top:2px;">-</div>
+      <div class="odoms-modal-body">
+        <div class="odoms-modal-info-box">
+          <div class="odoms-modal-info-label">Tài khoản nhân sự</div>
+          <div id="suspendTargetUserInfo" class="odoms-modal-info-value">-</div>
         </div>
-        <div style="margin-bottom:12px;">
-          <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:6px;color:var(--text-main);">Tạm ngừng hoạt động đến khi nào? *</label>
-          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(7)">1 tuần</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(30)">1 tháng</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(90)">3 tháng</button>
-            <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.setSuspendPreset(0)">Vô thời hạn</button>
+        <div class="odoms-field">
+          <label class="odoms-field-label" for="suspendUntilInput">Tạm khóa tài khoản đến khi nào? *</label>
+          <div class="odoms-preset-row">
+            <button type="button" class="btn btn-outline odoms-btn-30" onclick="AppUI.setSuspendPreset(7)">1 tuần</button>
+            <button type="button" class="btn btn-outline odoms-btn-30" onclick="AppUI.setSuspendPreset(30)">1 tháng</button>
+            <button type="button" class="btn btn-outline odoms-btn-30" onclick="AppUI.setSuspendPreset(90)">3 tháng</button>
+            <button type="button" class="btn btn-outline odoms-btn-30" onclick="AppUI.setSuspendPreset(0)">Vô thời hạn</button>
           </div>
-          <input type="text" id="suspendUntilInput" class="form-control" placeholder="VD: 15/11/2026 hoặc 'Cho đến khi mở lại'" value="Cho đến khi mở lại" />
+          <input type="text" id="suspendUntilInput" class="form-control odoms-ctrl-34" placeholder="VD: 15/11/2026 hoặc 'Cho đến khi mở lại'" value="Cho đến khi mở lại" />
         </div>
-        <div style="margin-bottom:14px;">
-          <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:6px;color:var(--text-main);">Lý do tạm ngưng (Tùy chọn):</label>
-          <input type="text" id="suspendReasonInput" class="form-control" placeholder="VD: Nghỉ phép / Kiểm tra đối soát / Tạm ngưng thời vụ" />
+        <div class="odoms-field">
+          <label class="odoms-field-label" for="suspendReasonInput">Lý do tạm khóa (Tùy chọn)</label>
+          <input type="text" id="suspendReasonInput" class="form-control odoms-ctrl-34" placeholder="VD: Nghỉ phép / Kiểm tra đối soát / Tạm khóa thời vụ" />
         </div>
-        <div style="padding:10px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:12px;color:#b91c1c;line-height:1.4;">
-          ⚠️ <strong>Lưu ý:</strong> Khi chuyển sang <strong>Inactive (OFF)</strong>, nhân viên sẽ không thể đăng nhập vào hệ thống. Mọi dữ liệu đơn hàng và lịch sử đã xử lý trước đây của nhân viên vẫn được bảo lưu 100%.
+        <div class="settings-sync-feedback is-warning odoms-modal-notice">
+          <strong>Lưu ý:</strong> Khi chuyển sang <strong>Tạm khóa</strong>, nhân viên sẽ không thể đăng nhập vào hệ thống. Toàn bộ dữ liệu đơn hàng và lịch sử đã xử lý trước đây vẫn được bảo lưu nguyên vẹn.
         </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;">
-        <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.closeUserSuspendModal()">Hủy</button>
-        <button type="button" class="btn btn-danger btn-sm" onclick="AppUI.confirmSuspendUser()">⏸️ Xác nhận Tạm ngưng (OFF)</button>
+      <div class="odoms-modal-footer">
+        <button type="button" class="btn btn-outline odoms-btn-34" onclick="AppUI.closeUserSuspendModal()">Hủy</button>
+        <button type="button" class="btn btn-danger odoms-btn-34" onclick="AppUI.confirmSuspendUser()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          Xác nhận tạm khóa
+        </button>
       </div>
     </div>
   </div>
 
   <!-- MODAL CHỈNH SỬA THÔNG TIN NHÂN SỰ -->
-  <div id="editUserModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeEditUserModal()">
-    <div class="modal-dialog" style="max-width:540px;width:92%;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;border-radius:10px;background:var(--theme-accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;">✏️</div>
-          <div>
-            <h3 style="font-size:16px;font-weight:800;color:var(--text-main);margin:0;">Chỉnh sửa thông tin</h3>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Cập nhật hồ sơ tài khoản nhân sự truy cập OMS</div>
-          </div>
+  <div id="editUserModal" class="modal-backdrop odoms-flat-modal-backdrop" onclick="if(event.target===this) AppUI.closeEditUserModal()">
+    <div class="modal-dialog odoms-flat-modal odoms-flat-modal-lg" role="dialog" aria-modal="true" aria-labelledby="editUserModalTitle">
+      <div class="odoms-modal-header">
+        <div class="odoms-modal-title-group">
+          <h3 id="editUserModalTitle" class="odoms-modal-title">Chỉnh sửa thông tin nhân sự</h3>
+          <p class="odoms-modal-subtitle">Cập nhật hồ sơ tài khoản nhân sự truy cập hệ thống ODOMS</p>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="AppUI.closeEditUserModal()">✖</button>
+        <button type="button" class="odoms-modal-close-btn" onclick="AppUI.closeEditUserModal()" title="Đóng hộp thoại" aria-label="Đóng hộp thoại">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
 
       <form id="editUserForm" onsubmit="event.preventDefault(); AppUI.saveEditUser();">
         <input type="hidden" id="editOriginalUsername" />
-        
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-          <div style="grid-column: span 2;">
-            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Họ và tên nhân sự *</label>
-            <input type="text" id="editFullName" class="form-control" placeholder="VD: Nguyễn Văn A" required />
-          </div>
 
-          <div>
-            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Tên đăng nhập *</label>
-            <input type="text" id="editUsername" class="form-control" placeholder="VD: nva" required />
-          </div>
+        <div class="odoms-modal-body">
+          <div class="odoms-modal-grid-2">
+            <div class="odoms-field odoms-col-span-2">
+              <label class="odoms-field-label" for="editFullName">Họ và tên nhân sự *</label>
+              <input type="text" id="editFullName" class="form-control odoms-ctrl-34" placeholder="VD: Nguyễn Văn An" required />
+            </div>
 
-          <div>
-            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Mật khẩu *</label>
-            <input type="text" id="editPassword" class="form-control" placeholder="Nhập mật khẩu" required />
-          </div>
+            <div class="odoms-field">
+              <label class="odoms-field-label" for="editUsername">Tên đăng nhập *</label>
+              <input type="text" id="editUsername" class="form-control odoms-ctrl-34" placeholder="VD: nvan" required />
+            </div>
 
-          <div>
-            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Vai trò</label>
-            <select id="editRole" class="form-control" onchange="AppUI.handleEditRoleChange()">
-              <option value="Chuyên viên Điều phối">Chuyên viên Điều phối</option>
-              <option value="Chuyên viên Vận hành">Chuyên viên Vận hành</option>
-              <option value="Quản lý kho">Quản lý kho</option>
-              <option value="Chuyên viên CSKH">Chuyên viên CSKH</option>
-              <option value="Chuyên viên RMA">Chuyên viên RMA</option>
-              <option value="Kế toán">Kế toán</option>
-              <option value="Khác">Khác</option>
-            </select>
-          </div>
+            <div class="odoms-field">
+              <label class="odoms-field-label" for="editPassword">Mật khẩu *</label>
+              <input type="text" id="editPassword" class="form-control odoms-ctrl-34" placeholder="Nhập mật khẩu" required />
+            </div>
 
-          <div id="editCustomRoleWrap" style="display:none;">
-            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Nhập chức danh "Khác" *</label>
-            <input type="text" id="editCustomRoleInput" class="form-control" placeholder="Nhập chức danh 'Khác'" />
-          </div>
+            <div class="odoms-field">
+              <label class="odoms-field-label" for="editRole">Vai trò</label>
+              <select id="editRole" class="form-control odoms-ctrl-34" onchange="AppUI.handleEditRoleChange()">
+                <option value="Chuyên viên Điều phối">Chuyên viên Điều phối</option>
+                <option value="Chuyên viên Vận hành">Chuyên viên Vận hành</option>
+                <option value="Quản lý kho">Quản lý kho</option>
+                <option value="Chuyên viên CSKH">Chuyên viên CSKH</option>
+                <option value="Chuyên viên Đổi trả">Chuyên viên Đổi trả</option>
+                <option value="Kế toán">Kế toán</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </div>
 
-          <div>
-            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Bộ phận</label>
-            <input type="text" id="editDepartment" class="form-control" placeholder="VD: Phòng Vận hành Đa kênh" />
-          </div>
+            <div id="editCustomRoleWrap" class="odoms-field" style="display:none;">
+              <label class="odoms-field-label" for="editCustomRoleInput">Nhập chức danh khác *</label>
+              <input type="text" id="editCustomRoleInput" class="form-control odoms-ctrl-34" placeholder="Nhập chức danh khác" />
+            </div>
 
-          <div style="grid-column: span 2;">
-            <label style="font-size:12.5px;font-weight:700;display:block;margin-bottom:5px;color:var(--text-main);">Ca làm việc</label>
-            <select id="editShift" class="form-control">
-              <option value="Ca Hành chính (08:00 - 17:00)">Ca Hành chính (08:00 - 17:00)</option>
-              <option value="Ca Sáng (07:30 - 16:30)">Ca Sáng (07:30 - 16:30)</option>
-              <option value="Ca Chiều (13:00 - 21:00)">Ca Chiều (13:00 - 21:00)</option>
-              <option value="Ca Tối (17:00 - 01:00)">Ca Tối (17:00 - 01:00)</option>
-              <option value="Toàn thời gian (Cứu hộ hệ thống)">Toàn thời gian (Cứu hộ hệ thống)</option>
-            </select>
+            <div class="odoms-field">
+              <label class="odoms-field-label" for="editDepartment">Bộ phận</label>
+              <input type="text" id="editDepartment" class="form-control odoms-ctrl-34" placeholder="VD: Phòng Vận hành Đa kênh" />
+            </div>
+
+            <div class="odoms-field odoms-col-span-2">
+              <label class="odoms-field-label" for="editShift">Ca làm việc</label>
+              <select id="editShift" class="form-control odoms-ctrl-34">
+                <option value="Ca Hành chính (08:00 - 17:00)">Ca Hành chính (08:00 - 17:00)</option>
+                <option value="Ca Sáng (07:30 - 16:30)">Ca Sáng (07:30 - 16:30)</option>
+                <option value="Ca Chiều (13:00 - 21:00)">Ca Chiều (13:00 - 21:00)</option>
+                <option value="Ca Tối (17:00 - 01:00)">Ca Tối (17:00 - 01:00)</option>
+                <option value="Toàn thời gian (Cứu hộ hệ thống)">Toàn thời gian (Cứu hộ hệ thống)</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;border-top:1px solid var(--border-color);padding-top:12px;margin-top:14px;">
-          <button type="button" class="btn btn-outline btn-sm" onclick="AppUI.closeEditUserModal()">Đóng</button>
-          <button type="submit" class="btn btn-primary btn-sm">💾 Lưu thay đổi</button>
+        <div class="odoms-modal-footer">
+          <button type="button" class="btn btn-outline odoms-btn-34" onclick="AppUI.closeEditUserModal()">Đóng</button>
+          <button type="submit" class="btn btn-primary odoms-btn-34">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Lưu thay đổi
+          </button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- MODAL XÁC NHẬN XÓA TÀI KHOẢN (CÓ / KHÔNG) -->
-  <div id="confirmDeleteUserModal" class="modal-backdrop" onclick="if(event.target===this) AppUI.closeConfirmDeleteModal()">
-    <div class="modal-dialog" style="max-width:420px;width:90%;text-align:center;">
-      <div style="width:48px;height:48px;border-radius:50%;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px auto;">
-        🗑️
+  <div id="confirmDeleteUserModal" class="modal-backdrop odoms-flat-modal-backdrop" onclick="if(event.target===this) AppUI.closeConfirmDeleteModal()">
+    <div class="modal-dialog odoms-flat-modal odoms-flat-modal-sm" role="dialog" aria-modal="true" aria-labelledby="deleteUserModalTitle">
+      <div class="odoms-modal-header">
+        <div class="odoms-modal-title-group">
+          <h3 id="deleteUserModalTitle" class="odoms-modal-title">Xác nhận xóa tài khoản</h3>
+          <p class="odoms-modal-subtitle">Thao tác này sẽ gỡ tài khoản khỏi danh sách truy cập</p>
+        </div>
+        <button type="button" class="odoms-modal-close-btn" onclick="AppUI.closeConfirmDeleteModal()" title="Đóng hộp thoại" aria-label="Đóng hộp thoại">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
-      <h3 style="font-size:16px;font-weight:800;color:var(--text-main);margin-bottom:8px;">Xác nhận xóa tài khoản</h3>
-      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:6px;">
-        Bạn xác nhận xoá tài khoản này?
-      </p>
-      <div id="deleteTargetUserInfo" style="font-size:13px;font-weight:700;color:#dc2626;background:#fef2f2;padding:8px 12px;border-radius:6px;border:1px solid #fecaca;margin-bottom:18px;">
-        -
+      <div class="odoms-modal-body odoms-delete-modal-body">
+        <div class="odoms-delete-icon-box" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/>
+            <path d="M14 11v6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </div>
+        <p class="odoms-delete-prompt">Bạn xác nhận xóa tài khoản này?</p>
+        <div id="deleteTargetUserInfo" class="modal-target-danger-box odoms-delete-target-box">-</div>
       </div>
-      <div style="display:flex;gap:10px;justify-content:center;">
-        <button type="button" class="btn btn-outline btn-sm" style="min-width:90px;" onclick="AppUI.closeConfirmDeleteModal()">Không</button>
-        <button type="button" class="btn btn-danger btn-sm" style="min-width:90px;" onclick="AppUI.executeDeleteUser()">Có</button>
+      <div class="odoms-modal-footer odoms-modal-footer-center">
+        <button type="button" class="btn btn-outline odoms-btn-34 odoms-btn-min-96" onclick="AppUI.closeConfirmDeleteModal()">Không</button>
+        <button type="button" class="btn btn-danger odoms-btn-34 odoms-btn-min-96" onclick="AppUI.executeDeleteUser()">Có</button>
       </div>
     </div>
   </div>

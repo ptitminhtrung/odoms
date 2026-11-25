@@ -11,12 +11,12 @@ class ExcelHandler {
       orderId: ["Mã đơn hàng", "Order ID", "orderNumber", "Ma_Don", "Order_ID", "Mã Đơn", "order_id"],
       channel: ["Sàn TMĐT", "Channel", "channel", "Kenh_Ban", "Kênh bán", "Nguồn đơn", "San_TMDT"],
       orderTime: ["Thời gian đặt hàng", "Created Time", "createTime", "Thoi_Gian_Dat", "Ngày đặt", "Order Time", "timestamp"],
-      sku: ["SKU phân loại", "Seller SKU", "sellerSku", "Ma_SKU", "SKU", "Mã SKU", "sku"],
+      sku: ["Mã sản phẩm", "SKU phân loại", "Seller SKU", "sellerSku", "Ma_SKU", "SKU", "Mã SKU", "sku"],
       productName: ["Tên sản phẩm", "Product Name", "itemName", "Ten_SP", "Sản phẩm", "product_name"],
       unit: ["Đơn vị tính", "Unit", "Don_Vi_Tinh", "ĐVT", "unit"],
       quantity: ["Số lượng", "Quantity", "qty", "So_Luong", "SL", "quantity"],
       unitPrice: ["Đơn giá", "Unit Price", "unitPrice", "Don_Gia", "Giá bán", "price"],
-      totalAmount: ["Thành tiền (VNĐ)", "Thành tiền (Formula)", "Thành tiền", "Total Amount", "Thanh_Tien"],
+      totalAmount: ["Thành tiền (VND)", "Thành tiền (VNĐ)", "Thành tiền (Formula)", "Thành tiền (Công thức)", "Thành tiền", "Total Amount", "Thanh_Tien"],
       customerName: ["Người Mua", "Recipient", "customerName", "Ten_Khach", "Khách hàng", "customer_name"],
       customerPhone: ["Số điện thoại", "Phone", "customerPhone", "SDT", "SĐT", "phone"],
       shippingAddress: ["Địa chỉ nhận hàng", "Shipping Address", "shippingAddress", "Dia_Chi", "Địa chỉ", "address"],
@@ -36,7 +36,7 @@ class ExcelHandler {
       ]
     },
     INVENTORY_COLUMNS: {
-      sku: "Mã SKU",
+      sku: "Mã sản phẩm",
       name: "Tên sản phẩm",
       physicalStock: "Tồn Vật Lý (Trong kho)",
       reservedStock: "Tổng Đang Giữ Chỗ",
@@ -683,7 +683,7 @@ class ExcelHandler {
           {
             col: 0,
             s: 1,
-            v: "HỆ THỐNG CƠ SỞ DỮ LIỆU ĐƠN HÀNG ĐA KÊNH THÔNG MINH (ODOMS) - BỘ DỮ LIỆU CHUẨN RDBMS"
+            v: "HỆ THỐNG QUẢN LÝ ĐƠN HÀNG ĐA KÊNH THÔNG MINH (ODOMS) - SỔ DỮ LIỆU MẪU CHUẨN HÓA"
           }
         ]
       },
@@ -694,7 +694,7 @@ class ExcelHandler {
           {
             col: 0,
             s: 2,
-            v: "Phiên bản 3.0: Tích hợp Gom đơn 5 Kênh TMĐT (Shopee, TikTok Shop, Lazada, Facebook, POS), Đối chiếu ATP & Phân bổ Lô hàng FEFO"
+            v: "Phiên bản 3.0: Tích hợp Gom đơn 5 Kênh TMĐT (Shopee, TikTok Shop, Lazada, Facebook, POS), Đối chiếu Tồn khả dụng & Phân bổ Lô hàng gần hạn"
           }
         ]
       },
@@ -705,7 +705,7 @@ class ExcelHandler {
           {
             col: 0,
             s: 3,
-            v: "Hệ thống cơ sở dữ liệu mẫu ODOMS này được thiết kế đồng bộ theo chuẩn RDBMS Serverless nhằm kiểm thử toàn diện:\n1. Tiếp nhận & Chuẩn hóa đơn hàng đa kênh (Canonical Order Schema) từ 5 nguồn bán hàng trực tuyến và tại quầy POS.\n2. Kiểm tra tính hợp lệ, tính toán Tồn kho khả dụng (ATP = Tồn vật lý - Đang giữ chỗ), ưu tiên giữ hàng FIFO/FEFO và tự động chặn bán lố (Anti-Overselling)."
+            v: "Sổ dữ liệu mẫu ODOMS này được thiết kế đồng bộ theo cấu trúc bảng liên kết chuẩn hóa nhằm kiểm thử toàn diện:\n1. Tiếp nhận & Chuẩn hóa đơn hàng đa kênh từ 5 nguồn bán hàng trực tuyến và tại quầy POS.\n2. Kiểm tra tính hợp lệ, tính toán Tồn kho khả dụng (Tồn khả dụng = Tồn vật lý - Đang giữ chỗ), ưu tiên giữ hàng trước–sau / xuất lô gần hạn và tự động chặn bán vượt tồn."
           }
         ]
       },
@@ -720,7 +720,7 @@ class ExcelHandler {
         cells: [
           { col: 0, s: 5, v: "Màu sắc đại diện" },
           { col: 1, s: 5, v: "Phân loại trường dữ liệu" },
-          { col: 2, s: 5, v: "Vai trò kỹ thuật trong hệ thống ODOMS" }
+          { col: 2, s: 5, v: "Vai trò nghiệp vụ trong hệ thống ODOMS" }
         ]
       },
       {
@@ -728,11 +728,11 @@ class ExcelHandler {
         ht: 22,
         cells: [
           { col: 0, s: 7, v: "Màu Vàng nhạt (#FFE699)" },
-          { col: 1, s: 20, v: "Khóa chính (Primary Key - PK)" },
+          { col: 1, s: 20, v: "Mã định danh chính" },
           {
             col: 2,
             s: 10,
-            v: "Chứa giá trị duy nhất định danh cho từng đơn hàng hoặc sản phẩm (Mã đơn hàng, Order ID, orderNumber, Ma_Don, Mã SKU)."
+            v: "Chứa giá trị duy nhất định danh cho từng đơn hàng hoặc mặt hàng (Mã đơn hàng, Mã sản phẩm)."
           }
         ]
       },
@@ -741,11 +741,11 @@ class ExcelHandler {
         ht: 22,
         cells: [
           { col: 0, s: 9, v: "Màu Xanh lá nhạt (#C6E0B4)" },
-          { col: 1, s: 20, v: "Khóa ngoại (Foreign Key - FK / Ref)" },
+          { col: 1, s: 20, v: "Mã tham chiếu liên kết" },
           {
             col: 2,
             s: 10,
-            v: "Cột liên kết Kênh bán hàng (SHOPEE, TIKTOK, LAZADA, POS, FACEBOOK) và ánh xạ Mã SKU về danh mục kho trung tâm."
+            v: "Cột liên kết Kênh bán hàng (SHOPEE, TIKTOK, LAZADA, POS, FACEBOOK) và ánh xạ Mã sản phẩm về danh mục kho trung tâm."
           }
         ]
       },
@@ -754,11 +754,11 @@ class ExcelHandler {
         ht: 22,
         cells: [
           { col: 0, s: 10, v: "Màu Trắng / Xám nhạt (#F2F5F8)" },
-          { col: 1, s: 20, v: "Trường Nhập dữ liệu (Input)" },
+          { col: 1, s: 20, v: "Trường Nhập dữ liệu gốc" },
           {
             col: 2,
             s: 10,
-            v: "Thông tin thời gian đặt hàng (đến từng giây phục vụ xếp hàng FIFO), số lượng đặt, đơn giá, khách hàng, SĐT, địa chỉ, trạng thái & thanh toán."
+            v: "Thông tin thời gian đặt hàng (đến từng giây phục vụ xếp thứ tự ưu tiên giữ hàng), số lượng đặt, đơn giá, khách hàng, SĐT, địa chỉ, trạng thái & thanh toán."
           }
         ]
       },
@@ -767,26 +767,26 @@ class ExcelHandler {
         ht: 22,
         cells: [
           { col: 0, s: 17, v: "Màu Xanh cỏ nhạt (#E2EFDA)" },
-          { col: 1, s: 20, v: "Trường Ảo / Công thức (Formula / Virtual)" },
+          { col: 1, s: 20, v: "Trường Tự động tính toán (Công thức)" },
           {
             col: 2,
             s: 10,
-            v: "Cột tự động tính toán bằng công thức Excel thời gian thực (Thành tiền = Số lượng × Đơn giá, Tồn khả dụng ATP = Tồn vật lý - Giữ chỗ)."
+            v: "Cột tự động tính toán bằng công thức Excel thời gian thực (Thành tiền = Số lượng × Đơn giá, Tồn khả dụng = Tồn vật lý - Giữ chỗ)."
           }
         ]
       },
       {
         r: 14,
         ht: 22,
-        cells: [{ col: 0, s: 4, v: "DANH MỤC CÁC BẢNG DỮ LIỆU LIÊN KẾT (TOC)" }]
+        cells: [{ col: 0, s: 4, v: "DANH MỤC CÁC BẢNG DỮ LIỆU LIÊN KẾT (MỤC LỤC)" }]
       },
       {
         r: 15,
         ht: 24,
         cells: [
-          { col: 0, s: 5, v: "Bấm để chuyển Sheet" },
+          { col: 0, s: 5, v: "Nhấn để chuyển Trang tính" },
           { col: 1, s: 5, v: "Tên bảng cơ sở" },
-          { col: 2, s: 5, v: "Vai trò nghiệp vụ trong kiến trúc ODOMS" },
+          { col: 2, s: 5, v: "Vai trò nghiệp vụ trong hệ thống ODOMS" },
           { col: 3, s: 5, v: "Mối quan hệ liên kết & Quy mô dữ liệu" }
         ]
       }
@@ -834,7 +834,7 @@ class ExcelHandler {
     tocEntries.forEach((item, idx) => {
       const rowNum = 16 + idx;
       const isZebra = idx % 2 === 1;
-      const linkText = `Go to ${item.sheet} →`;
+      const linkText = `Mở bảng ${item.sheet} →`;
       rows.push({
         r: rowNum,
         ht: 21,
@@ -1155,7 +1155,7 @@ class ExcelHandler {
         "Mã đơn hàng": norm.orderId,
         "Sàn TMĐT": norm.channel,
         "Thời gian đặt hàng": norm.orderTime,
-        "SKU phân loại": norm.sku,
+        "Mã sản phẩm": norm.sku,
         "Tên sản phẩm": norm.productName,
         "Đơn vị tính": unitMap[norm.sku] || "Cái",
         "Số lượng": norm.quantity,
@@ -1173,12 +1173,12 @@ class ExcelHandler {
       { header: "Mã đơn hàng", key: "Mã đơn hàng", width: 17, role: "pk" },
       { header: "Sàn TMĐT", key: "Sàn TMĐT", width: 14, role: "fk_center" },
       { header: "Thời gian đặt hàng", key: "Thời gian đặt hàng", width: 21, align: "center" },
-      { header: "SKU phân loại", key: "SKU phân loại", width: 20, role: "fk_center" },
+      { header: "Mã sản phẩm", key: "Mã sản phẩm", width: 20, role: "fk_center" },
       { header: "Tên sản phẩm", key: "Tên sản phẩm", width: 44 },
       { header: "Đơn vị tính", key: "Đơn vị tính", width: 13, align: "center" },
       { header: "Số lượng", key: "Số lượng", width: 12, type: "number" },
       { header: "Đơn giá", key: "Đơn giá", width: 15, type: "currency" },
-      { header: "Thành tiền (VNĐ)", type: "formula_total", qtyColIdx: 6, priceColIdx: 7, width: 20 },
+      { header: "Thành tiền (VND)", type: "formula_total", qtyColIdx: 6, priceColIdx: 7, width: 20 },
       { header: "Người Mua", key: "Người Mua", width: 30 },
       { header: "Số điện thoại", key: "Số điện thoại", width: 15, align: "center" },
       { header: "Địa chỉ nhận hàng", key: "Địa chỉ nhận hàng", width: 46 },
@@ -1191,11 +1191,11 @@ class ExcelHandler {
       { header: "Mã đơn hàng", key: "Mã đơn hàng", width: 17, role: "pk" },
       { header: "Sàn TMĐT", key: "Sàn TMĐT", width: 14, role: "fk_center" },
       { header: "Thời gian đặt hàng", key: "Thời gian đặt hàng", width: 21, align: "center" },
-      { header: "SKU phân loại", key: "SKU phân loại", width: 20, role: "fk_center" },
+      { header: "Mã sản phẩm", key: "SKU phân loại", width: 20, role: "fk_center" },
       { header: "Tên sản phẩm", key: "Tên sản phẩm", width: 44 },
       { header: "Số lượng", key: "Số lượng", width: 12, type: "number" },
       { header: "Đơn giá", key: "Đơn giá", width: 15, type: "currency" },
-      { header: "Thành tiền (VNĐ)", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 20 },
+      { header: "Thành tiền (VND)", type: "formula_total", qtyColIdx: 5, priceColIdx: 6, width: 20 },
       { header: "Người Mua", key: "Người Mua", width: 24 },
       { header: "Số điện thoại", key: "Số điện thoại", width: 15, align: "center" },
       { header: "Địa chỉ nhận hàng", key: "Địa chỉ nhận hàng", width: 44 },
@@ -1337,8 +1337,57 @@ class ExcelHandler {
   // Xuất tình trạng Bảng Điều Phối Đơn Hàng Đa Kênh ra Excel (dành riêng cho tab Tiếp nhận / Gom đơn)
   static exportOrdersStatusReport() {
     const engine = window.omsEngine;
+    if (!engine) return;
     const channelsCfg = window.CHANNELS_CONFIG || {};
-    const rows = (engine.orders || []).map((o) => {
+    const appUI = window.AppUI || null;
+
+    const baseOrders =
+      appUI && typeof appUI.getValidOrdersUpToNow === "function"
+        ? appUI.getValidOrdersUpToNow()
+        : Array.isArray(engine.orders)
+        ? engine.orders
+        : [];
+
+    let filteredOrders = [...baseOrders];
+    if (appUI) {
+      const sortMode = appUI.orderSortMode || "NEWEST_FIRST";
+      filteredOrders.sort((a, b) =>
+        sortMode === "OLDEST_FIRST"
+          ? (Number(a.timestampMs) || 0) - (Number(b.timestampMs) || 0)
+          : (Number(b.timestampMs) || 0) - (Number(a.timestampMs) || 0)
+      );
+
+      if (appUI.currentChannelFilter && appUI.currentChannelFilter !== "ALL") {
+        filteredOrders = filteredOrders.filter((o) => o.channel === appUI.currentChannelFilter);
+      }
+      if (appUI.currentStatusFilter && appUI.currentStatusFilter !== "ALL") {
+        filteredOrders = filteredOrders.filter((o) => {
+          const ps = o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
+          return ps === appUI.currentStatusFilter || o.status === appUI.currentStatusFilter;
+        });
+      }
+      if (appUI.searchQuery) {
+        const q = String(appUI.searchQuery).trim().toLowerCase();
+        if (q) {
+          filteredOrders = filteredOrders.filter(
+            (o) =>
+              String(o.orderId || "").toLowerCase().includes(q) ||
+              String(o.sku || "").toLowerCase().includes(q) ||
+              String(o.customerName || "").toLowerCase().includes(q) ||
+              String(o.productName || "").toLowerCase().includes(q)
+          );
+        }
+      }
+    }
+
+    const shipmentByOrderId = new Map();
+    (Array.isArray(engine.shipments) ? engine.shipments : []).forEach((s) => {
+      if (s && s.orderId) {
+        shipmentByOrderId.set(String(s.orderId).trim(), s);
+      }
+    });
+
+    const rows = filteredOrders.map((o) => {
       const channelName = (channelsCfg[o.channel] && channelsCfg[o.channel].shortName) || o.channel || "";
       let holdStatusText = "Đang kiểm tra";
       if (o.status === "ALLOCATED") holdStatusText = "Đã giữ hàng";
@@ -1357,11 +1406,21 @@ class ExcelHandler {
       const sourceText =
         String(o.sourceMethod || "").indexOf("NhanTuSanTMDT") === 0 || o.sourceMethod === "WEBHOOK_API"
           ? "Tiếp nhận trực tiếp"
-          : "File Excel";
+          : "Tệp Excel";
 
       const isCod =
         (o.paymentMethod || "").toUpperCase().includes("COD") ||
         (o.paymentMethod || "").toLowerCase().includes("thu hộ");
+
+      const matchedShipment = shipmentByOrderId.get(String(o.orderId || "").trim());
+      const resolvedCarrier =
+        appUI && typeof appUI.resolveOrderCarrier === "function"
+          ? appUI.resolveOrderCarrier(o)
+          : typeof engine.resolveOrderCarrier === "function"
+          ? engine.resolveOrderCarrier(o)
+          : o.carrier || "Chưa gán ĐVVC";
+      const trackingCode = String(o.trackingCode || (matchedShipment && matchedShipment.trackingCode) || "").trim() || "Chưa cấp mã vận đơn";
+      const shippingAddress = String(o.shippingAddress || o.customerAddress || "").trim();
 
       return {
         "Thứ tự ưu tiên": o.fifoRank ? `#${o.fifoRank}` : "-",
@@ -1370,15 +1429,17 @@ class ExcelHandler {
         "Thời gian đặt": o.orderTime,
         "Hình thức nhận đơn": sourceText,
         "Sản phẩm": o.productName,
-        "Mã SKU": o.sku,
+        "Mã sản phẩm": o.sku,
         "Số lượng": o.quantity,
         "Tình trạng giữ hàng": holdStatusText,
         "Trạng thái đơn": platformStatusText,
+        "Đơn vị vận chuyển": resolvedCarrier,
+        "Mã vận đơn": trackingCode,
         "Thanh toán": o.paymentMethod || "COD (Thanh toán khi nhận hàng)",
         "Tiền thu hộ COD (VND)": isCod ? (o.quantity || 0) * (o.unitPrice || 0) : 0,
         "Khách hàng": o.customerName || "",
         "Số điện thoại": o.customerPhone || "",
-        "Địa chỉ nhận hàng": o.customerAddress || ""
+        "Địa chỉ nhận hàng": shippingAddress
       };
     });
 
@@ -1393,12 +1454,12 @@ class ExcelHandler {
   static exportAllocatedReport() {
     const engine = window.omsEngine;
     const orderReportRows = engine.orders.map((o) => ({
-      "Thứ tự ưu tiên FIFO": o.fifoRank ? `FIFO #${o.fifoRank}` : "N/A",
+      "Thứ tự ưu tiên": o.fifoRank ? `Ưu tiên #${o.fifoRank}` : "N/A",
       "Mã đơn hàng": o.orderId,
       "Kênh bán (Sàn)": o.channel,
       "Thời gian đặt hàng": o.orderTime,
-      "Nguồn tiếp nhận": o.sourceMethod === "WEBHOOK_API" ? "API 2 chiều" : "File Excel",
-      "Mã SKU": o.sku,
+      "Nguồn tiếp nhận": o.sourceMethod === "WEBHOOK_API" ? "Đồng bộ trực tiếp" : "Tệp Excel",
+      "Mã sản phẩm": o.sku,
       "Tên sản phẩm": o.productName,
       "Số lượng đặt": o.quantity,
       "Tồn trước khi trừ": o.stockSnapshot ? o.stockSnapshot.before : "-",
@@ -1419,7 +1480,7 @@ class ExcelHandler {
     }));
 
     const inventoryReportRows = engine.inventory.map((inv) => ({
-      "Mã SKU": inv.sku,
+      "Mã sản phẩm": inv.sku,
       "Tên sản phẩm": inv.name,
       "Tồn Vật Lý (Trong kho)": inv.physicalStock,
       "Tổng Đang Giữ Chỗ": inv.reservedStock,

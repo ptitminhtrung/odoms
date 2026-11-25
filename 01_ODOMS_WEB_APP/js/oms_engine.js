@@ -71,11 +71,15 @@ class UserAuthManager {
     return defaults;
   }
 
-  saveUsers(usersList) {
+  saveUsers(usersList, options = {}) {
     this.users = usersList || this.users;
+    const isSandbox = Boolean(window.cloudSync && window.cloudSync.isSandboxMode);
+    if (isSandbox) {
+      return;
+    }
     try {
       localStorage.setItem(this.STORAGE_USERS_KEY, JSON.stringify(this.users));
-      if (window.cloudSync && !window.cloudSync.isPulling) {
+      if (!options.skipCloudSync && window.cloudSync && !window.cloudSync.isPulling) {
         window.cloudSync.scheduleCloudPush("USERS_RBAC_SYNC");
       }
     } catch (e) {
@@ -98,9 +102,9 @@ class UserAuthManager {
         time: this.formatNow(),
         username: "dttd",
         fullName: "Đỗ Thị Thuỳ Dung",
-        role: "Quản lý Điều phối OMS",
+        role: "Chuyên viên Vận hành",
         action: "Khởi tạo hệ thống ODOMS & Cấu hình tồn kho",
-        ip: "192.168.1.10 (Workstation)",
+        ip: "192.168.1.10 (Máy trạm vận hành)",
         status: "SUCCESS"
       },
       {
@@ -108,9 +112,9 @@ class UserAuthManager {
         time: this.formatNow(),
         username: "lhmt",
         fullName: "Lê Hoàng Minh Trung",
-        role: "Chuyên viên Vận hành OMS",
+        role: "Chuyên viên Vận hành (Dự phòng)",
         action: "Kiểm tra kết nối 5 kênh TMĐT",
-        ip: "192.168.1.24 (ODOMS Terminal)",
+        ip: "192.168.1.24 (Máy trạm ODOMS)",
         status: "SUCCESS"
       }
     ];
@@ -118,11 +122,15 @@ class UserAuthManager {
     return initialLogs;
   }
 
-  saveAccessLogs(logsList) {
+  saveAccessLogs(logsList, options = {}) {
     this.accessLogs = logsList || this.accessLogs;
+    const isSandbox = Boolean(window.cloudSync && window.cloudSync.isSandboxMode);
+    if (isSandbox) {
+      return;
+    }
     try {
       localStorage.setItem(this.STORAGE_LOGS_KEY, JSON.stringify(this.accessLogs));
-      if (window.cloudSync && !window.cloudSync.isPulling) {
+      if (!options.skipCloudSync && window.cloudSync && !window.cloudSync.isPulling) {
         window.cloudSync.scheduleCloudPush("AUDIT_LOGS_SYNC");
       }
     } catch (e) {
@@ -196,10 +204,10 @@ class UserAuthManager {
     }
 
     if (found.status !== "ACTIVE") {
-      const suspendNotice = found.suspendUntil ? " (Tạm ngừng đến: " + found.suspendUntil + ")" : "";
+      const suspendNotice = found.suspendUntil ? " (Tạm khóa đến: " + found.suspendUntil + ")" : "";
       return {
         success: false,
-        message: "Tài khoản [" + found.username + "] hiện đang bị tạm ngừng hoạt động (Inactive)" + suspendNotice + "! Vui lòng liên hệ Quản trị viên."
+        message: "Tài khoản [" + found.username + "] hiện đang bị tạm khóa" + suspendNotice + "! Vui lòng liên hệ Quản trị hệ thống."
       };
     }
 
@@ -208,7 +216,7 @@ class UserAuthManager {
       username: found.username,
       fullName: found.fullName,
       role: found.role,
-      action: "Đăng nhập thành công vào Dashboard OMS",
+      action: "Đăng nhập thành công vào hệ thống ODOMS",
       status: "SUCCESS"
     });
 
@@ -224,7 +232,7 @@ class UserAuthManager {
         username: this.currentUser.username,
         fullName: this.currentUser.fullName,
         role: this.currentUser.role,
-        action: "Đăng xuất khỏi hệ thống OMS",
+        action: "Đăng xuất khỏi hệ thống ODOMS",
         status: "SUCCESS"
       });
     }
@@ -277,7 +285,7 @@ class UserAuthManager {
     this.recordAccessLog({
       username: this.currentUser ? this.currentUser.username : "system",
       fullName: this.currentUser ? this.currentUser.fullName : "Hệ thống",
-      role: this.currentUser ? this.currentUser.role : "Admin",
+      role: this.currentUser ? this.currentUser.role : "Quản trị hệ thống",
       action: `Tạo mới tài khoản nhân sự: ${newUser.fullName} (${newUser.username})`,
       status: "SUCCESS"
     });
@@ -325,16 +333,16 @@ class UserAuthManager {
       return { success: false, message: "Không tìm thấy tài khoản người dùng!" };
     }
     if ((target === "dttd" || target === "lhmt" || user.isRoot) && targetStatus === "INACTIVE") {
-      return { success: false, message: "Không thể tạm ngừng hoạt động tài khoản Quản trị tối cao của hệ thống!" };
+      return { success: false, message: "Không thể tạm khóa tài khoản Quản trị hệ thống!" };
     }
     if (this.currentUser && this.currentUser.username.toLowerCase() === target && targetStatus === "INACTIVE") {
-      return { success: false, message: "Không thể tự tạm ngừng hoạt động tài khoản đang trong phiên đăng nhập hiện tại!" };
+      return { success: false, message: "Không thể tự tạm khóa tài khoản đang trong phiên đăng nhập hiện tại!" };
     }
 
     user.status = targetStatus === "INACTIVE" ? "INACTIVE" : "ACTIVE";
     if (user.status === "INACTIVE") {
       user.suspendUntil = suspendUntil || "Cho đến khi mở lại";
-      user.suspendReason = suspendReason || "Tạm ngưng hoạt động bởi Quản trị viên";
+      user.suspendReason = suspendReason || "Tạm khóa bởi Quản trị hệ thống";
       user.suspendedAt = this.formatNow();
     } else {
       user.suspendUntil = "";
@@ -344,13 +352,13 @@ class UserAuthManager {
     this.saveUsers(this.users);
 
     const actionText = user.status === "INACTIVE"
-      ? "Tạm ngừng hoạt động (OFF) tài khoản: " + user.fullName + " (" + user.username + ") đến: " + user.suspendUntil
-      : "Kích hoạt lại (ON) tài khoản: " + user.fullName + " (" + user.username + ")";
+      ? "Tạm khóa tài khoản: " + user.fullName + " (" + user.username + ") đến: " + user.suspendUntil
+      : "Mở khóa và kích hoạt lại tài khoản: " + user.fullName + " (" + user.username + ")";
 
     this.recordAccessLog({
       username: this.currentUser ? this.currentUser.username : "system",
       fullName: this.currentUser ? this.currentUser.fullName : "Hệ thống",
-      role: this.currentUser ? this.currentUser.role : "Admin",
+      role: this.currentUser ? this.currentUser.role : "Quản trị hệ thống",
       action: actionText,
       status: "SUCCESS"
     });
@@ -359,8 +367,8 @@ class UserAuthManager {
       success: true,
       user,
       message: user.status === "INACTIVE"
-        ? "Đã tạm ngừng hoạt động (Inactive) tài khoản [" + user.username + "]!"
-        : "Đã kích hoạt lại (Active) tài khoản [" + user.username + "] thành công!"
+        ? "Đã tạm khóa tài khoản [" + user.username + "]!"
+        : "Đã mở khóa và kích hoạt lại tài khoản [" + user.username + "] thành công!"
     };
   }
 
@@ -420,7 +428,7 @@ class UserAuthManager {
     this.recordAccessLog({
       username: this.currentUser ? this.currentUser.username : "system",
       fullName: this.currentUser ? this.currentUser.fullName : "Hệ thống",
-      role: this.currentUser ? this.currentUser.role : "Admin",
+      role: this.currentUser ? this.currentUser.role : "Quản trị hệ thống",
       action: "Chỉnh sửa thông tin tài khoản: " + user.fullName + " (" + user.username + ")",
       status: "SUCCESS"
     });
@@ -448,7 +456,7 @@ class UserAuthManager {
     this.recordAccessLog({
       username: this.currentUser ? this.currentUser.username : "system",
       fullName: this.currentUser ? this.currentUser.fullName : "Hệ thống",
-      role: this.currentUser ? this.currentUser.role : "Admin",
+      role: this.currentUser ? this.currentUser.role : "Quản trị hệ thống",
       action: "Đặt lại mật khẩu cho tài khoản: " + user.fullName + " (" + user.username + ")",
       status: "SUCCESS"
     });
@@ -465,7 +473,7 @@ class UserAuthManager {
     return defaults;
   }
 
-  recordAccessLog({ username, fullName, role, action, status }) {
+  recordAccessLog({ username, fullName, role, action, status }, options = {}) {
     const entry = {
       id: "LOG-" + Date.now() + "-" + Math.floor(Math.random() * 100),
       time: this.formatNow(),
@@ -473,14 +481,15 @@ class UserAuthManager {
       fullName,
       role,
       action,
-      ip: "192.168.1.15 (ODOMS · Local)",
+      ip: "192.168.1.15 (Máy trạm ODOMS)",
       status: status || "SUCCESS"
     };
     this.accessLogs.unshift(entry);
     if (this.accessLogs.length > 100) {
       this.accessLogs.pop();
     }
-    this.saveAccessLogs(this.accessLogs);
+    this.saveAccessLogs(this.accessLogs, options);
+    return entry;
   }
 }
 
@@ -496,27 +505,37 @@ class OMSEngine {
     this.channels = JSON.parse(JSON.stringify(window.CHANNELS_CONFIG));
     this.allocationMode = "FIFO_TIME"; // FIFO_TIME (Ai tới trước ưu tiên trước) | CHANNEL_PRIORITY
     this.baseInitialInventory = JSON.parse(JSON.stringify(window.INITIAL_INVENTORY));
+    this.lastActionUndoRecord = null;
+    this.actionHistoryDiffs = [];
+    this._isSystemAutoTask = false;
     this.resetSystem();
   }
 
   resetSystem() {
-    if (this.baseInitialInventory) {
-      window.INITIAL_INVENTORY = JSON.parse(JSON.stringify(this.baseInitialInventory));
+    const prevAuto = this._isSystemAutoTask === true;
+    this._isSystemAutoTask = true;
+    try {
+      if (this.baseInitialInventory) {
+        window.INITIAL_INVENTORY = JSON.parse(JSON.stringify(this.baseInitialInventory));
+      }
+      this.inventory = JSON.parse(JSON.stringify(window.INITIAL_INVENTORY));
+      this.orders = [];
+      this.shipments =
+        window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0
+          ? JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA)).map((s) => this.normalizeShipmentPhones(s))
+          : [];
+      this.logs = [];
+      this.lastActionUndoRecord = null;
+      this.channels = JSON.parse(JSON.stringify(window.CHANNELS_CONFIG));
+      const skuCount = this.inventory.length;
+      const totalPhysical = this.inventory.reduce((sum, item) => sum + Number(item.physicalStock || 0), 0);
+      this.addLog(
+        "info",
+        `Khởi tạo Hệ thống ODOMS - Hệ thống quản lý đơn hàng đa kênh thông minh. Tồn kho sẵn sàng với ${skuCount} mã sản phẩm Thời trang (${totalPhysical} sản phẩm vật lý).`
+      );
+    } finally {
+      this._isSystemAutoTask = prevAuto;
     }
-    this.inventory = JSON.parse(JSON.stringify(window.INITIAL_INVENTORY));
-    this.orders = [];
-    this.shipments =
-      window.SAMPLE_SHIPMENTS_DATA && window.SAMPLE_SHIPMENTS_DATA.length > 0
-        ? JSON.parse(JSON.stringify(window.SAMPLE_SHIPMENTS_DATA)).map((s) => this.normalizeShipmentPhones(s))
-        : [];
-    this.logs = [];
-    this.channels = JSON.parse(JSON.stringify(window.CHANNELS_CONFIG));
-    const skuCount = this.inventory.length;
-    const totalPhysical = this.inventory.reduce((sum, item) => sum + Number(item.physicalStock || 0), 0);
-    this.addLog(
-      "info",
-      `Khởi tạo Hệ thống ODOMS - Hệ thống quản lý đơn hàng đa kênh thông minh. Tồn kho sẵn sàng với ${skuCount} mã sản phẩm Thời trang (${totalPhysical} sản phẩm vật lý).`
-    );
   }
 
   // Chuẩn hóa số điện thoại Việt Nam dạng chuỗi văn bản: giữ nguyên số 0 ở đầu, tự động bù "0" nếu bị cắt còn 9 chữ số (bắt đầu bằng 3, 5, 7, 8, 9)
@@ -757,14 +776,35 @@ class OMSEngine {
     return record;
   }
 
+  stripLogEmojis(text) {
+    return String(text || "")
+      .replace(/[\uFE0E\uFE0F\u200D]/g, "")
+      .replace(/\p{Extended_Pictographic}\s*/gu, "")
+      .replace(/[✔✖●]\s*/g, "")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+
   addLog(type, message) {
     const now = new Date();
-    const timeStr = now.toTimeString().split(" ")[0] + "." + String(now.getMilliseconds()).padStart(3, "0");
+    const pad = (n) => String(n).padStart(2, "0");
+    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} ${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()}`;
+    const cleanMessage = this.stripLogEmojis(message);
+    const isSystemAuto = Boolean(
+      this._isSystemAutoTask === true || (window.cloudSync && window.cloudSync.isPulling === true)
+    );
+    const activeUser =
+      !isSystemAuto && window.userAuth && window.userAuth.currentUser ? window.userAuth.currentUser : null;
     this.logs.unshift({
       id: Date.now() + Math.random(),
       time: timeStr,
+      timestampMs: now.getTime(),
       type,
-      message
+      message: cleanMessage,
+      isBackground: isSystemAuto,
+      actorUsername: activeUser && activeUser.username ? String(activeUser.username) : "",
+      actorName: activeUser && activeUser.fullName ? String(activeUser.fullName) : "Hệ thống tự động",
+      actorRole: activeUser && activeUser.role ? String(activeUser.role) : "Hệ thống tự động"
     });
     if (this.logs.length > 150) {
       this.logs.pop();
@@ -860,7 +900,7 @@ class OMSEngine {
     const orderTime = parsedTimeObj.formatted;
 
     const sku = getField([
-      "SKU phân loại", "Seller SKU", "sellerSku", "Ma_SKU", "SKU", "Mã SKU", "sku"
+      "Mã sản phẩm", "SKU phân loại", "Seller SKU", "sellerSku", "Ma_SKU", "SKU", "Mã SKU", "sku"
     ]).toUpperCase();
 
     const productName = getField([
@@ -1015,7 +1055,7 @@ class OMSEngine {
         {
           step: "Bước 1: Tiếp nhận đơn hàng từ kênh bán",
           time: orderTime,
-          detail: `Tiếp nhận qua [${String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "Đồng bộ trực tiếp từ kênh bán" : "Nhập từ File Excel"}]. Ghi nhận nguồn đơn từ kênh [${(window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[channelRaw] && window.CHANNELS_CONFIG[channelRaw].shortName) || channelRaw || "Chưa xác định"}] · ĐVVC: [${resolvedCarrier}].`
+          detail: `Tiếp nhận qua [${String(sourceHint || "").indexOf("NhanTuSanTMDT") === 0 || sourceHint === "WEBHOOK_API" ? "Đồng bộ trực tiếp từ kênh bán" : "Nhập từ Tệp Excel"}]. Ghi nhận nguồn đơn từ kênh [${(window.CHANNELS_CONFIG && window.CHANNELS_CONFIG[channelRaw] && window.CHANNELS_CONFIG[channelRaw].shortName) || channelRaw || "Chưa xác định"}] · ĐVVC: [${resolvedCarrier}].`
         }
       ]
     };
@@ -1027,17 +1067,17 @@ class OMSEngine {
     const validChannels = ["SHOPEE", "TIKTOK", "LAZADA", "FACEBOOK", "POS"];
 
     if (!order.orderId) {
-      errors.push("Thiếu Mã đơn hàng (Order ID)");
+      errors.push("Thiếu Mã đơn hàng");
     }
     if (!validChannels.includes(order.channel)) {
       errors.push(`Kênh bán hàng không hợp lệ (${order.channel})`);
     }
     if (!order.sku) {
-      errors.push("Thiếu Mã SKU sản phẩm");
+      errors.push("Thiếu Mã sản phẩm");
     } else {
       const invItem = this.inventory.find((i) => i.sku === order.sku);
       if (!invItem) {
-        errors.push(`Mã SKU [${order.sku}] không tồn tại trong Danh mục Kho nội bộ`);
+        errors.push(`Mã sản phẩm [${order.sku}] không tồn tại trong Danh mục Kho nội bộ`);
       } else if (!order.productName) {
         order.productName = invItem.name;
       }
@@ -1114,9 +1154,22 @@ class OMSEngine {
     if (addedCount > 0) {
       this.addLog(
         "info",
-        `Đã tiếp nhận ${addedCount} đơn hàng mới từ [${sourceHint === "WEBHOOK_API" ? "Tiếp nhận trực tiếp" : "File Excel đa kênh"}]. Tiến hành kiểm tra và giữ hàng cho đơn...`
+        `Đã tiếp nhận ${addedCount} đơn hàng mới từ [${sourceHint === "WEBHOOK_API" ? "Tiếp nhận trực tiếp" : "Tệp Excel đa kênh"}]. Tiến hành kiểm tra và giữ hàng cho đơn...`
       );
       this.recalculateAllAllocations();
+      if (
+        window.cloudSync &&
+        window.cloudSync.isSandboxMode &&
+        !window.cloudSync.isPulling &&
+        typeof window.cloudSync.recordSandboxChange === "function"
+      ) {
+        window.cloudSync.recordSandboxChange({
+          actionType: "IMPORT_ORDERS",
+          actionLabel: "Tiếp nhận đơn hàng",
+          targetCode: `+${addedCount} đơn`,
+          summary: `Tiếp nhận ${addedCount} đơn hàng mới`
+        });
+      }
     }
 
     return { addedCount, duplicateCount, pausedSkippedCount };
@@ -1140,7 +1193,7 @@ class OMSEngine {
         ord.auditSteps.push({
           step: "Bước 2: Kiểm tra trạng thái đơn từ kênh bán",
           status: "CANCELLED",
-          detail: "Đơn hàng ở trạng thái [✖️ Đã hủy] trên kênh bán. Hệ thống ODOMS không giữ hàng cho đơn này."
+          detail: "Đơn hàng ở trạng thái [Đã hủy] trên kênh bán. Hệ thống ODOMS không giữ hàng cho đơn này."
         });
         continue;
       }
@@ -1262,7 +1315,7 @@ class OMSEngine {
 
         this.addLog(
           "warn",
-          `[CHẶN BÁN LỐ - FIFO #${ord.fifoRank}] Đơn ${ord.orderId} (${ord.channel}) lúc ${ord.orderTime.split(" ")[1]} yêu cầu ${ord.quantity} x ${ord.sku} nhưng tồn khả dụng = ${beforeAvailable}. Đã chặn bán lố!`
+          `[CHẶN BÁN LỐ - ƯU TIÊN #${ord.fifoRank}] Đơn ${ord.orderId} (${ord.channel}) lúc ${ord.orderTime.split(" ")[1]} yêu cầu ${ord.quantity} x ${ord.sku} nhưng tồn khả dụng = ${beforeAvailable}. Đã chặn bán lố!`
         );
       }
     }
@@ -1356,7 +1409,7 @@ class OMSEngine {
 
     this.addLog(
       "info",
-      `[NHẬP KHO BỔ SUNG] Đã nhập bù +${additionalQty} sản phẩm cho mã [${sku}]. Hệ thống tự động chạy lại phân bổ FIFO cho đơn đang chờ!`
+      `[NHẬP KHO BỔ SUNG] Đã nhập bù +${additionalQty} sản phẩm cho mã [${sku}]. Hệ thống tự động chạy lại phân bổ giữ hàng ưu tiên cho đơn đang chờ!`
     );
     this.recalculateAllAllocations();
   }
@@ -1383,6 +1436,380 @@ class OMSEngine {
 
     this.recalculateAllAllocations();
     return ord;
+  }
+
+  // Chuyển trạng thái vận đơn (Chờ lấy hàng / Đang giao hàng / Giao thành công / Giao thất bại)
+  updateShipmentStatus(trackingCode, nextStatus, options = {}) {
+    const code = String(trackingCode || "").trim();
+    if (!code || !Array.isArray(this.shipments)) return null;
+    const shipment = this.shipments.find((s) => String(s.trackingCode || "").trim() === code);
+    if (!shipment) return null;
+
+    const validStatuses = ["PENDING_PICKUP", "IN_TRANSIT", "DELIVERED", "FAILED_RETURNING"];
+    const targetStatus = validStatuses.includes(String(nextStatus || "").toUpperCase())
+      ? String(nextStatus).toUpperCase()
+      : "PENDING_PICKUP";
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const nowStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const timeOnly = nowStr.split(" ")[1];
+
+    const progressMap = {
+      PENDING_PICKUP: 20,
+      IN_TRANSIT: 65,
+      DELIVERED: 100,
+      FAILED_RETURNING: 50
+    };
+    const locationMap = {
+      PENDING_PICKUP: `Đã đóng gói tại Kho Phường Bình Phú — Chờ bưu tá ${shipment.carrier} tới lấy`,
+      IN_TRANSIT: `Bưu tá ${shipment.carrier} đang trên đường giao đến người nhận`,
+      DELIVERED: `Đã giao hàng thành công cho ${shipment.receiver?.name || "người nhận"}`,
+      FAILED_RETURNING: `Giao chưa thành công — Đang chờ xử lý chuyển hoàn về Kho Phường Bình Phú`
+    };
+    const titleMap = {
+      PENDING_PICKUP: "Chờ bàn giao bưu tá lấy hàng",
+      IN_TRANSIT: "Đang vận chuyển đến người nhận",
+      DELIVERED: "Giao hàng thành công & Hoàn tất ký nhận điện tử",
+      FAILED_RETURNING: "Giao thất bại / Chờ chuyển hoàn"
+    };
+
+    const prevStatus = shipment.status;
+    shipment.status = targetStatus;
+    shipment.statusLabel = this.getShipmentStatusLabel(targetStatus);
+    shipment.progressPercent = progressMap[targetStatus] || 20;
+    shipment.lastUpdateTime = nowStr;
+    shipment.currentLocation = locationMap[targetStatus] || shipment.currentLocation;
+    if (!Array.isArray(shipment.timeline)) shipment.timeline = [];
+    shipment.timeline.push({
+      time: timeOnly,
+      title: titleMap[targetStatus] || "Cập nhật trạng thái vận đơn",
+      desc: `Chuyển trạng thái vận đơn ${code} từ [${this.getShipmentStatusTextVi(prevStatus)}] sang [${this.getShipmentStatusTextVi(targetStatus)}].`,
+      location: shipment.currentLocation
+    });
+
+    this.syncOrderCarriersFromShipments();
+    this.addLog(
+      "sync",
+      `[VẬN ĐƠN] Đã chuyển trạng thái ${code} (${shipment.orderId}): ${this.getShipmentStatusTextVi(prevStatus)} → ${this.getShipmentStatusTextVi(targetStatus)}.`
+    );
+
+    if (!options.silentPush && window.cloudSync && !window.cloudSync.isPulling) {
+      window.cloudSync.scheduleCloudPush("SHIPMENT_STATUS_SYNC");
+    }
+    return shipment;
+  }
+
+  getOrderStatusTextVi(ord) {
+    if (!ord) return "Không xác định";
+    if (ord.platformStatus === "CANCELLED" || ord.status === "CANCELLED") return "Đã hủy";
+    if (ord.platformStatus === "UNCONFIRMED" || ord.status === "PENDING") return "Chờ xác nhận";
+    if (ord.status === "ALLOCATED") return "Đã giữ hàng";
+    if (ord.status === "BACKORDER") return "Thiếu tồn kho";
+    if (ord.status === "INVALID") return "Đơn lỗi thông tin";
+    return "Đang xử lý";
+  }
+
+  getShipmentStatusTextVi(statusCode) {
+    const st = String(statusCode || "PENDING_PICKUP").toUpperCase();
+    if (st === "IN_TRANSIT") return "Đang giao hàng";
+    if (st === "DELIVERED") return "Giao thành công";
+    if (st === "FAILED_RETURNING") return "Giao thất bại / Chờ hoàn";
+    return "Chờ lấy hàng";
+  }
+
+  // Tính dấu vân tay dữ liệu vận hành chuẩn hóa (đơn hàng, tồn kho/lô hàng, vận đơn, lịch sử vận đơn — bỏ qua trường thời gian hiển thị/UI tạm)
+  computeOperationalFingerprint() {
+    const normStr = (v) => String(v === null || v === undefined ? "" : v).trim();
+    const normNum = (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const shipmentsRaw = Array.isArray(this.shipments) ? this.shipments : [];
+
+    const canonicalOrders = (Array.isArray(this.orders) ? this.orders : [])
+      .map((o) => {
+        const order = o || {};
+        const allocBatches = (Array.isArray(order.allocatedBatches) ? order.allocatedBatches : [])
+          .map((b) => ({
+            batchCode: normStr(b && b.batchCode),
+            qrCode: normStr(b && b.qrCode),
+            expiryDate: normStr(b && b.expiryDate),
+            takenQty: normNum(b && b.takenQty)
+          }))
+          .sort((a, b) => a.batchCode.localeCompare(b.batchCode));
+        return {
+          orderId: normStr(order.orderId),
+          channel: normStr(order.channel).toUpperCase(),
+          sku: normStr(order.sku).toUpperCase(),
+          productName: normStr(order.productName),
+          quantity: normNum(order.quantity),
+          unitPrice: normNum(order.unitPrice),
+          status: normStr(order.status).toUpperCase(),
+          platformStatus: normStr(order.platformStatus).toUpperCase(),
+          carrier: normStr(order.carrier) || this.resolveOrderCarrier(order, shipmentsRaw),
+          trackingCode: normStr(order.trackingCode),
+          paymentMethod: normStr(order.paymentMethod),
+          customerName: normStr(order.customerName),
+          customerPhone: this.normalizePhoneVN(order.customerPhone),
+          shippingAddress: normStr(order.shippingAddress),
+          orderTime: normStr(order.orderTime),
+          allocatedBatches: allocBatches
+        };
+      })
+      .sort((a, b) => a.orderId.localeCompare(b.orderId));
+
+    const canonicalInventory = (Array.isArray(this.inventory) ? this.inventory : [])
+      .map((it) => {
+        const item = it || {};
+        const batches = (Array.isArray(item.batches) ? item.batches : [])
+          .map((b) => ({
+            batchCode: normStr(b && b.batchCode),
+            qrCode: normStr(b && b.qrCode),
+            importDate: normStr(b && b.importDate),
+            expiryDate: normStr(b && b.expiryDate),
+            initialQty: normNum(b && b.initialQty !== undefined ? b.initialQty : b && b.remainingQty),
+            remainingQty: normNum(b && b.remainingQty !== undefined ? b.remainingQty : b && b.initialQty)
+          }))
+          .sort((a, b) => a.batchCode.localeCompare(b.batchCode));
+        return {
+          sku: normStr(item.sku).toUpperCase(),
+          name: normStr(item.name),
+          category: normStr(item.category),
+          unitPrice: normNum(item.unitPrice),
+          physicalStock: normNum(item.physicalStock),
+          reservedStock: normNum(item.reservedStock),
+          availableStock: normNum(item.availableStock),
+          batches
+        };
+      })
+      .sort((a, b) => a.sku.localeCompare(b.sku));
+
+    const canonicalShipments = shipmentsRaw
+      .map((s) => {
+        const sh = s || {};
+        const timeline = (Array.isArray(sh.timeline) ? sh.timeline : []).map((t) => ({
+          title: normStr(t && t.title),
+          desc: normStr(t && t.desc),
+          location: normStr(t && t.location)
+        }));
+        return {
+          trackingCode: normStr(sh.trackingCode),
+          orderId: normStr(sh.orderId),
+          channel: normStr(sh.channel).toUpperCase(),
+          carrier: normStr(sh.carrier),
+          shippingTier: normStr(sh.shippingTier).toUpperCase(),
+          status: normStr(sh.status).toUpperCase(),
+          totalCod: normNum(sh.totalCod !== undefined ? sh.totalCod : sh.codAmount),
+          shippingFee: normNum(sh.shippingFee),
+          productName: normStr(sh.productName),
+          quantity: normNum(sh.quantity),
+          batchCode: normStr(sh.batchCode),
+          receiverName: normStr((sh.receiver && sh.receiver.name) || sh.receiverName),
+          receiverPhone: this.normalizePhoneVN((sh.receiver && sh.receiver.phone) || sh.receiverPhone),
+          receiverAddress: normStr((sh.receiver && sh.receiver.address) || sh.receiverAddress),
+          timeline
+        };
+      })
+      .sort((a, b) => (a.trackingCode || a.orderId).localeCompare(b.trackingCode || b.orderId));
+
+    const wbRaw = window.AppUI && Array.isArray(window.AppUI.waybillHistory) ? window.AppUI.waybillHistory : [];
+    const canonicalWaybills = wbRaw
+      .map((w) => {
+        const wb = w || {};
+        return {
+          trackingCode: normStr(wb.trackingCode),
+          orderId: normStr(wb.orderId),
+          channel: normStr(wb.channel).toUpperCase(),
+          carrier: normStr(wb.carrier),
+          customerName: normStr(wb.customerName || (wb.receiver && wb.receiver.name)),
+          customerPhone: this.normalizePhoneVN(wb.customerPhone || (wb.receiver && wb.receiver.phone)),
+          address: normStr(wb.address || (wb.receiver && wb.receiver.address)),
+          productName: normStr(wb.productName),
+          quantity: normNum(wb.quantity),
+          totalAmount: normNum(wb.totalAmount !== undefined ? wb.totalAmount : wb.codAmount),
+          batchCode: normStr(wb.batchCode)
+        };
+      })
+      .sort((a, b) => (a.trackingCode || a.orderId).localeCompare(b.trackingCode || b.orderId));
+
+    return JSON.stringify({
+      orders: canonicalOrders,
+      inventory: canonicalInventory,
+      shipments: canonicalShipments,
+      waybillHistory: canonicalWaybills
+    });
+  }
+
+  // Chụp bản lưu sâu trạng thái vận hành ngay trước thao tác để hỗ trợ Hoàn tác 1 bước
+  captureOperationalSnapshot() {
+    return {
+      initialInventory: JSON.parse(JSON.stringify(window.INITIAL_INVENTORY || [])),
+      baseInitialInventory: JSON.parse(JSON.stringify(this.baseInitialInventory || window.INITIAL_INVENTORY || [])),
+      inventory: JSON.parse(JSON.stringify(this.inventory || [])),
+      orders: JSON.parse(JSON.stringify(this.orders || [])),
+      shipments: JSON.parse(JSON.stringify(this.shipments || [])),
+      waybillHistory:
+        window.AppUI && Array.isArray(window.AppUI.waybillHistory)
+          ? JSON.parse(JSON.stringify(window.AppUI.waybillHistory))
+          : []
+    };
+  }
+
+  // Lưu bản đối chiếu Trước → Sau và kích hoạt trạng thái có thể Hoàn tác 1 bước
+  recordReversibleAction({ actionType, actionLabel, targetCode, beforeSummary, afterSummary, beforeSnapshot }) {
+    if (!beforeSnapshot) return null;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const timeStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    const cleanBefore = String(beforeSummary || "Trạng thái trước").trim();
+    const cleanAfter = String(afterSummary || "Trạng thái sau").trim();
+    const cleanTarget = String(targetCode || "").trim();
+    const cleanLabel = String(actionLabel || "Thao tác nghiệp vụ").trim();
+
+    const record = {
+      id: "ACT-" + Date.now() + "-" + Math.floor(Math.random() * 100),
+      time: timeStr,
+      actionType: actionType || "OPERATIONAL_ACTION",
+      actionLabel: cleanLabel,
+      targetCode: cleanTarget,
+      beforeSummary: cleanBefore,
+      afterSummary: cleanAfter,
+      diffText: `${cleanBefore} → ${cleanAfter}`,
+      undoDiffText: `Từ [${cleanAfter}] → Về [${cleanBefore}]`,
+      snapshot: beforeSnapshot
+    };
+
+    this.lastActionUndoRecord = record;
+    this.actionHistoryDiffs.unshift({
+      id: record.id,
+      time: record.time,
+      actionType: record.actionType,
+      actionLabel: record.actionLabel,
+      targetCode: record.targetCode,
+      beforeSummary: record.beforeSummary,
+      afterSummary: record.afterSummary,
+      diffText: record.diffText
+    });
+    if (this.actionHistoryDiffs.length > 50) {
+      this.actionHistoryDiffs.pop();
+    }
+
+    this.addLog(
+      "info",
+      `[ĐỐI CHIẾU TRƯỚC → SAU · ${cleanLabel}] ${cleanTarget ? cleanTarget + ": " : ""}${cleanBefore} → ${cleanAfter}`
+    );
+
+    if (
+      window.cloudSync &&
+      window.cloudSync.isSandboxMode &&
+      typeof window.cloudSync.recordSandboxChange === "function"
+    ) {
+      window.cloudSync.recordSandboxChange({
+        actionType: record.actionType,
+        actionLabel: cleanLabel,
+        targetCode: cleanTarget,
+        summary: record.diffText
+      });
+    }
+    return record;
+  }
+
+  // Hoàn tác chính xác 1 bước vừa làm + ghi nhận ngay vào Nhật ký Hệ thống (chỉ phát tối đa 1 lệnh SYNC_ALL khi tắt Chế độ thử nghiệm)
+  undoLastAction(actorUser = null) {
+    const rec = this.lastActionUndoRecord;
+    if (!rec || !rec.snapshot) {
+      return {
+        success: false,
+        message: "Chưa có thao tác nghiệp vụ gần nhất để hoàn tác."
+      };
+    }
+
+    // Tiêu thụ bản hoàn tác (hoàn tác đúng 1 bước)
+    this.lastActionUndoRecord = null;
+    const snap = rec.snapshot;
+
+    if (Array.isArray(snap.initialInventory)) {
+      window.INITIAL_INVENTORY = JSON.parse(JSON.stringify(snap.initialInventory));
+    }
+    if (Array.isArray(snap.baseInitialInventory)) {
+      this.baseInitialInventory = JSON.parse(JSON.stringify(snap.baseInitialInventory));
+    }
+    this.inventory = JSON.parse(JSON.stringify(snap.inventory || []));
+    this.orders = JSON.parse(JSON.stringify(snap.orders || []));
+    this.shipments = JSON.parse(JSON.stringify(snap.shipments || []));
+
+    if (window.AppUI) {
+      window.AppUI.shipments = this.shipments;
+      if (Array.isArray(snap.waybillHistory)) {
+        window.AppUI.waybillHistory = JSON.parse(JSON.stringify(snap.waybillHistory));
+      }
+    }
+
+    this.syncOrderCarriersFromShipments();
+
+    const actor =
+      actorUser ||
+      (window.userAuth && window.userAuth.currentUser) ||
+      (window.userAuth && Array.isArray(window.userAuth.users) && window.userAuth.users[0]) || {
+        username: "system",
+        fullName: "Hệ thống ODOMS",
+        role: "Quản trị hệ thống"
+      };
+
+    const undoActionText = `Hoàn tác [${rec.actionLabel}${rec.targetCode ? " — " + rec.targetCode : ""}]: Từ [${rec.afterSummary}] → Về [${rec.beforeSummary}]`;
+
+    // Ghi dòng hoàn tác vào Nhật ký Hệ thống trong bộ nhớ mà KHÔNG phát riêng lệnh SYNC_USERS (tránh 2 POST chồng nhau)
+    let logEntry = null;
+    if (window.userAuth && typeof window.userAuth.recordAccessLog === "function") {
+      logEntry = window.userAuth.recordAccessLog(
+        {
+          username: actor.username || "system",
+          fullName: actor.fullName || "Hệ thống ODOMS",
+          role: actor.role || "Quản trị hệ thống",
+          action: undoActionText,
+          status: "SUCCESS"
+        },
+        { skipCloudSync: true }
+      );
+    }
+
+    this.addLog(
+      "warn",
+      `[HOÀN TÁC 1 BƯỚC · ${rec.actionLabel}] ${rec.targetCode ? rec.targetCode + ": " : ""}Từ [${rec.afterSummary}] → Về [${rec.beforeSummary}] (Thực hiện bởi ${actor.fullName || actor.username}).`
+    );
+
+    const isSandbox = Boolean(window.cloudSync && window.cloudSync.isSandboxMode);
+    let syncedToSheets = false;
+
+    if (window.cloudSync && !window.cloudSync.isPulling) {
+      if (isSandbox) {
+        // Chế độ thử nghiệm đang bật: chỉ ghi nhận cục bộ trong phiên trình duyệt, 0 POST lên Google Sheets
+        if (typeof window.cloudSync.recordSandboxChange === "function") {
+          window.cloudSync.recordSandboxChange({
+            actionType: "UNDO_LAST_ACTION",
+            actionLabel: `Hoàn tác ${rec.actionLabel}`,
+            targetCode: rec.targetCode,
+            summary: rec.undoDiffText
+          });
+        }
+        window.cloudSync.notifyUI();
+      } else {
+        // Chế độ thử nghiệm đang tắt: phát duy nhất 1 lệnh đồng bộ toàn bộ 6 trang tính (gồm trạng thái đã khôi phục & dòng mới trong NhatKy)
+        window.cloudSync.scheduleCloudPush("UNDO_RESTORE_SYNC");
+        syncedToSheets = true;
+      }
+    }
+
+    return {
+      success: true,
+      record: rec,
+      logEntry,
+      syncedToSheets,
+      isSandbox,
+      message: `Đã hoàn tác ${rec.actionLabel}${rec.targetCode ? " (" + rec.targetCode + ")" : ""}: Từ [${rec.afterSummary}] → Về [${rec.beforeSummary}].`
+    };
   }
 }
 
@@ -1421,6 +1848,9 @@ class CloudSyncAdapter {
     ];
     this.isPulling = false;
     this._initialPullSettled = false;
+    this.isSandboxMode = false;
+    this.cloudBaselineFingerprint = null;
+    this.sandboxPendingChanges = [];
     this.pushDebounceTimer = null;
     this.userPushDebounceTimer = null;
 
@@ -1569,9 +1999,102 @@ class CloudSyncAdapter {
     this.notifyUI();
   }
 
+  computeOperationalFingerprint() {
+    if (window.omsEngine && typeof window.omsEngine.computeOperationalFingerprint === "function") {
+      return window.omsEngine.computeOperationalFingerprint();
+    }
+    return "";
+  }
+
+  updateCloudBaselineFingerprint() {
+    this.cloudBaselineFingerprint = this.computeOperationalFingerprint();
+    return this.cloudBaselineFingerprint;
+  }
+
+  recordSandboxChange({ actionType, actionLabel, targetCode, summary } = {}) {
+    if (!this.isSandboxMode) return;
+    if (!Array.isArray(this.sandboxPendingChanges)) {
+      this.sandboxPendingChanges = [];
+    }
+    this.sandboxPendingChanges.push({
+      time: this.formatNow(),
+      actionType: actionType || "OPERATIONAL_ACTION",
+      actionLabel: String(actionLabel || "Thao tác nghiệp vụ").trim(),
+      targetCode: String(targetCode || "").trim(),
+      summary: String(summary || "").trim()
+    });
+  }
+
+  clearSandboxPendingChanges() {
+    this.sandboxPendingChanges = [];
+  }
+
+  // Bật / Tắt Chế độ thử nghiệm: không tự động kéo xóa hay đẩy Google Sheets; chỉ ghi Nhật ký Nghiệp vụ & cảnh báo khi có thay đổi thực khác bản gốc Google Sheets
+  setSandboxMode(enabled) {
+    const nextState = Boolean(enabled);
+    if (this.pushDebounceTimer) {
+      clearTimeout(this.pushDebounceTimer);
+      this.pushDebounceTimer = null;
+    }
+    if (this.userPushDebounceTimer) {
+      clearTimeout(this.userPushDebounceTimer);
+      this.userPushDebounceTimer = null;
+    }
+
+    if (nextState) {
+      if (this.cloudBaselineFingerprint === null) {
+        this.updateCloudBaselineFingerprint();
+      }
+      this.sandboxPendingChanges = [];
+      this.isSandboxMode = true;
+      this.notifyUI();
+      return {
+        isSandboxMode: true,
+        pendingCount: 0,
+        hasNetDiffFromSheet: false,
+        shouldWarn: false,
+        summaryText: ""
+      };
+    }
+
+    this.isSandboxMode = false;
+    const pendingChanges = Array.isArray(this.sandboxPendingChanges) ? this.sandboxPendingChanges.slice() : [];
+    const currentFp = this.computeOperationalFingerprint();
+    const hasNetDiffFromSheet =
+      this.cloudBaselineFingerprint !== null && currentFp !== this.cloudBaselineFingerprint;
+    const shouldWarn = pendingChanges.length >= 1 && hasNetDiffFromSheet === true;
+
+    let summaryText = "";
+    if (shouldWarn) {
+      const shortItems = pendingChanges.slice(-3).map((ch) =>
+        ch.targetCode ? `${ch.actionLabel} (${ch.targetCode})` : ch.actionLabel
+      );
+      const extra = pendingChanges.length > 3 ? ", ..." : "";
+      summaryText = `${shortItems.join("; ")}${extra}`;
+      if (window.omsEngine) {
+        window.omsEngine.addLog(
+          "warn",
+          `[ĐÃ TẮT CHẾ ĐỘ THỬ NGHIỆM] Có ${pendingChanges.length} thay đổi chưa được đồng bộ lên Google Sheets: ${summaryText}.`
+        );
+      }
+    } else {
+      this.sandboxPendingChanges = [];
+    }
+
+    this.notifyUI();
+    return {
+      isSandboxMode: false,
+      pendingCount: shouldWarn ? pendingChanges.length : 0,
+      hasNetDiffFromSheet,
+      shouldWarn,
+      summaryText
+    };
+  }
+
   // 1. Lưu tức thì toàn bộ 6 bảng dữ liệu vào bộ nhớ trình duyệt trên máy
   saveLocalStateSnapshot() {
     if (!window.omsEngine) return;
+    if (this.isSandboxMode) return;
     try {
       if (typeof window.omsEngine.syncOrderCarriersFromShipments === "function") {
         window.omsEngine.syncOrderCarriersFromShipments();
@@ -1643,6 +2166,19 @@ class CloudSyncAdapter {
 
   // 3. Đặt lịch tự động cập nhật sang Google Sheets
   scheduleCloudPush(reason = "AUTO_SYNC") {
+    if (this.isSandboxMode) {
+      if (this.pushDebounceTimer) {
+        clearTimeout(this.pushDebounceTimer);
+        this.pushDebounceTimer = null;
+      }
+      if (this.userPushDebounceTimer) {
+        clearTimeout(this.userPushDebounceTimer);
+        this.userPushDebounceTimer = null;
+      }
+      this.notifyUI();
+      return;
+    }
+
     this.saveLocalStateSnapshot();
 
     if (!this.autoSync || !this.endpointUrl) {
@@ -1681,6 +2217,14 @@ class CloudSyncAdapter {
 
   // 3b. Gửi riêng danh sách Nhân sự & Nhật ký hoạt động (không chạm vào DatHang, TonKho, LuuKho, VanDon)
   async pushUsersAndLogsOnly(reason = "AUDIT_LOGS_SYNC") {
+    if (this.isSandboxMode) {
+      return {
+        success: false,
+        blocked: true,
+        mode: "SANDBOX_BLOCKED",
+        message: "Đang bật Chế độ thử nghiệm — đã chặn gửi dữ liệu lên Google Sheets."
+      };
+    }
     if (!this.endpointUrl || !this._initialPullSettled) return { success: false, mode: "SKIPPED_BEFORE_PULL" };
     const payload = {
       action: "SYNC_USERS",
@@ -1708,6 +2252,15 @@ class CloudSyncAdapter {
 
   // 4. Gửi đầy đủ 6 trang tính (DatHang, TonKho, LuuKho, VanDon, NhanSu, NhatKy) lên Google Sheets
   async pushStateToCloud(reason = "MANUAL_PUSH", silent = false) {
+    if (this.isSandboxMode) {
+      this.notifyUI();
+      return {
+        success: false,
+        blocked: true,
+        mode: "SANDBOX_BLOCKED",
+        message: "Đang bật Chế độ thử nghiệm — đã chặn gửi dữ liệu lên Google Sheets."
+      };
+    }
     if (window.omsEngine && typeof window.omsEngine.syncOrderCarriersFromShipments === "function") {
       window.omsEngine.syncOrderCarriersFromShipments();
     }
@@ -1796,6 +2349,11 @@ class CloudSyncAdapter {
       const resJson = await response.json();
       if (resJson && resJson.status === "SUCCESS") {
         this.syncStatus = "CLOUD_CONNECTED";
+        this.updateCloudBaselineFingerprint();
+        this.clearSandboxPendingChanges();
+        if (window.AppUI && typeof window.AppUI.dismissSandboxUnsyncedBanner === "function") {
+          window.AppUI.dismissSandboxUnsyncedBanner();
+        }
         this.saveConfig({ lastSyncTime: `${this.formatNow()} (Đã gửi Google Sheets)` });
         if (window.omsEngine) {
           window.omsEngine.addLog(
@@ -1874,6 +2432,8 @@ class CloudSyncAdapter {
   async pullStateFromCloud(silent = false) {
     if (!this.endpointUrl) {
       const restored = this.restoreLocalStateSnapshot();
+      this.updateCloudBaselineFingerprint();
+      this.clearSandboxPendingChanges();
       this.syncStatus = "LOCAL_READY";
       this.notifyUI();
       return {
@@ -1990,8 +2550,14 @@ class CloudSyncAdapter {
               ord.sourceMethod || "EXCEL_IMPORT"
             )
           );
-          window.omsEngine.recalculateAllAllocations();
-          window.omsEngine.syncOrderCarriersFromShipments();
+          const prevAutoTask = window.omsEngine._isSystemAutoTask === true;
+          window.omsEngine._isSystemAutoTask = true;
+          try {
+            window.omsEngine.recalculateAllAllocations();
+            window.omsEngine.syncOrderCarriersFromShipments();
+          } finally {
+            window.omsEngine._isSystemAutoTask = prevAutoTask;
+          }
         }
 
         // 4. Nạp NhanSu & NhatKy (bảo toàn 4 tài khoản gốc)
@@ -2004,6 +2570,11 @@ class CloudSyncAdapter {
 
         this.isPulling = false;
         this._initialPullSettled = true;
+        this.updateCloudBaselineFingerprint();
+        this.clearSandboxPendingChanges();
+        if (window.AppUI && typeof window.AppUI.dismissSandboxUnsyncedBanner === "function") {
+          window.AppUI.dismissSandboxUnsyncedBanner();
+        }
         this.saveLocalStateSnapshot();
         this.syncStatus = "CLOUD_CONNECTED";
         this.saveConfig({ lastSyncTime: `${this.formatNow()} (Đã tải từ Google Sheets)` });
@@ -2038,7 +2609,7 @@ class CloudSyncAdapter {
   // 6. Đồng bộ thời gian thực giữa các cửa sổ trình duyệt đang mở trên cùng máy
   initCrossTabSync() {
     window.addEventListener("storage", (event) => {
-      if (!event.key) return;
+      if (!event.key || this.isSandboxMode) return;
       if (event.key === this.STORAGE_ENGINE_STATE_KEY) {
         if (this.restoreLocalStateSnapshot() && window.AppUI) {
           window.AppUI.renderAll();
@@ -2057,6 +2628,9 @@ class CloudSyncAdapter {
     if (window.AppUI) {
       if (typeof window.AppUI.updateCloudSyncStatusUI === "function") {
         window.AppUI.updateCloudSyncStatusUI();
+      }
+      if (typeof window.AppUI.updateSandboxModeUI === "function") {
+        window.AppUI.updateSandboxModeUI();
       }
       if (shouldRenderAll && typeof window.AppUI.renderAll === "function") {
         window.AppUI.renderAll();
