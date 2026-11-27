@@ -1326,7 +1326,171 @@ class ExcelHandler {
     if (activeTab === "ingest") {
       return ExcelHandler.exportOrdersStatusReport();
     }
+    if (activeTab === "qr_api") {
+      return ExcelHandler.exportWaybillsReport();
+    }
+    if (activeTab === "shipping" || activeTab === "fifo") {
+      return ExcelHandler.exportShippingReport();
+    }
     return ExcelHandler.exportAllocatedReport();
+  }
+
+  // Xuất toàn bộ danh sách Vận chuyển đơn hàng hợp lệ (<= Date.now()) khớp bộ lọc tab Vận chuyển (không bị cắt 10 dòng phân trang)
+  static exportShippingReport() {
+    const engine = window.omsEngine;
+    const appUI = window.AppUI || null;
+    if (!engine && !appUI) return [];
+
+    let filteredShipments = [];
+    if (appUI && typeof appUI.getFilteredShippingList === "function") {
+      const res = appUI.getFilteredShippingList();
+      filteredShipments = Array.isArray(res && res.list) ? res.list : [];
+    } else if (appUI && typeof appUI.getValidShipmentsUpToNow === "function") {
+      filteredShipments = appUI.getValidShipmentsUpToNow();
+    } else if (engine && Array.isArray(engine.shipments)) {
+      filteredShipments = engine.shipments;
+    }
+
+    const channelsCfg = window.CHANNELS_CONFIG || {};
+    const resolveTierVi = (tierCode) => {
+      if (appUI && typeof appUI.getShippingTierPlainLabel === "function") {
+        return appUI.getShippingTierPlainLabel(tierCode);
+      }
+      const t = String(tierCode || "").toUpperCase();
+      if (t === "HOA_TOC") return "Hỏa tốc 2H";
+      if (t === "NHANH") return "Giao nhanh 24H";
+      return "Tiêu chuẩn";
+    };
+    const resolveStatusVi = (st) => {
+      if (appUI && typeof appUI.getWaybillStatusBadgeMeta === "function") {
+        return appUI.getWaybillStatusBadgeMeta(st).label;
+      }
+      const code = String(st || "PENDING_PICKUP").toUpperCase();
+      if (code === "IN_TRANSIT") return "Đang giao hàng";
+      if (code === "DELIVERED") return "Giao thành công";
+      if (code === "FAILED_RETURNING") return "Giao thất bại";
+      return "Chờ lấy hàng";
+    };
+
+    const rows = filteredShipments.map((s) => {
+      const chKey = String(s.channel || "").trim().toUpperCase();
+      const chName = (channelsCfg[chKey] && channelsCfg[chKey].shortName) || chKey || "";
+      const feeVal = s.isFreeship ? 0 : Number(s.shippingFee) || 0;
+      const codVal = Number(s.totalCod) || 0;
+
+      return {
+        "Mã vận đơn": s.trackingCode || "",
+        "Mã đơn gốc": s.orderId || "",
+        "Kênh bán": chName,
+        "Đơn vị vận chuyển": s.carrier || "",
+        "Hình thức giao": resolveTierVi(s.shippingTier),
+        "Người nhận": (s.receiver && s.receiver.name) || "",
+        "Số điện thoại": (s.receiver && s.receiver.phone) || "",
+        "Địa chỉ giao hàng": (s.receiver && s.receiver.address) || "",
+        "Phí vận chuyển (VND)": feeVal,
+        "Thu hộ (VND)": codVal,
+        "Trạng thái hành trình": resolveStatusVi(s.status),
+        "Thời gian bàn giao": s.handoverTime || "",
+        "Cập nhật gần nhất": s.lastUpdateTime || ""
+      };
+    });
+
+    ExcelHandler.downloadDataset(
+      rows,
+      "Bao_Cao_Van_Chuyen_Don_Hang_ODOMS",
+      "Van_Chuyen_Don_Hang"
+    );
+    return rows;
+  }
+
+  // Xuất toàn bộ danh sách Vận đơn hợp lệ (<= Date.now()) khớp bộ lọc tab Vận đơn (không bị cắt 10 dòng phân trang)
+  static exportWaybillsReport() {
+    const engine = window.omsEngine;
+    const appUI = window.AppUI || null;
+    if (!engine && !appUI) return [];
+
+    let filteredWaybills = [];
+    if (appUI && typeof appUI.getFilteredWaybillRecords === "function") {
+      const res = appUI.getFilteredWaybillRecords();
+      filteredWaybills = Array.isArray(res && res.list) ? res.list : [];
+    } else {
+      const baseShipments =
+        appUI && typeof appUI.getValidShipmentsUpToNow === "function"
+          ? appUI.getValidShipmentsUpToNow()
+          : engine && Array.isArray(engine.shipments)
+          ? engine.shipments
+          : [];
+      filteredWaybills = baseShipments.map((s) => ({
+        trackingCode: s.trackingCode || "",
+        orderId: s.orderId || "",
+        channel: s.channel || "",
+        channelName: s.channel || "",
+        carrier: s.carrier || "",
+        shippingTierText:
+          String(s.shippingTier || "").toUpperCase() === "HOA_TOC"
+            ? "Hỏa tốc 2H"
+            : String(s.shippingTier || "").toUpperCase() === "NHANH"
+            ? "Giao nhanh 24H"
+            : "Tiêu chuẩn",
+        customerName: (s.receiver && s.receiver.name) || s.customerName || "",
+        customerPhone: (s.receiver && s.receiver.phone) || s.customerPhone || "",
+        address: (s.receiver && s.receiver.address) || s.address || "",
+        sku: s.sku || "",
+        productName: s.productName || s.itemsSummary || "",
+        quantity: Number(s.quantity) || 1,
+        batchCode: s.batchCode || "",
+        totalAmount: Number(s.totalCod !== undefined ? s.totalCod : s.totalAmount || 0) || 0,
+        status: s.status || "PENDING_PICKUP",
+        createdAt: s.handoverTime || s.lastUpdateTime || ""
+      }));
+    }
+
+    const resolveStatusVi = (st) => {
+      if (appUI && typeof appUI.getWaybillStatusBadgeMeta === "function") {
+        return appUI.getWaybillStatusBadgeMeta(st).label;
+      }
+      const code = String(st || "ISSUED").toUpperCase();
+      if (code === "PENDING_PICKUP") return "Chờ lấy hàng";
+      if (code === "IN_TRANSIT") return "Đang giao hàng";
+      if (code === "DELIVERED") return "Giao thành công";
+      if (code === "FAILED_RETURNING") return "Giao thất bại";
+      return "Đã cấp mã";
+    };
+
+    const channelsCfg = window.CHANNELS_CONFIG || {};
+    const rows = filteredWaybills.map((item) => {
+      const chName =
+        item.channelName ||
+        (channelsCfg[item.channel] && channelsCfg[item.channel].shortName) ||
+        item.channel ||
+        "";
+      const prodText = item.sku
+        ? `${item.sku} × ${item.quantity || 1}${item.productName ? ` — ${item.productName}` : ""}`
+        : item.productName || "";
+
+      return {
+        "Mã vận đơn": item.trackingCode || "",
+        "Mã đơn hàng": item.orderId || "",
+        "Kênh bán": chName,
+        "Đơn vị vận chuyển": item.carrier || "",
+        "Hình thức giao": item.shippingTierText || "Tiêu chuẩn",
+        "Người nhận": item.customerName || "",
+        "Số điện thoại": item.customerPhone || "",
+        "Địa chỉ nhận hàng": item.address || "",
+        "Sản phẩm": prodText,
+        "Mã lô xuất": item.batchCode || "",
+        "Thu hộ (VND)": Number(item.totalAmount) || 0,
+        "Trạng thái": resolveStatusVi(item.status),
+        "Thời gian tạo": item.createdAt || ""
+      };
+    });
+
+    ExcelHandler.downloadDataset(
+      rows,
+      "Bao_Cao_Danh_Sach_Van_Don_ODOMS",
+      "Danh_Sach_Van_Don"
+    );
+    return rows;
   }
 
   // Phương thức chuẩn OOP (Mục II.4 DKDT_OOP.md): Xuất báo cáo tổng hợp ra file Excel
@@ -1341,41 +1505,52 @@ class ExcelHandler {
     const channelsCfg = window.CHANNELS_CONFIG || {};
     const appUI = window.AppUI || null;
 
-    const baseOrders =
-      appUI && typeof appUI.getValidOrdersUpToNow === "function"
-        ? appUI.getValidOrdersUpToNow()
-        : Array.isArray(engine.orders)
-        ? engine.orders
-        : [];
+    let filteredOrders = [];
+    if (appUI && typeof appUI.getFilteredIngestOrders === "function") {
+      const res = appUI.getFilteredIngestOrders();
+      filteredOrders = Array.isArray(res && res.list) ? res.list : [];
+    } else {
+      const baseOrders =
+        appUI && typeof appUI.getValidOrdersUpToNow === "function"
+          ? appUI.getValidOrdersUpToNow()
+          : Array.isArray(engine.orders)
+          ? engine.orders
+          : [];
+      filteredOrders = [...baseOrders];
+      if (appUI) {
+        const sortMode = appUI.orderSortMode || "NEWEST_FIRST";
+        filteredOrders.sort((a, b) =>
+          sortMode === "OLDEST_FIRST"
+            ? (Number(a.timestampMs) || 0) - (Number(b.timestampMs) || 0)
+            : (Number(b.timestampMs) || 0) - (Number(a.timestampMs) || 0)
+        );
 
-    let filteredOrders = [...baseOrders];
-    if (appUI) {
-      const sortMode = appUI.orderSortMode || "NEWEST_FIRST";
-      filteredOrders.sort((a, b) =>
-        sortMode === "OLDEST_FIRST"
-          ? (Number(a.timestampMs) || 0) - (Number(b.timestampMs) || 0)
-          : (Number(b.timestampMs) || 0) - (Number(a.timestampMs) || 0)
-      );
-
-      if (appUI.currentChannelFilter && appUI.currentChannelFilter !== "ALL") {
-        filteredOrders = filteredOrders.filter((o) => o.channel === appUI.currentChannelFilter);
-      }
-      if (appUI.currentStatusFilter && appUI.currentStatusFilter !== "ALL") {
-        filteredOrders = filteredOrders.filter((o) => {
-          const ps = o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
-          return ps === appUI.currentStatusFilter || o.status === appUI.currentStatusFilter;
-        });
-      }
-      if (appUI.searchQuery) {
-        const q = String(appUI.searchQuery).trim().toLowerCase();
-        if (q) {
-          filteredOrders = filteredOrders.filter(
-            (o) =>
-              String(o.orderId || "").toLowerCase().includes(q) ||
-              String(o.sku || "").toLowerCase().includes(q) ||
-              String(o.customerName || "").toLowerCase().includes(q) ||
-              String(o.productName || "").toLowerCase().includes(q)
-          );
+        if (appUI.ordersQuickMode === "URGENT") {
+          filteredOrders = filteredOrders.filter((o) => {
+            const ps = o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
+            return ps !== "CANCELLED" && o.status !== "CANCELLED" && o.status !== "INVALID" && (o.status === "BACKORDER" || ps === "UNCONFIRMED");
+          });
+        }
+        if (appUI.currentChannelFilter && appUI.currentChannelFilter !== "ALL") {
+          filteredOrders = filteredOrders.filter((o) => o.channel === appUI.currentChannelFilter);
+        }
+        if (appUI.currentStatusFilter && appUI.currentStatusFilter !== "ALL") {
+          filteredOrders = filteredOrders.filter((o) => {
+            const ps = o.platformStatus || (o.status === "CANCELLED" || o.status === "INVALID" ? "CANCELLED" : "CONFIRMED");
+            return ps === appUI.currentStatusFilter || o.status === appUI.currentStatusFilter;
+          });
+        }
+        if (appUI.searchQuery) {
+          const q = String(appUI.searchQuery).trim().toLowerCase();
+          if (q) {
+            filteredOrders = filteredOrders.filter(
+              (o) =>
+                String(o.orderId || "").toLowerCase().includes(q) ||
+                String(o.sku || "").toLowerCase().includes(q) ||
+                String(o.customerName || "").toLowerCase().includes(q) ||
+                String(o.productName || "").toLowerCase().includes(q)
+            );
+          }
         }
       }
     }

@@ -1414,6 +1414,90 @@ class OMSEngine {
     this.recalculateAllAllocations();
   }
 
+  addNewInventoryProduct({ sku, name, category, unit, price, initialQty, batchCode, expiryDate }) {
+    const cleanSku = String(sku || "").trim().toUpperCase();
+    const cleanName = String(name || "").trim();
+    const cleanCategory = String(category || "").trim();
+    const cleanUnit = String(unit || "Cái").trim() || "Cái";
+    const cleanPrice = Math.round(Number(price) || 0);
+    const cleanQty = parseInt(initialQty, 10) || 0;
+    const cleanBatch = String(batchCode || "").trim().toUpperCase();
+
+    if (!cleanCategory) {
+      return { success: false, error: "Vui lòng nhập hoặc chọn Danh mục sản phẩm." };
+    }
+    if (!cleanSku) {
+      return { success: false, error: "Vui lòng nhập Mã sản phẩm." };
+    }
+    if (!cleanName) {
+      return { success: false, error: "Vui lòng nhập Tên sản phẩm." };
+    }
+    if (!cleanUnit) {
+      return { success: false, error: "Vui lòng nhập Đơn vị tính." };
+    }
+    if (!Number.isFinite(cleanPrice) || cleanPrice <= 0) {
+      return { success: false, error: "Đơn giá phải lớn hơn 0 VND." };
+    }
+    if (!Number.isFinite(cleanQty) || cleanQty < 1) {
+      return { success: false, error: "Số lượng nhập đầu phải lớn hơn hoặc bằng 1." };
+    }
+    if (!cleanBatch) {
+      return { success: false, error: "Vui lòng nhập Mã lô đầu tiên." };
+    }
+
+    const baseList = Array.isArray(window.INITIAL_INVENTORY) ? window.INITIAL_INVENTORY : [];
+    if (baseList.some((i) => String(i.sku || "").trim().toUpperCase() === cleanSku)) {
+      return { success: false, error: `Mã sản phẩm "${cleanSku}" đã tồn tại trong kho.` };
+    }
+    const batchExists = baseList.some(
+      (i) =>
+        Array.isArray(i.batches) &&
+        i.batches.some((b) => String(b.batchCode || "").trim().toUpperCase() === cleanBatch)
+    );
+    if (batchExists) {
+      return { success: false, error: `Mã lô "${cleanBatch}" đã tồn tại trong kho.` };
+    }
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const defaultExpIso = `${now.getFullYear() + 1}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const cleanExpiry = String(expiryDate || "").trim() || defaultExpIso;
+    const qrSuffix = cleanBatch.replace(/[^A-Z0-9]/g, "").slice(-6) || String(Date.now()).slice(-6);
+    const cleanQr = `OD-${qrSuffix}`;
+
+    const newItem = {
+      sku: cleanSku,
+      name: cleanName,
+      category: cleanCategory,
+      unit: cleanUnit,
+      price: cleanPrice,
+      maxCapacity: Math.max(40, cleanQty * 2),
+      physicalStock: cleanQty,
+      reservedStock: 0,
+      availableStock: cleanQty,
+      channelReserved: { SHOPEE: 0, TIKTOK: 0, LAZADA: 0, FACEBOOK: 0, POS: 0 },
+      batches: [
+        {
+          batchCode: cleanBatch,
+          qrCode: cleanQr,
+          importDate: todayIso,
+          expiryDate: cleanExpiry,
+          initialQty: cleanQty,
+          remainingQty: cleanQty
+        }
+      ]
+    };
+
+    window.INITIAL_INVENTORY.push(newItem);
+    this.addLog(
+      "info",
+      `[THÊM SẢN PHẨM MỚI] Đã thêm ${cleanSku} — ${cleanName} (Danh mục: ${cleanCategory} · Đơn giá: ${cleanPrice.toLocaleString("vi-VN")} VND · Nhập đầu: ${cleanQty} ${cleanUnit} · Mã lô: ${cleanBatch}).`
+    );
+    this.recalculateAllAllocations();
+    return { success: true, item: newItem };
+  }
+
   toggleOrderConfirmation(orderId, forceState) {
     const ord = this.orders.find((o) => o.orderId === orderId);
     if (!ord || ord.platformStatus === "CANCELLED" || ord.status === "INVALID") return null;
