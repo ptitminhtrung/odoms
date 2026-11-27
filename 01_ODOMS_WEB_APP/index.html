@@ -15,7 +15,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="css/style.css?v=20261124_v38" />
+  <link rel="stylesheet" href="css/style.css?v=20261124_v39" />
   <!-- Thư viện SheetJS hỗ trợ đọc/xuất trực tiếp file Excel .xlsx -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -832,34 +832,32 @@
 
             <div class="rev-filter-right">
               <span id="revSyncTimestamp" class="rev-sync-hint">Cập nhật: Chưa đồng bộ</span>
-              <button type="button" id="btnResetSoldPie" class="btn btn-outline odoms-btn-34 rev-toolbar-btn" onclick="AppUI.selectPieChannel(null)" title="Xem tổng hợp toàn bộ 5 kênh bán hàng">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="3" y="3" width="7" height="7"/>
-                  <rect x="14" y="3" width="7" height="7"/>
-                  <rect x="14" y="14" width="7" height="7"/>
-                  <rect x="3" y="14" width="7" height="7"/>
-                </svg>
-                <span>Xem tổng 5 kênh</span>
-              </button>
-              <button type="button" id="btnRefreshRevTimestamp" class="btn btn-outline odoms-btn-34 rev-toolbar-btn" onclick="AppUI.refreshOneMonthTimestamp()" title="Làm mới mốc giờ cập nhật số liệu">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <polyline points="23 4 23 10 17 10"/>
-                  <polyline points="1 20 1 14 7 14"/>
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-                </svg>
-                <span>Làm mới mốc giờ</span>
-              </button>
+              <div class="settings-segmented-control rev-filter-action-seg" role="group" aria-label="Thao tác xem tổng 5 kênh và làm mới mốc giờ">
+                <button type="button" id="btnResetSoldPie" class="settings-seg-btn settings-action-icon-btn" onclick="AppUI.selectPieChannel(null)" title="Xem tổng 5 kênh" aria-label="Xem tổng 5 kênh">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                  </svg>
+                </button>
+                <button type="button" id="btnRefreshRevTimestamp" class="settings-seg-btn settings-action-icon-btn" onclick="AppUI.refreshOneMonthTimestamp()" title="Làm mới mốc giờ" aria-label="Làm mới mốc giờ">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <polyline points="1 20 1 14 7 14"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
 
           <!-- KHỐI 1: DOANH THU BÁN HÀNG · CƠ CẤU 5 KÊNH (DONUT) & XẾP HẠNG SẢN PHẨM BÁN CHẠY -->
           <div class="wms-card rev-panel-card sold-pie-card-full">
-            <div class="wms-card-header rev-card-header">
+            <div class="wms-card-header rev-card-header rev-block1-header">
               <div class="rev-header-title-wrap">
                 <div class="wms-card-title">Doanh thu bán hàng</div>
-                <div id="oneMonthRollingTimeLabel" class="wms-card-subtitle rev-panel-sub">
-                  Chu kỳ đang xem: Tất cả thời gian
-                </div>
+                <div id="oneMonthRollingTimeLabel" class="wms-card-subtitle rev-panel-sub hidden"></div>
               </div>
             </div>
 
@@ -883,26 +881,34 @@
                       </div>
                     </div>
                     <div id="soldPieVivoLegend" class="sold-pie-vivo-legend"></div>
-                    <div id="soldPieSummaryFooter" class="sold-pie-summary-footer"></div>
+                    <div id="soldPieSummaryFooter" class="sold-pie-summary-footer hidden"></div>
                   </div>
                 </div>
               </div>
 
-              <!-- Cột Phải: Xếp hạng sản phẩm bán chạy (10 bán chạy | Tất cả sản phẩm) -->
+              <!-- Cột Phải: Xếp hạng sản phẩm bán chạy (10 dẫn đầu | Tất cả) -->
               <div class="top-products-panel">
                 <div class="top-products-header">
                   <div class="rev-header-title-wrap">
                     <div class="top-products-title">Xếp hạng sản phẩm bán chạy</div>
-                    <div id="topProductsSubtitle" class="top-products-subtitle">
-                      10 sản phẩm bán chạy nhất · Tất cả thời gian
-                    </div>
+                    <div id="topProductsSubtitle" class="top-products-subtitle hidden"></div>
                   </div>
                   <div class="settings-segmented-control rev-prod-seg" role="group" aria-label="Chọn phạm vi danh sách sản phẩm bán chạy">
-                    <button type="button" id="btnTop10Products" class="settings-seg-btn settings-seg-text-btn active" onclick="AppUI.setTopProductsLimit(10)">
-                      10 bán chạy
+                    <button type="button" id="btnTop10Products" class="settings-seg-btn settings-action-icon-btn active" onclick="AppUI.setTopProductsLimit(10)" title="10 sản phẩm bán chạy nhất" aria-label="10 sản phẩm bán chạy nhất">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="8" r="6"/>
+                        <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
+                      </svg>
                     </button>
-                    <button type="button" id="btnTop50Products" class="settings-seg-btn settings-seg-text-btn" onclick="AppUI.setTopProductsLimit(50)">
-                      Tất cả sản phẩm
+                    <button type="button" id="btnTop50Products" class="settings-seg-btn settings-action-icon-btn" onclick="AppUI.setTopProductsLimit(50)" title="Tất cả sản phẩm (25 mặt hàng)" aria-label="Tất cả sản phẩm">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="8" y1="6" x2="21" y2="6"/>
+                        <line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/>
+                        <line x1="3" y1="12" x2="3.01" y2="12"/>
+                        <line x1="3" y1="18" x2="3.01" y2="18"/>
+                      </svg>
                     </button>
                   </div>
                 </div>
@@ -914,173 +920,214 @@
             </div>
           </div>
 
-          <!-- KHỐI 2: XẾP HẠNG 3 KÊNH BÁN HÀNG DẪN ĐẦU VỀ DOANH THU (3 CỘT: TIẾP NHẬN · XUẤT HÀNG · HỦY ĐƠN) -->
-          <div class="wms-card rev-panel-card">
-            <div class="wms-card-header rev-card-header">
+          <!-- KHỐI 2 & 3 HỢP NHẤT (PHƯƠNG ÁN 2 TỐI GIẢN CHUẨN CÀI ĐẶT): TIẾP NHẬN & XUẤT HÀNG ↔ XẾP HẠNG 3 KÊNH -->
+          <div class="wms-card rev-panel-card rev-spline-card rev-combined-card">
+            <div class="wms-card-header rev-card-header rev-combined-header">
               <div class="rev-header-title-wrap">
-                <div class="wms-card-title">Xếp hạng 3 kênh bán hàng dẫn đầu về doanh thu</div>
-                <div id="unifiedRankingFilterNotice" class="wms-card-subtitle rev-panel-sub"></div>
-              </div>
-              <div class="rev-top3-legend-bar" aria-label="Chú giải 3 cột sản lượng">
-                <span class="rev-legend-chip">
-                  <span class="rev-legend-sq rev-sq-received"></span>
-                  <span>Tiếp nhận</span>
-                </span>
-                <span class="rev-legend-chip">
-                  <span class="rev-legend-sq rev-sq-exported"></span>
-                  <span>Xuất hàng</span>
-                </span>
-                <span class="rev-legend-chip">
-                  <span class="rev-legend-sq rev-sq-cancelled"></span>
-                  <span>Hủy đơn</span>
-                </span>
-              </div>
-            </div>
-
-            <div id="unifiedTop3RankingBarContainer" class="three-month-bars-stage rev-top3-stage"></div>
-            <div id="unifiedRankingFooterSummary" class="ranking-footer-box rev-ranking-footer"></div>
-          </div>
-
-          <!-- KHỐI 3: TIẾP NHẬN VÀ XUẤT HÀNG (ĐỒ THỊ 2 TRỤC TUNG THUẦN SVG · VẦNG QUANG MÀU RIÊNG CHẾ ĐỘ TỐI) -->
-          <div class="wms-card rev-panel-card rev-spline-card">
-            <div class="wms-card-header rev-card-header">
-              <div class="rev-header-title-wrap">
-                <div class="wms-card-title">Tiếp nhận và Xuất hàng</div>
+                <div id="revCombinedCardTitle" class="wms-card-title">Tiếp nhận &amp; Xuất hàng</div>
                 <div id="monthlyTrendsSubtitle" class="wms-card-subtitle rev-panel-sub">
-                  Thống kê 5 kênh Thời trang · Tất cả thời gian
+                  <strong>34</strong> tiếp nhận · <strong>30</strong> xuất · <strong>88,2%</strong>
+                </div>
+                <div id="unifiedRankingFilterNotice" class="wms-card-subtitle rev-panel-sub hidden">
+                  <strong>34</strong> tiếp nhận · <strong>30</strong> xuất · <strong>46.280.000 VND</strong>
                 </div>
               </div>
-              <div class="rev-spline-actions">
-                <div class="rev-spline-legend-group">
-                  <button type="button" id="legendPillImport" class="trend-legend-pill rev-legend-btn" onclick="AppUI.handleMonthlyTrendLineClick('import')" title="Nhấn để làm nổi bật hoặc xem toàn bộ đường Đơn tiếp nhận">
-                    <span id="legendBoxImport" class="trend-legend-dot"></span>
-                    <span>Đơn tiếp nhận</span>
+
+              <div class="rev-combined-controls">
+                <!-- Chú giải tối giản Tab 1: Tiếp nhận & Tỷ lệ xuất -->
+                <div id="revSplineLegendGroup" class="rev-spline-legend-group">
+                  <button type="button" id="legendPillImport" class="trend-legend-pill rev-legend-btn" onclick="AppUI.handleMonthlyTrendLineClick('import')" title="Nhấn để làm nổi bật hoặc xem toàn bộ đường Đơn tiếp nhận" aria-label="Đơn tiếp nhận">
+                    <span id="legendBoxImport" class="trend-legend-dot rev-legend-line-swatch"></span>
+                    <span>Tiếp nhận</span>
                   </button>
-                  <button type="button" id="legendPillExport" class="trend-legend-pill rev-legend-btn" onclick="AppUI.handleMonthlyTrendLineClick('export')" title="Nhấn để làm nổi bật hoặc xem toàn bộ đường Tỷ lệ xuất hàng">
-                    <span id="legendBoxExport" class="trend-legend-dot"></span>
-                    <span>Tỷ lệ xuất (%)</span>
+                  <button type="button" id="legendPillExport" class="trend-legend-pill rev-legend-btn" onclick="AppUI.handleMonthlyTrendLineClick('export')" title="Nhấn để làm nổi bật hoặc xem toàn bộ đường Tỷ lệ xuất hàng" aria-label="Tỷ lệ xuất hàng">
+                    <span id="legendBoxExport" class="trend-legend-dot rev-legend-line-swatch"></span>
+                    <span>Tỷ lệ xuất</span>
                   </button>
                 </div>
-                <button type="button" class="btn btn-outline odoms-btn-34 rev-toolbar-btn" id="btnToggleAllMonthlyDots" onclick="AppUI.toggleAllMonthlyTrendsNumbers()" title="Nhấn để hiện hoặc ẩn toàn bộ số liệu trên đồ thị">
+
+                <!-- Chú giải tối giản Tab 2: 3 cột sản lượng đồng bộ màu Tab 1 -->
+                <div id="revTop3LegendGroup" class="rev-top3-legend-bar hidden" aria-label="Chú giải 3 cột sản lượng">
+                  <span class="rev-legend-chip">
+                    <span class="rev-legend-sq rev-sq-received"></span>
+                    <span>Tiếp nhận</span>
+                  </span>
+                  <span class="rev-legend-chip">
+                    <span class="rev-legend-sq rev-sq-exported"></span>
+                    <span>Xuất hàng</span>
+                  </span>
+                  <span class="rev-legend-chip">
+                    <span class="rev-legend-sq rev-sq-cancelled"></span>
+                    <span>Chưa xuất / Hủy</span>
+                  </span>
+                </div>
+
+                <!-- Nút biểu tượng con mắt bật/tắt số liệu trên đồ thị (chỉ hiện ở Tab 1) -->
+                <button type="button" class="rev-eye-icon-btn active" id="btnToggleAllMonthlyDots" data-showing-all="true" aria-pressed="true" onclick="AppUI.toggleAllMonthlyTrendsNumbers()" title="Ẩn số liệu trên đồ thị" aria-label="Ẩn số liệu trên đồ thị">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
-                  <span>Xem tất cả số</span>
                 </button>
+
+                <!-- Cụm chuyển 2 biểu đồ dạng nút biểu tượng chuẩn trang Cài đặt -->
+                <div id="revBottomTabSeg" class="settings-segmented-control rev-tab-seg" role="group" aria-label="Chuyển đổi biểu đồ doanh thu">
+                  <button type="button" id="btnRevTabSpline" class="settings-seg-btn settings-action-icon-btn rev-tab-icon-btn active" aria-pressed="true" title="Tiếp nhận &amp; Xuất hàng" aria-label="Tiếp nhận &amp; Xuất hàng" onclick="AppUI.switchRevenueBottomTab('spline')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                      <polyline points="16 7 22 7 22 13"/>
+                    </svg>
+                  </button>
+                  <button type="button" id="btnRevTabTop3" class="settings-seg-btn settings-action-icon-btn rev-tab-icon-btn" aria-pressed="false" title="Xếp hạng 3 kênh" aria-label="Xếp hạng 3 kênh" onclick="AppUI.switchRevenueBottomTab('top3')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="3" y="12" width="4" height="8"/>
+                      <rect x="10" y="4" width="4" height="16"/>
+                      <rect x="17" y="8" width="4" height="12"/>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div id="revSplineStage" class="rev-spline-stage rev-spline-wrap">
-              <svg id="monthlyTrendsSplineSvg" viewBox="0 0 1080 264" class="rev-spline-svg" role="img" aria-label="Đồ thị hai trục tung thể hiện số đơn tiếp nhận và tỷ lệ xuất hàng theo thời gian" onmousemove="AppUI.handleMonthlySplinePointerMove(event)" onmouseleave="AppUI.hideMonthlySplineHover()">
-                <defs>
-                  <!-- Ánh vầng quang xanh dương dưới đường Đơn tiếp nhận (chỉ hiển thị ở Chế độ Tối, ẩn ở Chế độ Sáng) -->
-                  <linearGradient id="gradAreaImport" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop id="gradStopImportTop" offset="0%" stop-color="#3B82F6" stop-opacity="0.28" />
-                    <stop id="gradStopImportMid" offset="65%" stop-color="#3B82F6" stop-opacity="0.08" />
-                    <stop id="gradStopImportBottom" offset="100%" stop-color="#3B82F6" stop-opacity="0.0" />
-                  </linearGradient>
-                  <!-- Ánh vầng quang xanh ngọc dưới đường Tỷ lệ xuất hàng (chỉ hiển thị ở Chế độ Tối, ẩn ở Chế độ Sáng) -->
-                  <linearGradient id="gradAreaExport" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop id="gradStopExportTop" offset="0%" stop-color="#10B981" stop-opacity="0.22" />
-                    <stop id="gradStopExportMid" offset="65%" stop-color="#10B981" stop-opacity="0.06" />
-                    <stop id="gradStopExportBottom" offset="100%" stop-color="#10B981" stop-opacity="0.0" />
-                  </linearGradient>
-                </defs>
+            <!-- VÙNG BIỂU ĐỒ 1 (MẶC ĐỊNH): TIẾP NHẬN & XUẤT HÀNG (2 TRỤC TUNG THUẦN SVG · VẦNG QUANG RIÊNG CHẾ ĐỘ TỐI) -->
+            <div id="revBottomPanelSpline" class="rev-combined-panel">
+              <div class="rev-print-panel-heading">
+                <span class="rev-print-panel-title">Tiếp nhận &amp; Xuất hàng</span>
+                <span class="rev-print-panel-legend">
+                  <span><i class="rev-print-swatch rev-sq-received"></i>Tiếp nhận (đơn)</span>
+                  <span><i class="rev-print-swatch rev-sq-exported"></i>Tỷ lệ xuất (%)</span>
+                </span>
+              </div>
 
-                <!-- 5 đường lưới ngang tối giản thích ứng Sáng / Tối (0 lưới dọc cố định) -->
-                <g id="chartGridLines" class="rev-spline-grid" stroke-width="1"></g>
+              <div id="revSplineStage" class="rev-spline-stage rev-spline-wrap">
+                <svg id="monthlyTrendsSplineSvg" viewBox="0 0 1080 264" class="rev-spline-svg" role="img" aria-label="Đồ thị hai trục tung thể hiện số đơn tiếp nhận và tỷ lệ xuất hàng theo thời gian" onmousemove="AppUI.handleMonthlySplinePointerMove(event)" onmouseleave="AppUI.hideMonthlySplineHover()">
+                  <defs>
+                    <!-- Ánh vầng quang xanh dương dưới đường Đơn tiếp nhận (đồng bộ Chế độ Sáng / Tối, ẩn khi in) -->
+                    <linearGradient id="gradAreaImport" gradientUnits="userSpaceOnUse" x1="0" y1="36" x2="0" y2="226">
+                      <stop id="gradStopImportTop" offset="0%" stop-color="#1877FF" stop-opacity="0.34" />
+                      <stop id="gradStopImportMid" offset="65%" stop-color="#1877FF" stop-opacity="0.18" />
+                      <stop id="gradStopImportLow" offset="92%" stop-color="#1877FF" stop-opacity="0.14" />
+                      <stop id="gradStopImportBottom" offset="100%" stop-color="#1877FF" stop-opacity="0.03" />
+                    </linearGradient>
+                    <!-- Ánh vầng quang xanh ngọc ôm sát dưới đường Tỷ lệ xuất hàng (tan sạch trước nửa biểu đồ, ẩn khi in) -->
+                    <linearGradient id="gradAreaExport" gradientUnits="userSpaceOnUse" x1="0" y1="36" x2="0" y2="226">
+                      <stop id="gradStopExportTop" offset="0%" stop-color="#10B981" stop-opacity="0.28" />
+                      <stop id="gradStopExportMid" offset="18%" stop-color="#10B981" stop-opacity="0.11" />
+                      <stop id="gradStopExportFade" offset="42%" stop-color="#10B981" stop-opacity="0" />
+                      <stop id="gradStopExportBottom" offset="100%" stop-color="#10B981" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
 
-                <!-- Nhãn trục tung trái (Số đơn tiếp nhận) nằm gọn bên trong vùng vẽ -->
-                <g id="chartYAxisLabels" class="rev-spline-y-labels" font-size="11" font-weight="600"></g>
+                  <!-- 5 đường lưới ngang tối giản thích ứng Sáng / Tối (0 lưới dọc cố định) -->
+                  <g id="chartGridLines" class="rev-spline-grid" stroke-width="1"></g>
 
-                <!-- Nhãn trục tung phải (Tỷ lệ xuất %) nằm gọn bên trong vùng vẽ -->
-                <g id="chartYAxisRightLabels" class="rev-spline-y-right-labels" font-size="11" font-weight="600"></g>
+                  <!-- Nhãn trục tung trái (gộp đơn vị vào mốc đỉnh) nằm gọn bên trong vùng vẽ -->
+                  <g id="chartYAxisLabels" class="rev-spline-y-labels" font-size="11" font-weight="600"></g>
 
-                <!-- Vùng ánh vầng quang đường Đơn tiếp nhận (ẩn ở Chế độ Sáng, hiện ở Chế độ Tối) -->
-                <path
-                  id="chartAreaImport"
-                  class="trend-spline-area"
-                  d=""
-                  fill="url(#gradAreaImport)"
-                  onclick="AppUI.handleMonthlyTrendLineClick('import')"
-                />
+                  <!-- Nhãn trục tung phải (0%..100%) nằm gọn bên trong vùng vẽ -->
+                  <g id="chartYAxisRightLabels" class="rev-spline-y-right-labels" font-size="11" font-weight="600"></g>
 
-                <!-- Vùng ánh vầng quang đường Tỷ lệ xuất hàng (ẩn ở Chế độ Sáng, hiện ở Chế độ Tối) -->
-                <path
-                  id="chartAreaExport"
-                  class="trend-spline-area"
-                  d=""
-                  fill="url(#gradAreaExport)"
-                  onclick="AppUI.handleMonthlyTrendLineClick('export')"
-                />
+                  <!-- Vùng ánh vầng quang đường Đơn tiếp nhận (ẩn ở Chế độ Sáng, hiện ở Chế độ Tối) -->
+                  <path
+                    id="chartAreaImport"
+                    class="trend-spline-area"
+                    d=""
+                    fill="url(#gradAreaImport)"
+                    onclick="AppUI.handleMonthlyTrendLineClick('import')"
+                  />
 
-                <!-- Đường gióng dọc nét đứt khi rê chuột qua các mốc thời gian -->
-                <line id="revSplineHoverGuide" class="rev-spline-hover-guide hidden" x1="0" y1="30" x2="0" y2="224" stroke-dasharray="3 3" stroke-width="1" />
+                  <!-- Vùng ánh vầng quang đường Tỷ lệ xuất hàng (ẩn ở Chế độ Sáng, hiện ở Chế độ Tối) -->
+                  <path
+                    id="chartAreaExport"
+                    class="trend-spline-area"
+                    d=""
+                    fill="url(#gradAreaExport)"
+                    onclick="AppUI.handleMonthlyTrendLineClick('export')"
+                  />
 
-                <!-- Đường 1: Đơn tiếp nhận (Trục trái — Xanh dương nét liền mảnh) -->
-                <path
-                  id="chartLineImport"
-                  class="trend-spline-line"
-                  d=""
-                  fill="none"
-                  stroke="#1877FF"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  onclick="AppUI.handleMonthlyTrendLineClick('import')"
-                />
-                <path
-                  id="chartHitLineImport"
-                  d=""
-                  fill="none"
-                  stroke="transparent"
-                  stroke-width="16"
-                  style="cursor:pointer;"
-                  onclick="AppUI.handleMonthlyTrendLineClick('import')"
-                >
-                  <title>Nhấn vào đường Đơn tiếp nhận để làm nổi bật hoặc xem toàn bộ số liệu</title>
-                </path>
+                  <!-- Dải sáng cột dọc & đường gióng nét đứt khi rê chuột qua các mốc thời gian -->
+                  <rect id="revSplineHoverBand" class="rev-spline-hover-band hidden" x="0" y="36" width="44" height="190" />
+                  <line id="revSplineHoverGuide" class="rev-spline-hover-guide hidden" x1="0" y1="36" x2="0" y2="226" stroke-dasharray="3 3" stroke-width="1" />
 
-                <!-- Đường 2: Tỷ lệ xuất hàng % (Trục phải — Xanh ngọc lục bảo nét liền mảnh) -->
-                <path
-                  id="chartLineExport"
-                  class="trend-spline-line"
-                  d=""
-                  fill="none"
-                  stroke="#10B981"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  onclick="AppUI.handleMonthlyTrendLineClick('export')"
-                />
-                <path
-                  id="chartHitLineExport"
-                  d=""
-                  fill="none"
-                  stroke="transparent"
-                  stroke-width="16"
-                  style="cursor:pointer;"
-                  onclick="AppUI.handleMonthlyTrendLineClick('export')"
-                >
-                  <title>Nhấn vào đường Tỷ lệ xuất hàng để làm nổi bật hoặc xem toàn bộ số liệu</title>
-                </path>
+                  <!-- Đường 1: Đơn tiếp nhận (Trục trái — Xanh dương nét liền mảnh) -->
+                  <path
+                    id="chartLineImport"
+                    class="trend-spline-line"
+                    d=""
+                    fill="none"
+                    stroke="#1877FF"
+                    stroke-width="2.2"
+                    stroke-linecap="round"
+                    onclick="AppUI.handleMonthlyTrendLineClick('import')"
+                  />
+                  <path
+                    id="chartHitLineImport"
+                    d=""
+                    fill="none"
+                    stroke="transparent"
+                    stroke-width="16"
+                    style="cursor:pointer;"
+                    onclick="AppUI.handleMonthlyTrendLineClick('import')"
+                  >
+                    <title>Nhấn vào đường Đơn tiếp nhận để làm nổi bật hoặc xem toàn bộ số liệu</title>
+                  </path>
 
-                <!-- Điểm dữ liệu đường Đơn tiếp nhận -->
-                <g id="chartDotsImport" fill="#1877FF"></g>
+                  <!-- Đường 2: Tỷ lệ xuất hàng % (Trục phải — Xanh ngọc lục bảo nét liền mảnh) -->
+                  <path
+                    id="chartLineExport"
+                    class="trend-spline-line"
+                    d=""
+                    fill="none"
+                    stroke="#10B981"
+                    stroke-width="2.2"
+                    stroke-linecap="round"
+                    onclick="AppUI.handleMonthlyTrendLineClick('export')"
+                  />
+                  <path
+                    id="chartHitLineExport"
+                    d=""
+                    fill="none"
+                    stroke="transparent"
+                    stroke-width="16"
+                    style="cursor:pointer;"
+                    onclick="AppUI.handleMonthlyTrendLineClick('export')"
+                  >
+                    <title>Nhấn vào đường Tỷ lệ xuất hàng để làm nổi bật hoặc xem toàn bộ số liệu</title>
+                  </path>
 
-                <!-- Điểm dữ liệu đường Tỷ lệ xuất hàng (%) -->
-                <g id="chartDotsExportGroup" fill="#10B981"></g>
+                  <!-- Điểm dữ liệu đường Đơn tiếp nhận -->
+                  <g id="chartDotsImport" fill="#1877FF"></g>
 
-                <!-- Nhóm nhãn số nổi khi bật Xem tất cả số hoặc chọn đường/điểm -->
-                <g id="chartDotsLabelsGroup" style="pointer-events:none;"></g>
+                  <!-- Điểm dữ liệu đường Tỷ lệ xuất hàng (%) -->
+                  <g id="chartDotsExportGroup" fill="#10B981"></g>
 
-                <!-- Lớp hiển thị trạng thái trống khi kỳ chọn có 0 đơn -->
-                <g id="chartEmptyOverlay" style="pointer-events:none;"></g>
+                  <!-- Nhóm nhãn số nổi khi bật Xem tất cả số hoặc chọn đường/điểm -->
+                  <g id="chartDotsLabelsGroup" style="pointer-events:none;"></g>
 
-                <!-- Nhãn trục hoành -->
-                <g id="chartXAxisLabels" class="rev-spline-x-labels" font-size="11.5" font-weight="600" text-anchor="middle"></g>
-              </svg>
-              <!-- Hộp thông số dùng chung hiển thị khi rê chuột qua đồ thị -->
-              <div id="revSplineHoverPopover" class="rev-spline-hover-popover hidden" aria-hidden="true"></div>
+                  <!-- Lớp hiển thị trạng thái trống khi kỳ chọn có 0 đơn -->
+                  <g id="chartEmptyOverlay" style="pointer-events:none;"></g>
+
+                  <!-- Nhãn trục hoành -->
+                  <g id="chartXAxisLabels" class="rev-spline-x-labels" font-size="11.5" font-weight="600" text-anchor="middle"></g>
+                </svg>
+                <!-- Hộp thông số dùng chung hiển thị khi rê chuột qua đồ thị -->
+                <div id="revSplineHoverPopover" class="rev-spline-hover-popover hidden" aria-hidden="true"></div>
+              </div>
+            </div>
+
+            <!-- VÙNG BIỂU ĐỒ 2: XẾP HẠNG 3 KÊNH BÁN HÀNG DẪN ĐẦU (3 CỘT: TIẾP NHẬN · XUẤT HÀNG · CHƯA XUẤT / HỦY) -->
+            <div id="revBottomPanelTop3" class="rev-combined-panel rev-top3-panel hidden">
+              <div class="rev-print-panel-heading">
+                <span class="rev-print-panel-title">Xếp hạng 3 kênh</span>
+                <span class="rev-print-panel-legend">
+                  <span><i class="rev-print-swatch rev-sq-received"></i>Tiếp nhận</span>
+                  <span><i class="rev-print-swatch rev-sq-exported"></i>Xuất hàng</span>
+                  <span><i class="rev-print-swatch rev-sq-cancelled"></i>Chưa xuất / Hủy</span>
+                </span>
+              </div>
+
+              <div id="unifiedTop3RankingBarContainer" class="three-month-bars-stage rev-top3-stage"></div>
+              <div id="unifiedRankingFooterSummary" class="ranking-footer-box rev-ranking-footer"></div>
             </div>
           </div>
 
@@ -2804,33 +2851,279 @@
           </div>
         </section>
 
-        <!-- 12. PHÂN HỆ BÁO CÁO & CÀI ĐẶT (Nhóm HỆ THỐNG) -->
+        <!-- 12. PHÂN HỆ BÁO CÁO & ĐỐI CHIẾU TỔNG HỢP (CHUẨN PHẲNG 0PX, v39) -->
         <section class="oms-view-section hidden" data-views="reports">
-          <div class="wms-card">
-            <div class="wms-card-header">
-              <div>
-                <div class="wms-card-title">Báo cáo Tổng hợp Đối chiếu Đơn hàng & Tồn kho theo 5 Kênh</div>
-                <div class="wms-card-subtitle">Thống kê hiệu suất phân bổ giữ hàng và doanh thu tạm tính</div>
-              </div>
-              <button class="btn btn-primary" onclick="window.ExcelHandler.exportAllocatedReport()">
-                📊 Xuất Báo Cáo Đối Chiếu (.xlsx)
+          <!-- A. Thanh Công cụ Đối chiếu & Xuất báo cáo Đầu trang -->
+          <div class="rep-filter-bar no-print">
+            <div class="rep-filter-left">
+              <label for="repPeriodFilter" class="rep-filter-label">Kỳ đối chiếu:</label>
+              <select
+                id="repPeriodFilter"
+                class="form-control odoms-ctrl-34 rep-filter-select"
+                onchange="AppUI.onReportsFilterChange()"
+                aria-label="Chọn kỳ đối chiếu báo cáo"
+              >
+                <option value="ALL" selected>Tất cả thời gian</option>
+              </select>
+
+              <label for="repChannelFilter" class="rep-filter-label">Kênh bán:</label>
+              <select
+                id="repChannelFilter"
+                class="form-control odoms-ctrl-34 rep-filter-select"
+                onchange="AppUI.onReportsFilterChange()"
+                aria-label="Lọc báo cáo theo kênh bán hàng"
+              >
+                <option value="ALL" selected>Tất cả 5 kênh</option>
+                <option value="SHOPEE">Shopee</option>
+                <option value="TIKTOK">TikTok Shop</option>
+                <option value="LAZADA">Lazada</option>
+                <option value="FACEBOOK">Facebook</option>
+                <option value="POS">Cửa hàng POS</option>
+              </select>
+            </div>
+
+            <div class="rep-filter-right">
+              <span id="repSyncTimestamp" class="rep-sync-hint">Cập nhật: Chưa đồng bộ</span>
+              <button
+                type="button"
+                id="btnPrintReportsSummary"
+                class="rep-icon-btn no-print"
+                onclick="window.print()"
+                title="In báo cáo"
+                aria-label="In báo cáo"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 6 2 18 2 18 9"/>
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                  <rect x="6" y="14" width="12" height="8"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                id="btnExportReportsExcel"
+                class="btn btn-primary odoms-btn-34 rep-export-btn no-print"
+                onclick="window.ExcelHandler.exportAllocatedReport()"
+                title="Xuất báo cáo đối chiếu sang Excel"
+                aria-label="Xuất báo cáo đối chiếu sang Excel"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span>Xuất Excel</span>
               </button>
             </div>
-            <div class="table-responsive">
-              <table class="wms-table">
+          </div>
+
+          <!-- B. Dải 4 Thẻ Chỉ số Tổng hợp Toàn hệ thống -->
+          <div class="kpi-cards-grid odoms-kpi-strip-4 rep-kpi-strip">
+            <div class="wms-kpi-card rep-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Tổng đơn &amp; Giữ hàng</span>
+                <div class="kpi-icon-box blue" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  </svg>
+                </div>
+              </div>
+              <div id="repKpiTotalOrders" class="kpi-card-number rep-kpi-value">0 đơn</div>
+              <div id="repKpiTotalOrdersSub" class="kpi-card-sub rep-kpi-sub">0 đã giữ · Tỷ lệ 0,0%</div>
+            </div>
+
+            <div class="wms-kpi-card rep-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Doanh thu đã giữ</span>
+                <div class="kpi-icon-box green" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                    <polyline points="17 6 23 6 23 12"/>
+                  </svg>
+                </div>
+              </div>
+              <div id="repKpiAllocatedRevenue" class="kpi-card-number rep-kpi-value">0 VND</div>
+              <div id="repKpiAllocatedRevenueSub" class="kpi-card-sub rep-kpi-sub">Trên 0 đơn · 0 SP</div>
+            </div>
+
+            <div class="wms-kpi-card rep-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Vận đơn &amp; Thu hộ</span>
+                <div class="kpi-icon-box purple" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="3" width="15" height="13"/>
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                    <circle cx="5.5" cy="18.5" r="2.5"/>
+                    <circle cx="18.5" cy="18.5" r="2.5"/>
+                  </svg>
+                </div>
+              </div>
+              <div id="repKpiShipments" class="kpi-card-number rep-kpi-value">0 vận đơn</div>
+              <div id="repKpiShipmentsSub" class="kpi-card-sub rep-kpi-sub">0 đã giao · Thu hộ: 0 VND</div>
+            </div>
+
+            <div class="wms-kpi-card rep-kpi-card">
+              <div class="kpi-card-top">
+                <span class="kpi-card-label">Tồn có thể bán</span>
+                <div class="kpi-icon-box orange" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="0"/>
+                    <path d="M3 9h18"/>
+                    <path d="M3 15h18"/>
+                  </svg>
+                </div>
+              </div>
+              <div id="repKpiAvailableStock" class="kpi-card-number rep-kpi-value">0 SP</div>
+              <div id="repKpiAvailableStockSub" class="kpi-card-sub rep-kpi-sub">0 mặt hàng · 0 hết hàng</div>
+            </div>
+          </div>
+
+          <!-- C. Bảng 1 — Đối chiếu 5 kênh -->
+          <div class="wms-card rep-panel-card">
+            <div class="wms-card-header rep-card-header">
+              <div class="wms-card-title">Đối chiếu 5 kênh</div>
+            </div>
+            <div class="odoms-table-scroll">
+              <table class="odoms-flat-table rep-channel-table">
                 <thead>
                   <tr>
-                    <th>Kênh Bán Hàng</th>
-                    <th>Tổng Đơn Tiếp Nhận</th>
-                    <th>Đã Giữ Hàng (Ưu tiên đặt trước)</th>
-                    <th>Chặn Bán Lố (Thiếu Tồn)</th>
-                    <th>Đơn Lỗi Hợp Lệ</th>
-                    <th>Tổng SP Đang Giữ</th>
-                    <th>Giá Trị Đơn Đã Giữ</th>
+                    <th class="col-rep-ch">Kênh</th>
+                    <th class="col-rep-rec">Tiếp nhận</th>
+                    <th class="col-rep-alloc">Đã giữ</th>
+                    <th class="col-rep-wait">Chờ / Thiếu</th>
+                    <th class="col-rep-cancel">Đã hủy</th>
+                    <th class="col-rep-rev">Giá trị (VND)</th>
+                    <th class="col-rep-rate">Tỷ lệ giữ</th>
                   </tr>
                 </thead>
                 <tbody id="channelReportTableBody"></tbody>
+                <tfoot id="channelReportTableFoot"></tfoot>
               </table>
+            </div>
+          </div>
+
+          <!-- C2. Biểu đồ đối chiếu gọn nhẹ phẳng 0px (thuần SVG, Sáng/Tối & In ấn) -->
+          <div class="wms-card rep-chart-card">
+            <div class="wms-card-header rep-card-header rep-chart-header">
+              <div class="wms-card-title">Biểu đồ đối chiếu</div>
+              <div class="rep-chart-legend" aria-label="Chú giải màu biểu đồ đối chiếu">
+                <span class="rep-chart-legend-item">
+                  <span class="rep-chart-sq is-primary" aria-hidden="true"></span>
+                  <span>Tiếp nhận / Tồn kho</span>
+                </span>
+                <span class="rep-chart-legend-item">
+                  <span class="rep-chart-sq is-emerald" aria-hidden="true"></span>
+                  <span>Đã giữ / Bán được</span>
+                </span>
+              </div>
+            </div>
+            <div class="rep-chart-grid">
+              <div class="rep-chart-col">
+                <div class="rep-chart-col-title">Đơn theo 5 kênh</div>
+                <svg
+                  id="repChannelCompareSvg"
+                  class="rep-compare-svg"
+                  viewBox="0 0 460 176"
+                  role="img"
+                  aria-label="Biểu đồ đối chiếu số đơn tiếp nhận và đã giữ theo 5 kênh"
+                ></svg>
+              </div>
+              <div class="rep-chart-col rep-chart-col-right">
+                <div class="rep-chart-col-title">Tồn theo danh mục</div>
+                <svg
+                  id="repCategoryCompareSvg"
+                  class="rep-compare-svg"
+                  viewBox="0 0 460 176"
+                  role="img"
+                  aria-label="Biểu đồ đối chiếu tồn kho và số lượng bán được theo danh mục"
+                ></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- D. Bảng 2 — Tồn kho & Giá trị -->
+          <div class="wms-card rep-panel-card rep-inv-card">
+            <div class="wms-card-header rep-card-header rep-inv-header">
+              <div class="wms-card-title">Tồn kho &amp; Giá trị</div>
+              <div class="rep-inv-filters no-print">
+                <select
+                  id="repInvCategoryFilter"
+                  class="form-control odoms-ctrl-34 rep-filter-select rep-inv-cat-select"
+                  onchange="AppUI.onReportsInvFilterChange()"
+                  aria-label="Lọc tồn kho theo danh mục sản phẩm"
+                >
+                  <option value="ALL" selected>Tất cả danh mục</option>
+                </select>
+                <div class="logs-search-box rep-inv-search-box">
+                  <svg class="logs-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input
+                    type="text"
+                    id="repInvSearchInput"
+                    class="logs-search-input"
+                    placeholder="Tìm mã, tên sản phẩm..."
+                    aria-label="Tìm nhanh theo mã hoặc tên sản phẩm"
+                    autocomplete="off"
+                    oninput="AppUI.onReportsInvFilterChange()"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="odoms-table-scroll">
+              <table class="odoms-flat-table rep-inv-table">
+                <thead>
+                  <tr>
+                    <th class="col-repinv-prod">Sản phẩm</th>
+                    <th class="col-repinv-batches">Số lô</th>
+                    <th class="col-repinv-phys">Tồn kho</th>
+                    <th class="col-repinv-resv">Giữ đơn</th>
+                    <th class="col-repinv-avail">Bán được</th>
+                    <th class="col-repinv-val">Giá trị (VND)</th>
+                    <th class="col-repinv-status">Tình trạng</th>
+                  </tr>
+                </thead>
+                <tbody id="reportsInventoryTableBody"></tbody>
+              </table>
+            </div>
+
+            <div id="repInvSummaryBar" class="rep-inv-summary-bar">
+              0 mặt hàng · Tồn: 0 SP · Bán được: 0 SP · Giá trị: 0 VND
+            </div>
+
+            <div id="repInvPaginationBar" class="logs-pagination-bar rep-inv-pagination-bar no-print">
+              <span id="repInvPaginationInfo" class="logs-pagination-info">Hiển thị 0 / tổng 0 mặt hàng</span>
+              <div class="settings-segmented-control logs-pagination-ctrl" role="navigation" aria-label="Phân trang bảng đối chiếu tồn kho">
+                <button
+                  type="button"
+                  id="btnRepInvPrevPage"
+                  class="settings-seg-btn settings-action-icon-btn"
+                  onclick="AppUI.changeReportsInvPage(-1)"
+                  title="Trang trước"
+                  aria-label="Trang trước"
+                  disabled
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="15 18 9 12 15 6"/>
+                  </svg>
+                </button>
+                <span id="repInvPaginationCurrent" class="logs-pagination-page">Trang 1 / 1</span>
+                <button
+                  type="button"
+                  id="btnRepInvNextPage"
+                  class="settings-seg-btn settings-action-icon-btn"
+                  onclick="AppUI.changeReportsInvPage(1)"
+                  title="Trang sau"
+                  aria-label="Trang sau"
+                  disabled
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -3152,10 +3445,10 @@
   </div>
 
   <!-- Nạp các module JavaScript -->
-  <script src="js/mock_data.js?v=20261124_v38"></script>
-  <script src="js/oms_engine.js?v=20261124_v38"></script>
-  <script src="js/excel_handler.js?v=20261124_v38"></script>
-  <script src="js/app.js?v=20261124_v38"></script>
+  <script src="js/mock_data.js?v=20261124_v39"></script>
+  <script src="js/oms_engine.js?v=20261124_v39"></script>
+  <script src="js/excel_handler.js?v=20261124_v39"></script>
+  <script src="js/app.js?v=20261124_v39"></script>
 
   <!-- HỘP THOẠI HÀNH TRÌNH GIAO NHẬN PHẲNG 0PX (#shippingMapModal, v33) -->
   <div id="shippingMapModal" class="modal-backdrop odoms-flat-modal-backdrop ship-map-modal-backdrop" onclick="if(event.target===this) AppUI.closeShippingMapModal()">

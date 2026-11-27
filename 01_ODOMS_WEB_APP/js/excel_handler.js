@@ -386,6 +386,7 @@ class ExcelHandler {
   }
 
   static triggerBlobDownload(blob, fileName) {
+    if (typeof URL === "undefined" || typeof document === "undefined" || !document.body) return;
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1323,6 +1324,9 @@ class ExcelHandler {
   // Phương thức xuất báo cáo theo đúng ngữ cảnh tab hiện tại trên giao diện
   static exportContextReport() {
     const activeTab = window.AppUI && window.AppUI.currentMenuTab;
+    if (activeTab === "dashboard") {
+      return ExcelHandler.exportDashboardOrdersReport();
+    }
     if (activeTab === "ingest") {
       return ExcelHandler.exportOrdersStatusReport();
     }
@@ -1333,6 +1337,169 @@ class ExcelHandler {
       return ExcelHandler.exportShippingReport();
     }
     return ExcelHandler.exportAllocatedReport();
+  }
+
+  // Khóa thời gian thực <= Date.now() phòng vệ hai lớp cho mọi danh sách đơn hàng xuất Excel
+  static clampOrdersUpToNow(ordersList) {
+    const appUI = window.AppUI || null;
+    const nowMs = Date.now();
+    return (Array.isArray(ordersList) ? ordersList : []).filter((ord) => {
+      if (!ord) return false;
+      let ts = null;
+      if (appUI && typeof appUI.getOrderTimestampMs === "function") {
+        ts = appUI.getOrderTimestampMs(ord);
+      } else if (Number.isFinite(Number(ord.timestampMs)) && Number(ord.timestampMs) > 0) {
+        ts = Number(ord.timestampMs);
+      } else if (ord.orderTime) {
+        const raw = String(ord.orderTime).trim();
+        const dmy = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+        if (dmy) {
+          ts = new Date(
+            Number(dmy[3]),
+            Number(dmy[2]) - 1,
+            Number(dmy[1]),
+            Number(dmy[4] || 0),
+            Number(dmy[5] || 0),
+            Number(dmy[6] || 0)
+          ).getTime();
+        } else {
+          const parsed = Date.parse(raw.replace(" ", "T"));
+          if (!isNaN(parsed)) ts = parsed;
+        }
+      }
+      return ts === null || ts <= nowMs;
+    });
+  }
+
+  // Ánh xạ tên thân thiện 5 kênh bán hàng thuần Việt (0 mã in hoa kỹ thuật)
+  static resolveChannelNameVi(chKey) {
+    const key = String(chKey || "").trim().toUpperCase();
+    const map = {
+      SHOPEE: "Shopee",
+      TIKTOK: "TikTok Shop",
+      LAZADA: "Lazada",
+      FACEBOOK: "Facebook",
+      POS: "Cửa hàng POS"
+    };
+    return map[key] || key || "Khác";
+  }
+
+  // Tạo trang tính dữ liệu thuần dùng cho chế độ ngoại tuyến khi chưa nạp thư viện SheetJS
+  static buildPlainReportSheetXml(rowsList) {
+    const safeRows = Array.isArray(rowsList) ? rowsList : [];
+    const headers = safeRows.length > 0 ? Object.keys(safeRows[0]) : ["Thông báo"];
+    const cols = headers.map((h) => Math.min(42, Math.max(14, String(h).length + 5)));
+    const xmlRows = [
+      {
+        r: 1,
+        ht: 24,
+        cells: headers.map((h, idx) => ({ col: idx, s: 5, v: h }))
+      }
+    ];
+    safeRows.forEach((rec, rIdx) => {
+      const isZebra = rIdx % 2 === 1;
+      xmlRows.push({
+        r: rIdx + 2,
+        ht: 20,
+        cells: headers.map((h, cIdx) => {
+          const val = rec[h];
+          if (typeof val === "number" && Number.isFinite(val)) {
+            return { col: cIdx, s: isZebra ? 15 : 14, t: "n", v: val };
+          }
+          return { col: cIdx, s: isZebra ? 11 : 10, v: val !== undefined && val !== null ? String(val) : "" };
+        })
+      });
+    });
+    return ExcelHandler.buildWorksheetXml({ cols, rows: xmlRows, showGridLines: true });
+  }
+
+  // Xuất toàn bộ danh sách đơn hàng màn hình Tổng quan theo đúng bộ lọc hiện tại (<= Date.now(), không cắt 10 dòng phân trang)
+  static exportDashboardOrdersReport() {
+    const engine = window.omsEngine;
+    const appUI = window.AppUI || null;
+    if (!engine && !appUI) return { sheetName: "Don_Hang_Tong_Quan", rows: [] };
+
+    let filteredOrders = [];
+    let validShipments = [];
+    if (appUI && typeof appUI.getUrgentOrdersFilteredList === "function") {
+      const res = appUI.getUrgentOrdersFilteredList();
+      filteredOrders = ExcelHandler.clampOrdersUpToNow(res && res.filtered);
+      validShipments =
+        typeof appUI.getValidShipmentsUpToNow === "function" ? appUI.getValidShipmentsUpToNow(filteredOrders) : [];
+    } else {
+      const baseOrders =
+        appUI && typeof appUI.getValidOrdersUpToNow === "function"
+          ? appUI.getValidOrdersUpToNow()
+          : ExcelHandler.clampOrdersUpToNow(engine && engine.orders);
+      filteredOrders = ExcelHandler.clampOrdersUpToNow(baseOrders);
+      validShipments =
+        appUI && typeof appUI.getValidShipmentsUpToNow === "function" ? appUI.getValidShipmentsUpToNow(filteredOrders) : [];
+    }
+
+    const shMap = new Map();
+    validShipments.forEach((s) => {
+      if (s && s.orderId) shMap.set(String(s.orderId).trim(), s);
+    });
+
+    const rows = filteredOrders.map((o) => {
+      const matchedSh = shMap.get(String(o.orderId || "").trim()) || null;
+      const carrier =
+        appUI && typeof appUI.resolveOrderCarrier === "function"
+          ? appUI.resolveOrderCarrier(o)
+          : engine && typeof engine.resolveOrderCarrier === "function"
+          ? engine.resolveOrderCarrier(o)
+          : o.carrier || "Chưa gán ĐVVC";
+      const statusLabel =
+        appUI && typeof appUI.resolveOrderDisplayStatus === "function"
+          ? appUI.resolveOrderDisplayStatus(o, matchedSh).label
+          : o.status === "ALLOCATED"
+          ? "Đã giữ hàng"
+          : o.status === "BACKORDER"
+          ? "Thiếu tồn kho"
+          : o.status === "CANCELLED" || o.status === "INVALID"
+          ? "Đã hủy"
+          : "Chờ xác nhận";
+      const qty = Number(o.quantity) || 0;
+      const unitPrice = Number(o.unitPrice) || 0;
+      const totalMoney = qty * unitPrice;
+      const pmText = String(o.paymentMethod || "Thanh toán khi nhận hàng").trim();
+      const isCod = pmText.toUpperCase().includes("COD") || pmText.toLowerCase().includes("thu hộ") || pmText.toLowerCase().includes("khi nhận hàng");
+
+      return {
+        "Mã đơn hàng": o.orderId || "",
+        "Kênh bán hàng": ExcelHandler.resolveChannelNameVi(o.channel),
+        "Thời gian đặt hàng": o.orderTime || "",
+        "Khách hàng": o.customerName || "",
+        "Số điện thoại": o.customerPhone || "",
+        "Địa chỉ giao hàng": String(o.shippingAddress || o.customerAddress || "").trim(),
+        "Mã sản phẩm": o.sku || "",
+        "Tên sản phẩm": o.productName || "",
+        "Số lượng": qty,
+        "Đơn giá (VND)": unitPrice,
+        "Thành tiền (VND)": totalMoney,
+        "Đơn vị vận chuyển": carrier,
+        "Mã vận đơn": String(o.trackingCode || (matchedSh && matchedSh.trackingCode) || "").trim() || "Chưa cấp mã vận đơn",
+        "Trạng thái xử lý": statusLabel,
+        "Thanh toán": pmText,
+        "Tiền thu hộ (VND)": isCod ? totalMoney : 0
+      };
+    });
+
+    const baseFileName = "Bao_Cao_Don_Hang_Tong_Quan_ODOMS";
+    if (typeof XLSX !== "undefined" && XLSX && XLSX.utils && typeof XLSX.writeFile === "function") {
+      ExcelHandler.downloadDataset(rows, baseFileName, "Don_Hang_Tong_Quan");
+    } else if (typeof Blob !== "undefined" && typeof document !== "undefined" && document.body) {
+      const blob = ExcelHandler.createStyledWorkbookBlob([
+        { name: "Don_Hang_Tong_Quan", xml: ExcelHandler.buildPlainReportSheetXml(rows) }
+      ]);
+      ExcelHandler.triggerBlobDownload(blob, `${baseFileName}.xlsx`);
+    }
+
+    return {
+      fileName: `${baseFileName}.xlsx`,
+      sheetName: "Don_Hang_Tong_Quan",
+      rows
+    };
   }
 
   // Xuất toàn bộ danh sách Vận chuyển đơn hàng hợp lệ (<= Date.now()) khớp bộ lọc tab Vận chuyển (không bị cắt 10 dòng phân trang)
@@ -1556,7 +1723,13 @@ class ExcelHandler {
     }
 
     const shipmentByOrderId = new Map();
-    (Array.isArray(engine.shipments) ? engine.shipments : []).forEach((s) => {
+    const clampedShipments =
+      appUI && typeof appUI.getValidShipmentsUpToNow === "function"
+        ? appUI.getValidShipmentsUpToNow(filteredOrders)
+        : Array.isArray(engine.shipments)
+        ? engine.shipments
+        : [];
+    clampedShipments.forEach((s) => {
       if (s && s.orderId) {
         shipmentByOrderId.set(String(s.orderId).trim(), s);
       }
@@ -1625,56 +1798,298 @@ class ExcelHandler {
     );
   }
 
-  // Xuất kết quả Đối chiếu & Phân bổ Tồn kho ra Excel để nộp báo cáo (dành cho tab Kho)
+  // Xuất trọn bộ Đối chiếu 3 trang tính (Doi_Chieu_5_Kenh, Chi_Tiet_Don_Hang, Ton_Kho_Thoi_Trang) — khóa 100% <= Date.now()
   static exportAllocatedReport() {
     const engine = window.omsEngine;
-    const orderReportRows = engine.orders.map((o) => ({
-      "Thứ tự ưu tiên": o.fifoRank ? `Ưu tiên #${o.fifoRank}` : "N/A",
-      "Mã đơn hàng": o.orderId,
-      "Kênh bán (Sàn)": o.channel,
-      "Thời gian đặt hàng": o.orderTime,
-      "Nguồn tiếp nhận": o.sourceMethod === "WEBHOOK_API" ? "Đồng bộ trực tiếp" : "Tệp Excel",
-      "Mã sản phẩm": o.sku,
-      "Tên sản phẩm": o.productName,
-      "Số lượng đặt": o.quantity,
-      "Tồn trước khi trừ": o.stockSnapshot ? o.stockSnapshot.before : "-",
-      "Tồn sau khi trừ": o.stockSnapshot ? o.stockSnapshot.after : "-",
-      "Trạng thái Xử lý (Sàn)":
+    const appUI = window.AppUI || null;
+    if (!engine && !appUI) {
+      return {
+        fileName: "Bao_Cao_Doi_Chieu_Tong_Hop_ODOMS.xlsx",
+        sheetNames: ["Doi_Chieu_5_Kenh", "Chi_Tiet_Don_Hang", "Ton_Kho_Thoi_Trang"],
+        sheets: { Doi_Chieu_5_Kenh: [], Chi_Tiet_Don_Hang: [], Ton_Kho_Thoi_Trang: [] }
+      };
+    }
+
+    const activeTab = appUI && appUI.currentMenuTab;
+    const nowDt = new Date(Date.now());
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const todayVn = `${pad2(nowDt.getDate())}/${pad2(nowDt.getMonth() + 1)}/${nowDt.getFullYear()}`;
+
+    let orders = [];
+    let shipments = [];
+    let effectiveInv = [];
+    let periodLabel = `Tất cả thời gian (đến ${todayVn})`;
+    let channelFilter = "ALL";
+
+    if (activeTab === "reports" && appUI && typeof appUI.getReportsActiveFilterContext === "function") {
+      const repCtx = appUI.getReportsActiveFilterContext();
+      orders = ExcelHandler.clampOrdersUpToNow(repCtx.orders);
+      shipments = Array.isArray(repCtx.shipments) ? repCtx.shipments : [];
+      effectiveInv = Array.isArray(repCtx.inventory) ? repCtx.inventory : [];
+      periodLabel = repCtx.periodLabel || periodLabel;
+      channelFilter = repCtx.channelVal || "ALL";
+    } else if (activeTab === "revenue_analytics" && appUI && typeof appUI.getRevenueActiveFilterContext === "function") {
+      const revCtx = appUI.getRevenueActiveFilterContext();
+      channelFilter = String(appUI.activePieChannel || "ALL").trim().toUpperCase() || "ALL";
+      const periodOrders = ExcelHandler.clampOrdersUpToNow(revCtx.orders);
+      orders =
+        channelFilter === "ALL"
+          ? periodOrders
+          : periodOrders.filter((o) => String(o.channel || "").trim().toUpperCase() === channelFilter);
+      shipments =
+        typeof appUI.getValidShipmentsUpToNow === "function" ? appUI.getValidShipmentsUpToNow(orders) : [];
+      if (channelFilter !== "ALL") {
+        shipments = shipments.filter((s) => String((s && s.channel) || "").trim().toUpperCase() === channelFilter);
+      }
+      effectiveInv =
+        typeof appUI.getEffectiveInventoryAtNow === "function"
+          ? appUI.getEffectiveInventoryAtNow()
+          : Array.isArray(engine && engine.inventory)
+          ? engine.inventory
+          : [];
+      periodLabel = revCtx.periodLabel || periodLabel;
+    } else {
+      const baseOrders =
+        appUI && typeof appUI.getValidOrdersUpToNow === "function"
+          ? appUI.getValidOrdersUpToNow()
+          : ExcelHandler.clampOrdersUpToNow(engine && engine.orders);
+      orders = ExcelHandler.clampOrdersUpToNow(baseOrders);
+      shipments =
+        appUI && typeof appUI.getValidShipmentsUpToNow === "function" ? appUI.getValidShipmentsUpToNow(orders) : [];
+      effectiveInv =
+        appUI && typeof appUI.getEffectiveInventoryAtNow === "function"
+          ? appUI.getEffectiveInventoryAtNow()
+          : Array.isArray(engine && engine.inventory)
+          ? engine.inventory
+          : [];
+    }
+
+    const fmtPctVi = (v) =>
+      appUI && typeof appUI.formatRevPercentVi === "function"
+        ? appUI.formatRevPercentVi(v)
+        : Number(v || 0).toFixed(1).replace(".", ",");
+
+    const classifyOrder = (o) => {
+      if (appUI && typeof appUI.classifyReportOrder === "function") {
+        return appUI.classifyReportOrder(o);
+      }
+      const isCancelled = Boolean(o && (o.status === "CANCELLED" || o.status === "INVALID" || o.platformStatus === "CANCELLED"));
+      const isAllocated = Boolean(o && !isCancelled && o.status === "ALLOCATED");
+      const isWaiting = Boolean(o && !isCancelled && !isAllocated);
+      const qty = Number(o && o.quantity) || 0;
+      const revenue = isAllocated ? qty * (Number(o && o.unitPrice) || 0) : 0;
+      return { isAllocated, isWaiting, isCancelled, qty, revenue };
+    };
+
+    // 1. Trang tính 1: Doi_Chieu_5_Kenh
+    const allChannels = ["SHOPEE", "TIKTOK", "LAZADA", "FACEBOOK", "POS"];
+    const activeChannels =
+      channelFilter !== "ALL" && allChannels.includes(channelFilter) ? [channelFilter] : allChannels;
+
+    let sumReceived = 0;
+    let sumAllocated = 0;
+    let sumWaiting = 0;
+    let sumCancelled = 0;
+    let sumAllocUnits = 0;
+    let sumRevenue = 0;
+    let sumShipments = 0;
+    let sumDelivered = 0;
+    let sumCod = 0;
+
+    const channelSummaryRows = activeChannels.map((ch) => {
+      const chOrders = orders.filter((o) => String(o.channel || "").trim().toUpperCase() === ch);
+      let allocated = 0;
+      let waiting = 0;
+      let cancelled = 0;
+      let allocUnits = 0;
+      let revenue = 0;
+
+      chOrders.forEach((o) => {
+        const cls = classifyOrder(o);
+        if (cls.isAllocated) {
+          allocated += 1;
+          allocUnits += cls.qty;
+          revenue += cls.revenue;
+        } else if (cls.isCancelled) {
+          cancelled += 1;
+        } else {
+          waiting += 1;
+        }
+      });
+
+      const received = chOrders.length;
+      const holdRate = received > 0 ? (allocated / received) * 100 : 0;
+      const chShips = shipments.filter((s) => String((s && s.channel) || "").trim().toUpperCase() === ch);
+      const delivered = chShips.filter((s) => s && s.status === "DELIVERED").length;
+      const codTotal = chShips.reduce((s, sh) => s + (Number(sh && sh.totalCod) || 0), 0);
+
+      sumReceived += received;
+      sumAllocated += allocated;
+      sumWaiting += waiting;
+      sumCancelled += cancelled;
+      sumAllocUnits += allocUnits;
+      sumRevenue += revenue;
+      sumShipments += chShips.length;
+      sumDelivered += delivered;
+      sumCod += codTotal;
+
+      return {
+        "Kênh bán hàng": ExcelHandler.resolveChannelNameVi(ch),
+        "Kỳ đối chiếu": periodLabel,
+        "Đơn tiếp nhận": received,
+        "Đã giữ hàng": allocated,
+        "Thiếu tồn / Chờ": waiting,
+        "Đã hủy": cancelled,
+        "Sản phẩm đã giữ": allocUnits,
+        "Giá trị đơn đã giữ (VND)": revenue,
+        "Tỷ lệ giữ hàng (%)": received > 0 ? `${fmtPctVi(holdRate)}%` : "0,0%",
+        "Số vận đơn": chShips.length,
+        "Đã giao thành công": delivered,
+        "Tổng thu hộ (VND)": codTotal
+      };
+    });
+
+    const totalHoldRate = sumReceived > 0 ? (sumAllocated / sumReceived) * 100 : 0;
+    channelSummaryRows.push({
+      "Kênh bán hàng": "TỔNG CỘNG",
+      "Kỳ đối chiếu": periodLabel,
+      "Đơn tiếp nhận": sumReceived,
+      "Đã giữ hàng": sumAllocated,
+      "Thiếu tồn / Chờ": sumWaiting,
+      "Đã hủy": sumCancelled,
+      "Sản phẩm đã giữ": sumAllocUnits,
+      "Giá trị đơn đã giữ (VND)": sumRevenue,
+      "Tỷ lệ giữ hàng (%)": sumReceived > 0 ? `${fmtPctVi(totalHoldRate)}%` : "0,0%",
+      "Số vận đơn": sumShipments,
+      "Đã giao thành công": sumDelivered,
+      "Tổng thu hộ (VND)": sumCod
+    });
+
+    // 2. Trang tính 2: Chi_Tiet_Don_Hang (100% đã khóa <= Date.now())
+    const shipmentByOrder = new Map();
+    shipments.forEach((s) => {
+      if (s && s.orderId) shipmentByOrder.set(String(s.orderId).trim(), s);
+    });
+
+    const orderReportRows = orders.map((o) => {
+      const matchedSh = shipmentByOrder.get(String(o.orderId || "").trim()) || null;
+      const carrier =
+        appUI && typeof appUI.resolveOrderCarrier === "function"
+          ? appUI.resolveOrderCarrier(o)
+          : engine && typeof engine.resolveOrderCarrier === "function"
+          ? engine.resolveOrderCarrier(o)
+          : o.carrier || "Chưa gán ĐVVC";
+      const cls = classifyOrder(o);
+      const holdStatusText = cls.isAllocated
+        ? "Đã giữ hàng"
+        : cls.isCancelled
+        ? "Đã hủy"
+        : o.status === "BACKORDER"
+        ? "Thiếu tồn kho"
+        : "Chờ xác nhận";
+      const platformStatusText =
         o.platformStatus === "CONFIRMED"
           ? "Đã xác nhận"
           : o.platformStatus === "UNCONFIRMED"
-          ? "Chưa xác nhận"
-          : "Đã hủy đơn",
-      "Phương thức thanh toán": o.paymentMethod || "COD (Thanh toán khi nhận hàng)",
-      "Tiền thu hộ COD (VND)":
-        (o.paymentMethod || "").toUpperCase().includes("COD") || (o.paymentMethod || "").toLowerCase().includes("thu hộ")
-          ? (o.quantity || 0) * (o.unitPrice || 0)
-          : 0,
-      "Khách hàng": o.customerName,
-      "SĐT": o.customerPhone
-    }));
+          ? "Chờ xác nhận"
+          : "Đã hủy";
+      const sourceText =
+        String(o.sourceMethod || "").indexOf("NhanTuSanTMDT") === 0 || o.sourceMethod === "WEBHOOK_API"
+          ? "Tiếp nhận trực tiếp"
+          : "Nhập từ tệp Excel";
+      const qty = Number(o.quantity) || 0;
+      const unitPrice = Number(o.unitPrice) || 0;
+      const totalAmount = qty * unitPrice;
+      const pmRaw = String(o.paymentMethod || "Thanh toán khi nhận hàng").trim();
+      const isCod =
+        pmRaw.toUpperCase().includes("COD") ||
+        pmRaw.toLowerCase().includes("thu hộ") ||
+        pmRaw.toLowerCase().includes("khi nhận hàng");
 
-    const inventoryReportRows = engine.inventory.map((inv) => ({
-      "Mã sản phẩm": inv.sku,
-      "Tên sản phẩm": inv.name,
-      "Tồn Vật Lý (Trong kho)": inv.physicalStock,
-      "Tổng Đang Giữ Chỗ": inv.reservedStock,
-      "Tồn Khả Dụng (Đồng bộ 5 kênh)": inv.availableStock,
-      "Giữ cho Shopee": inv.channelReserved.SHOPEE || 0,
-      "Giữ cho TikTok Shop": inv.channelReserved.TIKTOK || 0,
-      "Giữ cho Lazada": inv.channelReserved.LAZADA || 0,
-      "Giữ cho Facebook": inv.channelReserved.FACEBOOK || 0,
-      "Giữ cho POS": inv.channelReserved.POS || 0
-    }));
+      return {
+        "Thứ tự ưu tiên": o.fifoRank ? `Ưu tiên #${o.fifoRank}` : "—",
+        "Mã đơn hàng": o.orderId || "",
+        "Kênh bán hàng": ExcelHandler.resolveChannelNameVi(o.channel),
+        "Thời gian đặt hàng": o.orderTime || "",
+        "Hình thức tiếp nhận": sourceText,
+        "Mã sản phẩm": o.sku || "",
+        "Tên sản phẩm": o.productName || "",
+        "Số lượng": qty,
+        "Đơn giá (VND)": unitPrice,
+        "Thành tiền (VND)": totalAmount,
+        "Tình trạng giữ hàng": holdStatusText,
+        "Trạng thái đơn": platformStatusText,
+        "Đơn vị vận chuyển": carrier,
+        "Mã vận đơn": String(o.trackingCode || (matchedSh && matchedSh.trackingCode) || "").trim() || "Chưa cấp mã vận đơn",
+        "Phương thức thanh toán": pmRaw,
+        "Tiền thu hộ (VND)": isCod ? totalAmount : 0,
+        "Khách hàng": o.customerName || "",
+        "Số điện thoại": o.customerPhone || "",
+        "Địa chỉ giao hàng": String(o.shippingAddress || o.customerAddress || "").trim()
+      };
+    });
 
-    if (typeof XLSX !== "undefined") {
+    // 3. Trang tính 3: Ton_Kho_Thoi_Trang (100% tồn kho hiệu dụng <= Date.now())
+    const inventoryReportRows = effectiveInv.map((inv) => {
+      const phys = Math.max(0, Number(inv.effectivePhysicalStock ?? inv.physicalStock) || 0);
+      const resv = Math.max(0, Number(inv.effectiveReservedStock ?? inv.reservedStock) || 0);
+      const avail =
+        appUI && typeof appUI.getSkuAvailableStock === "function"
+          ? appUI.getSkuAvailableStock(inv)
+          : Math.max(0, phys - resv);
+      const unitPrice = Number(inv.unitPrice ?? inv.price ?? 0) || 0;
+      const chMap = inv.effectiveChannelReserved || inv.channelReserved || {};
+      const statusText = avail === 0 ? "Hết hàng" : avail <= 10 ? "Sắp hết" : "Ổn định";
+
+      return {
+        "Mã sản phẩm": inv.sku || "",
+        "Tên sản phẩm": inv.name || "",
+        "Danh mục": inv.category || "Thời trang",
+        "Đơn vị tính": inv.unit || "Cái",
+        "Số lô": Array.isArray(inv.batches) ? inv.batches.length : 0,
+        "Tổng tồn kho": phys,
+        "Đang giữ đơn": resv,
+        "Có thể bán": avail,
+        "Đơn giá (VND)": unitPrice,
+        "Giá trị tồn kho (VND)": phys * unitPrice,
+        "Tình trạng": statusText,
+        "Giữ cho Shopee": Number(chMap.SHOPEE) || 0,
+        "Giữ cho TikTok Shop": Number(chMap.TIKTOK) || 0,
+        "Giữ cho Lazada": Number(chMap.LAZADA) || 0,
+        "Giữ cho Facebook": Number(chMap.FACEBOOK) || 0,
+        "Giữ cho Cửa hàng POS": Number(chMap.POS) || 0
+      };
+    });
+
+    const baseFileName = "Bao_Cao_Doi_Chieu_Tong_Hop_ODOMS";
+    const sheetNames = ["Doi_Chieu_5_Kenh", "Chi_Tiet_Don_Hang", "Ton_Kho_Thoi_Trang"];
+
+    if (typeof XLSX !== "undefined" && XLSX && XLSX.utils && typeof XLSX.writeFile === "function") {
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orderReportRows), "Ket_Qua_Phan_Bo_Don_Hang");
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inventoryReportRows), "Doi_Chieu_Ton_Kho_Da_Kenh");
-      XLSX.writeFile(wb, "Bao_Cao_Ket_Qua_Doi_Chieu_Ton_Kho_OMS.xlsx");
-    } else {
-      ExcelHandler.downloadDataset(orderReportRows, "Bao_Cao_Ket_Qua_Doi_Chieu_Ton_Kho_OMS");
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(channelSummaryRows), sheetNames[0]);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(orderReportRows), sheetNames[1]);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inventoryReportRows), sheetNames[2]);
+      XLSX.writeFile(wb, `${baseFileName}.xlsx`);
+    } else if (typeof Blob !== "undefined" && typeof document !== "undefined" && document.body) {
+      const blob = ExcelHandler.createStyledWorkbookBlob([
+        { name: sheetNames[0], xml: ExcelHandler.buildPlainReportSheetXml(channelSummaryRows) },
+        { name: sheetNames[1], xml: ExcelHandler.buildPlainReportSheetXml(orderReportRows) },
+        { name: sheetNames[2], xml: ExcelHandler.buildPlainReportSheetXml(inventoryReportRows) }
+      ]);
+      ExcelHandler.triggerBlobDownload(blob, `${baseFileName}.xlsx`);
     }
+
+    return {
+      fileName: `${baseFileName}.xlsx`,
+      periodLabel,
+      channelFilter,
+      sheetNames,
+      sheets: {
+        Doi_Chieu_5_Kenh: channelSummaryRows,
+        Chi_Tiet_Don_Hang: orderReportRows,
+        Ton_Kho_Thoi_Trang: inventoryReportRows
+      }
+    };
   }
 
   // Hỗ trợ gọi qua instance (nếu khởi tạo bằng từ khóa new ExcelHandler())

@@ -176,26 +176,41 @@ const AppUI = {
     // 3. Cập nhật trạng thái đang chọn trên 2 thẻ Sáng / Tối trong trang Cài đặt
     this.renderThemeSwitchers();
 
-    // 4. Đồng bộ màu cho đồ thị 2 trục tung Khối 3 (Đơn tiếp nhận Xanh dương · Tỷ lệ xuất % Xanh ngọc · Vầng quang chỉ ở Chế độ Tối)
-    const isDarkTheme = themeObj.key === "dark";
-    const splineImportColor = isDarkTheme ? "#3B82F6" : "#1877FF";
-    const splineExportColor = isDarkTheme ? "#34D399" : "#10B981";
-    const splineImportGlow = "#3B82F6";
-    const splineExportGlow = "#10B981";
+    // 4. Đồng bộ màu đường & ánh vầng quang cho đồ thị 2 trục tung Tab 1 (Sáng: rõ sắc nét · Tối: rực sâu)
+    const splinePalette = this.getMonthlySplineThemeColors();
+    const splineImportColor = splinePalette.importLine;
+    const splineExportColor = splinePalette.exportLine;
+    const splineImportGlow = splinePalette.importGlow;
+    const splineExportGlow = splinePalette.exportGlow;
+    const setGradCoords = (id, y1Val, y2Val) => {
+      const gradEl = document.getElementById(id);
+      if (!gradEl) return;
+      gradEl.setAttribute("gradientUnits", "userSpaceOnUse");
+      gradEl.setAttribute("x1", "0");
+      gradEl.setAttribute("y1", String(y1Val));
+      gradEl.setAttribute("x2", "0");
+      gradEl.setAttribute("y2", String(y2Val));
+    };
+    const setStopAttrs = (id, color, pair) => {
+      const el = document.getElementById(id);
+      if (!el || !pair) return;
+      el.setAttribute("offset", pair[0]);
+      el.setAttribute("stop-color", color);
+      el.setAttribute("stop-opacity", pair[1]);
+    };
 
-    const gradStopImportTop = document.getElementById("gradStopImportTop");
-    if (gradStopImportTop) gradStopImportTop.setAttribute("stop-color", splineImportGlow);
-    const gradStopImportMid = document.getElementById("gradStopImportMid");
-    if (gradStopImportMid) gradStopImportMid.setAttribute("stop-color", splineImportGlow);
-    const gradStopImportBottom = document.getElementById("gradStopImportBottom");
-    if (gradStopImportBottom) gradStopImportBottom.setAttribute("stop-color", splineImportGlow);
+    setGradCoords("gradAreaImport", 36, 226);
+    setGradCoords("gradAreaExport", 36, 226);
 
-    const gradStopExportTop = document.getElementById("gradStopExportTop");
-    if (gradStopExportTop) gradStopExportTop.setAttribute("stop-color", splineExportGlow);
-    const gradStopExportMid = document.getElementById("gradStopExportMid");
-    if (gradStopExportMid) gradStopExportMid.setAttribute("stop-color", splineExportGlow);
-    const gradStopExportBottom = document.getElementById("gradStopExportBottom");
-    if (gradStopExportBottom) gradStopExportBottom.setAttribute("stop-color", splineExportGlow);
+    setStopAttrs("gradStopImportTop", splineImportGlow, splinePalette.importStops.top);
+    setStopAttrs("gradStopImportMid", splineImportGlow, splinePalette.importStops.mid);
+    setStopAttrs("gradStopImportLow", splineImportGlow, splinePalette.importStops.low);
+    setStopAttrs("gradStopImportBottom", splineImportGlow, splinePalette.importStops.bottom);
+
+    setStopAttrs("gradStopExportTop", splineExportGlow, splinePalette.exportStops.top);
+    setStopAttrs("gradStopExportMid", splineExportGlow, splinePalette.exportStops.mid);
+    setStopAttrs("gradStopExportFade", splineExportGlow, splinePalette.exportStops.fade);
+    setStopAttrs("gradStopExportBottom", splineExportGlow, splinePalette.exportStops.bottom);
 
     const chartLineImport = document.getElementById("chartLineImport");
     if (chartLineImport) {
@@ -245,6 +260,9 @@ const AppUI = {
       } else if (typeof this.renderMonthlyTrendsChartLabels === "function") {
         this.renderMonthlyTrendsChartLabels();
       }
+    }
+    if (typeof this.renderReportsSummary === "function") {
+      this.renderReportsSummary();
     }
 
     // 5. Ghi nhật ký nghiệp vụ nếu người dùng bấm đổi trực tiếp
@@ -2814,6 +2832,9 @@ handleResetPassword(username) {
     this.renderFiveChannelSoldPieChart(ctx);
     this.renderUnifiedTop3ChannelRankingChart(ctx);
     this.renderMonthlyTrendsByFilter(ctx);
+    if (typeof this.syncRevenueBottomTabUI === "function") {
+      this.syncRevenueBottomTabUI();
+    }
   },
 
   // 1. LÀM MỚI MỐC GIỜ & 6 THẺ DOANH THU 5 KÊNH (ĐỒNG BỘ 100% DỮ LIỆU THỰC)
@@ -2830,7 +2851,8 @@ handleResetPassword(username) {
     const data = precomputedData || this.getFiveChannelSoldDataset();
 
     if (timeLabel) {
-      timeLabel.innerHTML = `Chu kỳ đang xem: <strong>${data.periodLabel}</strong>`;
+      timeLabel.innerHTML = "";
+      timeLabel.classList.add("hidden");
     }
 
     const metaMap = this.getRevenueChannelMetaMap();
@@ -2888,9 +2910,21 @@ handleResetPassword(username) {
     }
   },
 
-  // 2. KHỐI 2: XẾP HẠNG 3 KÊNH BÁN HÀNG DẪN ĐẦU VỀ DOANH THU (100% SỐ LIỆU THỰC)
+  // 2. TAB 2 THẺ GỘP: XẾP HẠNG 3 KÊNH BÁN HÀNG DẪN ĐẦU VỀ DOANH THU (100% SỐ LIỆU THỰC)
   onUnifiedRankingFilterModeChange() {
     this.renderRevenueAnalyticsView();
+  },
+
+  syncTop3RankingSelectedState() {
+    const activeKey = this.activePieChannel;
+    const cols = document.querySelectorAll("#unifiedTop3RankingBarContainer .bar-col-item");
+    cols.forEach((col) => {
+      col.classList.toggle("is-selected-channel", Boolean(activeKey && col.getAttribute("data-channel") === activeKey));
+    });
+    const foots = document.querySelectorAll("#unifiedTop3RankingBarContainer .bar-col-footer");
+    foots.forEach((foot) => {
+      foot.classList.toggle("is-selected-channel", Boolean(activeKey && foot.getAttribute("data-channel") === activeKey));
+    });
   },
 
   renderUnifiedTop3ChannelRankingChart(precomputedCtx) {
@@ -2902,8 +2936,8 @@ handleResetPassword(username) {
     const ctx = precomputedCtx || this._lastRevContext || this.getRevenueActiveFilterContext();
     const isDark = this.currentTheme === "dark";
     const colorReceived = isDark ? "#3B82F6" : "#1877FF";
-    const colorExported = isDark ? "#38BDF8" : "#0EA5E9";
-    const colorCancelled = isDark ? "#F87171" : "#DC2626";
+    const colorExported = isDark ? "#34D399" : "#10B981";
+    const colorUnexported = isDark ? "#F87171" : "#DC2626";
 
     const metaMap = this.getRevenueChannelMetaMap();
     const channelKeys = ["SHOPEE", "TIKTOK", "LAZADA", "POS", "FACEBOOK"];
@@ -2913,14 +2947,19 @@ handleResetPassword(username) {
       .map((key) => {
         const st = ctx.byChannel[key] || { received: 0, exported: 0, cancelled: 0, backorder: 0, revenue: 0 };
         const meta = metaMap[key];
+        const unexported = Math.max(0, st.received - st.exported);
+        const revSharePct = ctx.totalRevenue > 0 ? (st.revenue / ctx.totalRevenue) * 100 : 0;
         return {
           key,
           orders: st.received,
           received: st.received,
           exported: st.exported,
+          unexported,
           cancelled: st.cancelled,
           backorder: st.backorder,
           revenue: st.revenue,
+          revSharePct,
+          revShareText: this.formatRevPercentVi(revSharePct),
           name: meta.fullName,
           short: meta.name,
           color: meta.color,
@@ -2930,7 +2969,7 @@ handleResetPassword(username) {
       .sort((a, b) => b.revenue - a.revenue || b.exported - a.exported || b.received - a.received);
 
     if (noticeEl) {
-      noticeEl.innerHTML = `Kỳ đang xem: <strong>${ctx.periodLabel}</strong> · Toàn hệ thống 5 kênh: <strong>${ctx.totalReceived} tiếp nhận</strong> · <strong>${ctx.totalExported} xuất hàng</strong> · <strong>${ctx.totalRevenue.toLocaleString("vi-VN")} VND</strong>`;
+      noticeEl.innerHTML = `<strong>${ctx.totalReceived}</strong> tiếp nhận · <strong>${ctx.totalExported}</strong> xuất · <strong>${ctx.totalRevenue.toLocaleString("vi-VN")} VND</strong>`;
     }
 
     if (ctx.totalReceived === 0) {
@@ -2946,21 +2985,29 @@ handleResetPassword(username) {
     }
 
     const top3Channels = rankedAll.slice(0, 3);
-    const maxBarVal = Math.max(...top3Channels.map((c) => Math.max(c.received, c.exported, c.cancelled)), 1);
+    const maxBarVal = Math.max(...top3Channels.map((c) => Math.max(c.received, c.exported, c.unexported)), 1);
     const rankLabels = ["HẠNG 1", "HẠNG 2", "HẠNG 3"];
+    const activeCh = this.activePieChannel;
 
     const pillarsHtml = top3Channels
       .map((item) => {
         const calcH = (val) => (val > 0 ? Math.max(14, Math.round((val / maxBarVal) * 124)) : 2);
         const hRec = calcH(item.received);
         const hExp = calcH(item.exported);
-        const hCan = calcH(item.cancelled);
+        const hUnexp = calcH(item.unexported);
+        const isSelected = activeCh === item.key;
 
         return `
-        <div class="bar-col-item">
-          <div class="bar-top-revenue-badge" title="Doanh thu thực nhận và sản lượng đơn kênh ${item.short}">
-            <div class="rev-top3-money">${item.revenue.toLocaleString("vi-VN")} VND</div>
-            <div class="rev-top3-sub">Tiếp nhận: ${item.received} · Xuất: ${item.exported}</div>
+        <div class="bar-col-item rev-top3-col-btn ${isSelected ? "is-selected-channel" : ""}"
+             data-channel="${item.key}"
+             role="button"
+             tabindex="0"
+             onclick="AppUI.selectPieChannel('${item.key}')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();AppUI.selectPieChannel('${item.key}');}"
+             title="Nhấn để lọc chi tiết kênh ${item.short}">
+          <div class="bar-top-revenue-badge">
+            <div class="rev-top3-money">${item.revenue.toLocaleString("vi-VN")} VND <span class="rev-top3-share">· ${item.revShareText}%</span></div>
+            <div class="rev-top3-sub">${item.received} tiếp nhận · ${item.exported} xuất</div>
           </div>
 
           <div class="bar-triple-wrap">
@@ -2972,9 +3019,9 @@ handleResetPassword(username) {
               <span class="rev-bar-val">${item.exported}</span>
               <div class="bar-pillar triple-col ${item.exported === 0 ? "is-zero" : ""}" style="height:${hExp}px;background:${colorExported};"></div>
             </div>
-            <div class="rev-bar-col-slot" title="${item.short} — Hủy đơn: ${item.cancelled} đơn">
-              <span class="rev-bar-val ${item.cancelled === 0 ? "is-muted" : ""}">${item.cancelled}</span>
-              <div class="bar-pillar triple-col ${item.cancelled === 0 ? "is-zero" : ""}" style="height:${hCan}px;background:${colorCancelled};"></div>
+            <div class="rev-bar-col-slot" title="${item.short} — Chưa xuất / Hủy: ${item.unexported} đơn">
+              <span class="rev-bar-val ${item.unexported === 0 ? "is-muted" : ""}">${item.unexported}</span>
+              <div class="bar-pillar triple-col ${item.unexported === 0 ? "is-zero" : ""}" style="height:${hUnexp}px;background:${colorUnexported};"></div>
             </div>
           </div>
         </div>
@@ -2983,17 +3030,21 @@ handleResetPassword(username) {
       .join("");
 
     const labelsHtml = top3Channels
-      .map(
-        (item, idx) => `
-        <div class="bar-col-footer">
+      .map((item, idx) => {
+        const isSelected = activeCh === item.key;
+        return `
+        <div class="bar-col-footer rev-top3-footer-btn ${isSelected ? "is-selected-channel" : ""}"
+             data-channel="${item.key}"
+             onclick="AppUI.selectPieChannel('${item.key}')"
+             title="Nhấn để lọc chi tiết kênh ${item.short}">
           <div class="bar-col-title rev-top3-footer-title">
             <span class="rev-rank-tag">${rankLabels[idx]}</span>
             <span class="rev-ch-vbar" style="background:${item.color};" aria-hidden="true"></span>
             <span>${item.short}</span>
           </div>
         </div>
-      `
-      )
+      `;
+      })
       .join("");
 
     container.innerHTML = `
@@ -3005,11 +3056,11 @@ handleResetPassword(username) {
       const lead = top3Channels[0];
       const restChannels = rankedAll
         .slice(3)
-        .map((r, i) => `Hạng ${i + 4} ${r.short}: <strong>${r.revenue.toLocaleString("vi-VN")} VND</strong> (${r.exported} xuất)`)
+        .map((r, i) => `#${i + 4} ${r.short}: <strong>${r.revenue.toLocaleString("vi-VN")} VND</strong>`)
         .join(" · ");
       footerEl.innerHTML = `
         <div class="rev-footer-lead">
-          Dẫn đầu doanh thu (${ctx.periodLabel}): <strong>${lead ? lead.short : "-"}</strong> — <strong>${lead ? lead.revenue.toLocaleString("vi-VN") : 0} VND</strong> (${lead ? lead.received : 0} tiếp nhận · ${lead ? lead.exported : 0} xuất hàng · ${lead ? lead.cancelled : 0} hủy)
+          Dẫn đầu: <strong>${lead ? lead.short : "-"}</strong> · <strong>${lead ? lead.revenue.toLocaleString("vi-VN") : 0} VND</strong> (${lead ? lead.revShareText : "0,0"}%)
         </div>
         <div class="rev-footer-rest">
           ${restChannels || "Không có kênh bổ sung"}
@@ -3253,13 +3304,12 @@ handleResetPassword(username) {
         subEl.innerText = `${activeItem.pctText}% tổng đơn`;
       }
       if (footerEl) {
+        footerEl.classList.remove("hidden");
+        footerEl.style.display = "";
         footerEl.innerHTML = `
           <div class="rev-summary-line">
-            <span class="rev-summary-sq" style="background:${activeItem.color};"></span>
-            <span>Kênh đang chọn: <strong>${activeItem.name}</strong> (${activeItem.pctText}%)</span>
-          </div>
-          <div class="rev-summary-line">
-            <span>Đã xuất: <strong>${activeItem.orders} / ${data.totalOrders} đơn</strong> · Doanh thu: <strong>${activeItem.revenue.toLocaleString("vi-VN")} VND</strong></span>
+            <span class="rev-ch-vbar" style="background:${activeItem.color};" aria-hidden="true"></span>
+            <span>Đang lọc <strong>${activeItem.name}</strong> (${activeItem.pctText}%) · <strong>${activeItem.orders}</strong> đơn xuất · <strong>${activeItem.revenue.toLocaleString("vi-VN")} VND</strong></span>
           </div>
         `;
       }
@@ -3277,20 +3327,18 @@ handleResetPassword(username) {
         subEl.innerText = data.totalOrders > 0 ? "5 kênh bán" : "Chưa có dữ liệu";
       }
       if (footerEl) {
-        footerEl.innerHTML = `
-          <div class="rev-summary-line">
-            <span>Tổng hợp <strong>5 kênh bán hàng</strong> · <strong>${data.periodLabel}</strong></span>
-          </div>
-          <div class="rev-summary-line">
-            <span>Đã xuất: <strong>${data.totalOrders} đơn</strong> (${data.totalReceived} tiếp nhận) · Doanh thu: <strong>${data.totalRevenue.toLocaleString("vi-VN")} VND</strong></span>
-          </div>
-        `;
+        footerEl.innerHTML = "";
+        footerEl.classList.add("hidden");
+        footerEl.style.display = "none";
       }
     }
 
-    // Đồng bộ 6 thẻ doanh thu & bảng xếp hạng sản phẩm bán chạy
+    // Đồng bộ 6 thẻ doanh thu, bảng xếp hạng sản phẩm bán chạy & khung trụ Xếp hạng 3 kênh
     this.renderOneMonthRevenueOverview(data);
     this.renderTopSellingProductsList(data);
+    if (typeof this.syncTop3RankingSelectedState === "function") {
+      this.syncTop3RankingSelectedState();
+    }
   },
 
   setTopProductsLimit(limit) {
@@ -3411,11 +3459,12 @@ handleResetPassword(username) {
     const maxSold = Math.max(...displayRows.map((p) => p.soldQty), 1);
 
     if (subtitleEl) {
-      const scopeLabel = activeChName ? `Kênh ${activeChName} · ` : "";
-      if (showAll) {
-        subtitleEl.innerHTML = `${scopeLabel}Toàn bộ <strong>${computed.length}</strong> sản phẩm Thời trang (${soldOnly.length} mã có đơn xuất) · <strong>${data.periodLabel}</strong>`;
+      if (activeChName) {
+        subtitleEl.innerHTML = `Đang lọc: <strong>${activeChName}</strong> · <strong>${soldOnly.length}</strong> sản phẩm`;
+        subtitleEl.classList.remove("hidden");
       } else {
-        subtitleEl.innerHTML = `${scopeLabel}<strong>${displayRows.length}</strong> sản phẩm bán chạy nhất · <strong>${data.periodLabel}</strong>`;
+        subtitleEl.innerHTML = "";
+        subtitleEl.classList.add("hidden");
       }
     }
 
@@ -3633,15 +3682,70 @@ handleResetPassword(username) {
   },
 
   // ============================================================================
-  // KHỐI 3 — ĐỒ THỊ 2 TRỤC TUNG THUẦN SVG: ĐƠN TIẾP NHẬN (TRÁI) vs TỶ LỆ XUẤT (%) (PHẢI)
+  // THẺ GỘP KHỐI 2 & 3 — CHUYỂN TAB (TIẾP NHẬN & XUẤT HÀNG ↔ XẾP HẠNG 3 KÊNH) + ĐỒ THỊ 2 TRỤC TUNG SVG
   // ============================================================================
+  revenueBottomTab: "spline",
   activeMonthlyChartDots: new Set(),
   activeMonthlySeries: null,
+  showAllMonthlyTrendsNumbers: true,
   _splineResizeBound: false,
   _splineResizeTimer: null,
   _lastSplineData: null,
   _lastSplinePoints: [],
   _lastSplineMetrics: null,
+  _lastMeasuredSplineW: 0,
+
+  syncRevenueBottomTabUI() {
+    const isTop3 = this.revenueBottomTab === "top3";
+    const titleEl = document.getElementById("revCombinedCardTitle");
+    const splineSubEl = document.getElementById("monthlyTrendsSubtitle");
+    const top3SubEl = document.getElementById("unifiedRankingFilterNotice");
+    const splineLegEl = document.getElementById("revSplineLegendGroup");
+    const top3LegEl = document.getElementById("revTop3LegendGroup");
+    const eyeBtn = document.getElementById("btnToggleAllMonthlyDots");
+    const btnSpline = document.getElementById("btnRevTabSpline");
+    const btnTop3 = document.getElementById("btnRevTabTop3");
+    const panelSpline = document.getElementById("revBottomPanelSpline");
+    const panelTop3 = document.getElementById("revBottomPanelTop3");
+
+    if (titleEl) {
+      titleEl.innerText = isTop3 ? "Xếp hạng 3 kênh" : "Tiếp nhận & Xuất hàng";
+    }
+    if (splineSubEl) splineSubEl.classList.toggle("hidden", isTop3);
+    if (top3SubEl) top3SubEl.classList.toggle("hidden", !isTop3);
+    if (splineLegEl) splineLegEl.classList.toggle("hidden", isTop3);
+    if (top3LegEl) top3LegEl.classList.toggle("hidden", !isTop3);
+    if (eyeBtn) eyeBtn.classList.toggle("hidden", isTop3);
+    if (panelSpline) panelSpline.classList.toggle("hidden", isTop3);
+    if (panelTop3) panelTop3.classList.toggle("hidden", !isTop3);
+
+    if (btnSpline) {
+      btnSpline.classList.toggle("active", !isTop3);
+      btnSpline.setAttribute("aria-pressed", !isTop3 ? "true" : "false");
+    }
+    if (btnTop3) {
+      btnTop3.classList.toggle("active", isTop3);
+      btnTop3.setAttribute("aria-pressed", isTop3 ? "true" : "false");
+    }
+  },
+
+  switchRevenueBottomTab(tabKey) {
+    const target = tabKey === "top3" ? "top3" : "spline";
+    this.revenueBottomTab = target;
+    this.syncRevenueBottomTabUI();
+
+    if (target === "top3") {
+      this.hideMonthlySplineHover();
+      this.renderUnifiedTop3ChannelRankingChart(this._lastRevContext);
+    } else {
+      // Sau khi bỏ ẩn panel đồ thị 2 trục tung, đo lại clientWidth thực tế để bung khít 100% chiều ngang thẻ
+      if (this._lastSplineData) {
+        this.updateMonthlyTrendsSplineSvg(this._lastSplineData);
+      } else {
+        this.renderMonthlyTrendsByFilter(this._lastRevContext);
+      }
+    }
+  },
 
   formatSplineRatePct(pct) {
     const num = Number.isFinite(pct) ? pct : 0;
@@ -3657,10 +3761,10 @@ handleResetPassword(username) {
     }
     this._splineResizeBound = true;
     window.addEventListener("resize", () => {
-      if (this.currentMenuTab !== "revenue_analytics" || !this._lastSplineData) return;
+      if (this.currentMenuTab !== "revenue_analytics" || this.revenueBottomTab !== "spline" || !this._lastSplineData) return;
       if (this._splineResizeTimer) clearTimeout(this._splineResizeTimer);
       this._splineResizeTimer = setTimeout(() => {
-        if (this.currentMenuTab === "revenue_analytics" && this._lastSplineData) {
+        if (this.currentMenuTab === "revenue_analytics" && this.revenueBottomTab === "spline" && this._lastSplineData) {
           this.updateMonthlyTrendsSplineSvg(this._lastSplineData);
         }
       }, 120);
@@ -3677,14 +3781,20 @@ handleResetPassword(username) {
     if (targetKeys.length === 0 && Array.isArray(this._lastSplinePoints)) {
       targetKeys = this._lastSplinePoints.map((pt) => `${seriesType}_${pt.label}`);
     }
-    const isSeriesFullyActive =
+    const isSeriesIsolated =
       this.activeMonthlySeries === seriesType &&
       targetKeys.length > 0 &&
       targetKeys.every((k) => this.activeMonthlyChartDots.has(k));
 
-    if (isSeriesFullyActive) {
-      targetKeys.forEach((k) => this.activeMonthlyChartDots.delete(k));
+    if (isSeriesIsolated) {
       this.activeMonthlySeries = null;
+      this.activeMonthlyChartDots.clear();
+      if (this.showAllMonthlyTrendsNumbers && Array.isArray(this._lastSplinePoints)) {
+        this._lastSplinePoints.forEach((pt) => {
+          this.activeMonthlyChartDots.add(`import_${pt.label}`);
+          this.activeMonthlyChartDots.add(`export_${pt.label}`);
+        });
+      }
     } else {
       this.activeMonthlyChartDots.clear();
       targetKeys.forEach((k) => this.activeMonthlyChartDots.add(k));
@@ -3710,6 +3820,7 @@ handleResetPassword(username) {
     if (this.activeMonthlyChartDots.has(key)) {
       this.activeMonthlyChartDots.delete(key);
       circleEl.classList.remove("active");
+      this.showAllMonthlyTrendsNumbers = false;
     } else {
       this.activeMonthlyChartDots.add(key);
       circleEl.classList.add("active");
@@ -3734,6 +3845,7 @@ handleResetPassword(username) {
   handleMonthlySplinePointerMove(evt) {
     const svgEl = document.getElementById("monthlyTrendsSplineSvg");
     const stageEl = document.getElementById("revSplineStage");
+    const bandEl = document.getElementById("revSplineHoverBand");
     const guideEl = document.getElementById("revSplineHoverGuide");
     const popEl = document.getElementById("revSplineHoverPopover");
     const pts = this._lastSplinePoints;
@@ -3758,6 +3870,16 @@ handleResetPassword(username) {
     const pt = pts[bestIdx];
     if (!pt) return;
 
+    if (bandEl) {
+      const bandW = pts.length > 1 ? Math.max(36, Math.min(52, Math.round((metrics.stepX || 44) * 0.52))) : 48;
+      const bandX = Math.max(metrics.padL, Math.min(metrics.padR - bandW, Math.round(pt.x - bandW / 2)));
+      bandEl.setAttribute("x", String(bandX));
+      bandEl.setAttribute("y", String(metrics.padT));
+      bandEl.setAttribute("width", String(bandW));
+      bandEl.setAttribute("height", String(metrics.plotH));
+      bandEl.classList.remove("hidden");
+    }
+
     if (guideEl) {
       guideEl.setAttribute("x1", String(pt.x));
       guideEl.setAttribute("x2", String(pt.x));
@@ -3771,30 +3893,43 @@ handleResetPassword(username) {
       dot.classList.toggle("is-hovered", dot.getAttribute("data-month") === pt.label);
     });
 
+    const xTexts = document.querySelectorAll("#chartXAxisLabels text");
+    xTexts.forEach((txt) => {
+      txt.classList.toggle("is-active-x", txt.getAttribute("data-month") === pt.label);
+    });
+
     if (popEl) {
       const palette = this.getMonthlySplineThemeColors();
       const unexported = Math.max(0, pt.impVal - pt.expVal);
-      const unexpNote = unexported > 0 ? ` <span class="rev-pop-unexp">(Chưa xuất: ${unexported})</span>` : "";
+      const isBelowFull = pt.ratePct < 99.95;
+      const headRateStr = `${pt.ratePct.toFixed(1).replace(".", ",")}%`;
       popEl.innerHTML = `
-        <div class="rev-pop-title">${pt.full}</div>
+        <div class="rev-pop-head">
+          <span class="rev-pop-title-text">${pt.full}</span>
+          <span class="rev-pop-head-rate ${isBelowFull ? "is-warn" : "is-full"}">${headRateStr}</span>
+        </div>
         <div class="rev-pop-row">
-          <span class="rev-pop-label"><span class="rev-pop-sq" style="background:${palette.importLine};"></span>Đơn tiếp nhận:</span>
+          <span class="rev-pop-label"><span class="rev-pop-sq" style="background:${palette.importLine};"></span>Tiếp nhận</span>
           <strong class="rev-pop-val">${pt.impVal} đơn</strong>
         </div>
         <div class="rev-pop-row">
-          <span class="rev-pop-label"><span class="rev-pop-sq" style="background:${palette.exportLine};"></span>Đơn xuất hàng:</span>
+          <span class="rev-pop-label"><span class="rev-pop-sq" style="background:${palette.exportLine};"></span>Xuất hàng</span>
           <strong class="rev-pop-val">${pt.expVal} đơn</strong>
         </div>
+        <div class="rev-pop-row">
+          <span class="rev-pop-label"><span class="rev-pop-sq rev-pop-sq-danger"></span>Chưa xuất / Hủy</span>
+          <strong class="rev-pop-val ${unexported > 0 ? "is-danger-val" : "is-muted-val"}">${unexported} đơn</strong>
+        </div>
         <div class="rev-pop-row rev-pop-rate-row">
-          <span class="rev-pop-label">Tỷ lệ xuất hàng:</span>
-          <strong class="rev-pop-val">${pt.rateText}${unexpNote}</strong>
+          <span class="rev-pop-label"><span class="rev-pop-line-swatch" style="background:${palette.exportLine};"></span>Tỷ lệ xuất</span>
+          <strong class="rev-pop-val rev-pop-rate-val">${pt.rateText}</strong>
         </div>
       `;
       popEl.classList.remove("hidden");
 
       const stageW = stageEl.clientWidth || rect.width;
       const pxX = (pt.x / metrics.svgW) * rect.width;
-      const popW = popEl.offsetWidth || 204;
+      const popW = popEl.offsetWidth || 218;
       const flipLeft = pt.x / metrics.svgW > 0.62;
       let leftPx = flipLeft ? pxX - popW - 14 : pxX + 14;
       leftPx = Math.max(6, Math.min(stageW - popW - 6, Math.round(leftPx)));
@@ -3804,12 +3939,16 @@ handleResetPassword(username) {
   },
 
   hideMonthlySplineHover() {
+    const bandEl = document.getElementById("revSplineHoverBand");
     const guideEl = document.getElementById("revSplineHoverGuide");
     const popEl = document.getElementById("revSplineHoverPopover");
+    if (bandEl) bandEl.classList.add("hidden");
     if (guideEl) guideEl.classList.add("hidden");
     if (popEl) popEl.classList.add("hidden");
     const allDots = document.querySelectorAll("#monthlyTrendsSplineSvg .chart-interactive-dot.is-hovered");
     allDots.forEach((dot) => dot.classList.remove("is-hovered"));
+    const xTexts = document.querySelectorAll("#chartXAxisLabels text.is-active-x");
+    xTexts.forEach((txt) => txt.classList.remove("is-active-x"));
   },
 
   getMonthlySplineThemeColors() {
@@ -3818,8 +3957,19 @@ handleResetPassword(username) {
       isDark,
       importLine: isDark ? "#3B82F6" : "#1877FF",
       exportLine: isDark ? "#34D399" : "#10B981",
-      importBadge: isDark ? "#2563EB" : "#1877FF",
-      exportBadge: isDark ? "#059669" : "#10B981",
+      importGlow: isDark ? "#3B82F6" : "#1877FF",
+      exportGlow: "#10B981",
+      importStops: isDark
+        ? { top: ["0%", "0.32"], mid: ["65%", "0.06"], low: ["100%", "0"], bottom: ["100%", "0"] }
+        : { top: ["0%", "0.34"], mid: ["65%", "0.18"], low: ["92%", "0.14"], bottom: ["100%", "0.03"] },
+      exportStops: isDark
+        ? { top: ["0%", "0.20"], mid: ["22%", "0.05"], fade: ["45%", "0"], bottom: ["100%", "0"] }
+        : { top: ["0%", "0.28"], mid: ["18%", "0.11"], fade: ["42%", "0"], bottom: ["100%", "0"] },
+      importText: isDark ? "#60A5FA" : "#1877FF",
+      exportText: isDark ? "#34D399" : "#10B981",
+      calloutBg: isDark ? "#064E3B" : "#ECFDF5",
+      calloutBorder: isDark ? "#34D399" : "#10B981",
+      calloutText: isDark ? "#A7F3D0" : "#047857",
       dotStroke: isDark ? "#151F32" : "#FFFFFF"
     };
   },
@@ -3833,7 +3983,7 @@ handleResetPassword(username) {
     }
 
     const palette = this.getMonthlySplineThemeColors();
-    const metrics = this._lastSplineMetrics || { svgW: 1080, padL: 14, padR: 1066, padT: 30, padB: 224 };
+    const metrics = this._lastSplineMetrics || { svgW: 1080, padL: 14, padR: 1066, padT: 36, padB: 226 };
 
     const lineImp = document.getElementById("chartLineImport");
     const lineExp = document.getElementById("chartLineExport");
@@ -3852,8 +4002,8 @@ handleResetPassword(username) {
 
     const hasImpActive = Array.from(this.activeMonthlyChartDots).some((k) => k.startsWith("import_"));
     const hasExpActive = Array.from(this.activeMonthlyChartDots).some((k) => k.startsWith("export_"));
-    const impOnly = hasImpActive && !hasExpActive;
-    const expOnly = hasExpActive && !hasImpActive;
+    const impOnly = this.activeMonthlySeries === "import" || (hasImpActive && !hasExpActive);
+    const expOnly = this.activeMonthlySeries === "export" || (hasExpActive && !hasImpActive);
 
     if (lineImp) {
       lineImp.classList.toggle("line-selected", impOnly);
@@ -3873,8 +4023,8 @@ handleResetPassword(username) {
       areaExp.classList.toggle("area-selected", expOnly);
       areaExp.classList.toggle("area-dimmed", impOnly);
     }
-    if (pillImp) pillImp.classList.toggle("active", hasImpActive);
-    if (pillExp) pillExp.classList.toggle("active", hasExpActive);
+    if (pillImp) pillImp.classList.toggle("active", impOnly);
+    if (pillExp) pillExp.classList.toggle("active", expOnly);
 
     if (bannerEl) {
       bannerEl.innerHTML = "";
@@ -3889,12 +4039,13 @@ handleResetPassword(username) {
       const type = circle.getAttribute("data-type") || "import";
       const month = circle.getAttribute("data-month") || "";
       const val = circle.getAttribute("data-val") || "0";
+      const rateNum = parseFloat(circle.getAttribute("data-rate"));
       const cx = parseFloat(circle.getAttribute("cx")) || 0;
       const cy = parseFloat(circle.getAttribute("cy")) || 0;
       const key = `${type}_${month}`;
       const isActive = this.activeMonthlyChartDots.has(key);
 
-      circle.classList.toggle("active", isActive);
+      circle.classList.toggle("active", isActive && (impOnly || expOnly));
 
       if (!pointMap.has(month)) {
         pointMap.set(month, { month, cx, imp: null, exp: null });
@@ -3904,7 +4055,7 @@ handleResetPassword(username) {
       if (type === "import") {
         entry.imp = { cx, cy, val, isActive };
       } else {
-        entry.exp = { cx, cy, val, isActive };
+        entry.exp = { cx, cy, val, ratePct: Number.isFinite(rateNum) ? rateNum : 100, isActive };
       }
     });
 
@@ -3923,6 +4074,7 @@ handleResetPassword(username) {
             cx: pt.x,
             cy: pt.yRate,
             val: pt.rateText,
+            ratePct: pt.ratePct,
             isActive: this.activeMonthlyChartDots.has(`export_${pt.label}`)
           }
         });
@@ -3930,23 +4082,33 @@ handleResetPassword(username) {
       });
     }
 
-    const svgLeftBound = metrics.padL + 2;
-    const svgRightBound = metrics.padR - 2;
     const boxH = 18;
-    const yBottomMax = metrics.padB - boxH - 2;
+    const yBottomLimit = metrics.padB - 6;
     let markup = "";
 
-    const renderBadge = (cx, cy, valText, fillBg, placeBelow, seriesAttr, monthKey) => {
-      const textLen = String(valText).length;
-      const badgeW = Math.max(26, textLen * 6.8 + 12);
-      const boxX = Math.max(svgLeftBound, Math.min(svgRightBound - badgeW, Math.round(cx - badgeW / 2)));
-      let boxY = placeBelow ? Math.round(cy + 8) : Math.round(cy - 22);
-      if (boxY < 2) boxY = 2;
-      if (boxY > yBottomMax) boxY = Math.max(2, Math.round(cy - 22));
+    const renderLightTextLabel = (cx, cy, valText, colorFill, placeBelow, seriesAttr, monthKey) => {
+      const centerX = Math.round(cx);
+      let ty = placeBelow ? Math.round(cy + 18) : Math.round(cy - 10);
+      if (ty < 14) ty = 14;
+      if (ty > yBottomLimit) ty = Math.round(cy - 10);
       return `
-        <g class="chart-dot-number-badge chart-dot-single-badge" data-series="${seriesAttr}" data-month="${monthKey}">
-          <rect x="${boxX}" y="${boxY}" width="${Math.round(badgeW)}" height="${boxH}" rx="0" fill="${fillBg}" stroke="${palette.dotStroke}" stroke-width="1.2" />
-          <text x="${boxX + Math.round(badgeW) / 2}" y="${boxY + 12.5}" text-anchor="middle" fill="#ffffff" font-size="10.5" font-weight="800" font-family="system-ui, -apple-system, sans-serif">${valText}</text>
+        <g class="chart-dot-number-badge chart-dot-text-label" data-series="${seriesAttr}" data-month="${monthKey}">
+          <text x="${centerX}" y="${ty}" text-anchor="middle" fill="${colorFill}" font-size="11" font-weight="700" font-family="system-ui, -apple-system, sans-serif">${valText}</text>
+        </g>
+      `;
+    };
+
+    const renderRateCalloutBadge = (cx, cy, valText, placeBelow, monthKey) => {
+      const centerX = Math.round(cx);
+      const badgeW = Math.max(40, Math.round(String(valText).length * 6.8 + 12));
+      const boxX = Math.round(centerX - badgeW / 2);
+      let boxY = placeBelow ? Math.round(cy + 9) : Math.round(cy - 24);
+      if (boxY < 4) boxY = 4;
+      if (boxY + boxH > metrics.padB - 2) boxY = Math.max(4, Math.round(cy - 24));
+      return `
+        <g class="chart-dot-number-badge chart-dot-callout-badge" data-series="export" data-month="${monthKey}">
+          <rect x="${boxX}" y="${boxY}" width="${badgeW}" height="${boxH}" rx="0" fill="${palette.calloutBg}" stroke="${palette.calloutBorder}" stroke-width="1" />
+          <text x="${centerX}" y="${boxY + 12.5}" text-anchor="middle" fill="${palette.calloutText}" font-size="10.5" font-weight="700" font-family="system-ui, -apple-system, sans-serif">${valText}</text>
         </g>
       `;
     };
@@ -3960,26 +4122,27 @@ handleResetPassword(username) {
       const expOn = Boolean(exp && exp.isActive);
       if (!impOn && !expOn) return;
 
+      const isRateBelowFull = Boolean(exp && exp.ratePct < 99.95);
+
       if (impOn && expOn) {
         const yDiff = Math.abs(imp.cy - exp.cy);
-        if (yDiff < 28) {
-          // Chống va chạm khi 2 đường gần hoặc cắt nhau (VD 11/2026): điểm cao hơn (y nhỏ hơn) đặt trên chấm, điểm còn lại đặt dưới chấm
-          const impIsHigher = imp.cy <= exp.cy;
-          markup += renderBadge(imp.cx, imp.cy, imp.val, palette.importBadge, !impIsHigher, "import", monthKey);
-          markup += renderBadge(exp.cx, exp.cy, exp.val, palette.exportBadge, impIsHigher, "export", monthKey);
+        const impBlockedAbove = exp.cy < imp.cy && yDiff < 26;
+        markup += renderLightTextLabel(imp.cx, imp.cy, imp.val, palette.importText, impBlockedAbove, "import", monthKey);
+        if (isRateBelowFull) {
+          const expBlockedBelow = imp.cy > exp.cy && yDiff < 28;
+          markup += renderRateCalloutBadge(exp.cx, exp.cy, exp.val, !expBlockedBelow, monthKey);
         } else {
-          // Hai đường tách xa nhau: điểm sát trần (VD 100% tại padT) đặt dưới chấm để tránh đè tiêu đề đỉnh trục; điểm còn lại đặt trên chấm
-          const impBelow = imp.cy < metrics.padT + 14;
-          const expBelow = exp.cy < metrics.padT + 14;
-          markup += renderBadge(imp.cx, imp.cy, imp.val, palette.importBadge, impBelow, "import", monthKey);
-          markup += renderBadge(exp.cx, exp.cy, exp.val, palette.exportBadge, expBelow, "export", monthKey);
+          const expBlockedAbove = imp.cy < exp.cy && yDiff < 26;
+          markup += renderLightTextLabel(exp.cx, exp.cy, exp.val, palette.exportText, expBlockedAbove, "export", monthKey);
         }
       } else if (impOn) {
-        const impBelow = imp.cy < metrics.padT + 14;
-        markup += renderBadge(imp.cx, imp.cy, imp.val, palette.importBadge, impBelow, "import", monthKey);
+        markup += renderLightTextLabel(imp.cx, imp.cy, imp.val, palette.importText, false, "import", monthKey);
       } else if (expOn) {
-        const expBelow = exp.cy < metrics.padT + 14;
-        markup += renderBadge(exp.cx, exp.cy, exp.val, palette.exportBadge, expBelow, "export", monthKey);
+        if (isRateBelowFull) {
+          markup += renderRateCalloutBadge(exp.cx, exp.cy, exp.val, true, monthKey);
+        } else {
+          markup += renderLightTextLabel(exp.cx, exp.cy, exp.val, palette.exportText, false, "export", monthKey);
+        }
       }
     });
 
@@ -4000,8 +4163,13 @@ handleResetPassword(username) {
         '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>' +
         '<line x1="1" y1="1" x2="23" y2="23"/>' +
         "</svg>";
-      btnToggle.innerHTML = isAllActive ? `${eyeOffSvg}<span>Ẩn tất cả số</span>` : `${eyeSvg}<span>Xem tất cả số</span>`;
+      const tipLabel = isAllActive ? "Ẩn số liệu trên đồ thị" : "Hiện số liệu trên đồ thị";
+      btnToggle.innerHTML = isAllActive ? eyeSvg : eyeOffSvg;
+      btnToggle.classList.toggle("active", isAllActive);
       btnToggle.setAttribute("data-showing-all", isAllActive ? "true" : "false");
+      btnToggle.setAttribute("aria-pressed", isAllActive ? "true" : "false");
+      btnToggle.setAttribute("title", tipLabel);
+      btnToggle.setAttribute("aria-label", tipLabel);
     }
   },
 
@@ -4022,11 +4190,13 @@ handleResetPassword(username) {
     const isAllActive = allKeys.length > 0 && this.activeMonthlyChartDots.size >= allKeys.length;
 
     if (isAllActive) {
+      this.showAllMonthlyTrendsNumbers = false;
       this.activeMonthlyChartDots.clear();
       this.activeMonthlySeries = null;
     } else {
+      this.showAllMonthlyTrendsNumbers = true;
       allKeys.forEach((k) => this.activeMonthlyChartDots.add(k));
-      this.activeMonthlySeries = "both";
+      this.activeMonthlySeries = null;
     }
 
     this.renderMonthlyTrendsChartLabels();
@@ -4190,7 +4360,7 @@ handleResetPassword(username) {
       const overallRate =
         ctx.totalReceived > 0 ? Math.min(100, Math.round((ctx.totalExported / ctx.totalReceived) * 1000) / 10) : 0;
       const overallRateText = this.formatSplineRatePct(overallRate);
-      subEl.innerHTML = `Chu kỳ đang xem: <strong>${ctx.periodLabel}</strong> · <strong>${ctx.totalReceived}</strong> đơn tiếp nhận · <strong>${ctx.totalExported}</strong> đơn xuất hàng · Tỷ lệ xuất: <strong>${overallRateText}</strong>`;
+      subEl.innerHTML = `<strong>${ctx.totalReceived}</strong> tiếp nhận · <strong>${ctx.totalExported}</strong> xuất · <strong>${overallRateText}</strong>`;
     }
 
     this.updateMonthlyTrendsSplineSvg({
@@ -4228,20 +4398,49 @@ handleResetPassword(username) {
     const emptyOverlay = document.getElementById("chartEmptyOverlay");
 
     // Tính bề rộng vẽ thực tế để đồ thị bung khít 100% chiều ngang thẻ (1200px–1920px)
-    const measuredW = stageEl && stageEl.clientWidth ? stageEl.clientWidth : 1080;
+    const liveW = stageEl && stageEl.clientWidth > 0 ? stageEl.clientWidth : 0;
+    if (liveW > 0) {
+      this._lastMeasuredSplineW = liveW;
+    }
+    const measuredW = liveW || this._lastMeasuredSplineW || 1080;
     const svgW = Math.max(720, Math.round(measuredW));
     const svgH = 264;
     const padL = 14;
     const padR = svgW - 14;
-    const padT = 30;
-    const padB = 224;
+    const padT = 36;
+    const padB = 226;
     const plotH = padB - padT;
 
     if (svgEl) {
       svgEl.setAttribute("viewBox", `0 0 ${svgW} ${svgH}`);
     }
 
-    this._lastSplineMetrics = { svgW, svgH, padL, padR, padT, padB, plotH };
+    // Đồng bộ tọa độ gradientUnits="userSpaceOnUse" theo khung padT -> padB và stop màu Sáng / Tối
+    const gradImp = document.getElementById("gradAreaImport");
+    const gradExp = document.getElementById("gradAreaExport");
+    [gradImp, gradExp].forEach((gradEl) => {
+      if (!gradEl) return;
+      gradEl.setAttribute("gradientUnits", "userSpaceOnUse");
+      gradEl.setAttribute("x1", "0");
+      gradEl.setAttribute("y1", String(padT));
+      gradEl.setAttribute("x2", "0");
+      gradEl.setAttribute("y2", String(padB));
+    });
+    const syncStop = (id, color, pair) => {
+      const el = document.getElementById(id);
+      if (!el || !pair) return;
+      el.setAttribute("offset", pair[0]);
+      el.setAttribute("stop-color", color);
+      el.setAttribute("stop-opacity", pair[1]);
+    };
+    syncStop("gradStopImportTop", palette.importGlow, palette.importStops.top);
+    syncStop("gradStopImportMid", palette.importGlow, palette.importStops.mid);
+    syncStop("gradStopImportLow", palette.importGlow, palette.importStops.low);
+    syncStop("gradStopImportBottom", palette.importGlow, palette.importStops.bottom);
+    syncStop("gradStopExportTop", palette.exportGlow, palette.exportStops.top);
+    syncStop("gradStopExportMid", palette.exportGlow, palette.exportStops.mid);
+    syncStop("gradStopExportFade", palette.exportGlow, palette.exportStops.fade);
+    syncStop("gradStopExportBottom", palette.exportGlow, palette.exportStops.bottom);
 
     if (lineImp) {
       lineImp.setAttribute("stroke", palette.importLine);
@@ -4269,16 +4468,18 @@ handleResetPassword(username) {
         gridEl.innerHTML = gMarkup;
       }
       if (yAxisLeftEl) {
-        let ylMarkup = `<text x="${padL + 2}" y="14" text-anchor="start" class="rev-spline-axis-title rev-axis-title-left">Số đơn tiếp nhận</text>`;
+        let ylMarkup = "";
         for (let i = 0; i <= 4; i++) {
           const gy = Math.round(padB - (i / 4) * plotH);
           const val = Math.round(i * leftStep);
-          ylMarkup += `<text x="${padL + 2}" y="${gy - 4}" text-anchor="start">${val}</text>`;
+          const lbl = i === 4 ? `${val} đơn` : String(val);
+          const topCls = i === 4 ? ' class="rev-y-top-unit"' : "";
+          ylMarkup += `<text x="${padL + 2}" y="${gy - 4}" text-anchor="start"${topCls}>${lbl}</text>`;
         }
         yAxisLeftEl.innerHTML = ylMarkup;
       }
       if (yAxisRightEl) {
-        let yrMarkup = `<text x="${padR - 2}" y="14" text-anchor="end" class="rev-spline-axis-title rev-axis-title-right">Tỷ lệ xuất (%)</text>`;
+        let yrMarkup = "";
         for (let i = 0; i <= 4; i++) {
           const gy = Math.round(padB - (i / 4) * plotH);
           const pctVal = i * 25;
@@ -4289,6 +4490,7 @@ handleResetPassword(username) {
     };
 
     if (n === 0 || (totalReceived !== undefined && totalReceived === 0)) {
+      this._lastSplineMetrics = { svgW, svgH, padL, padR, padT, padB, plotH, stepX: 0, yMaxLeft: 4 };
       this._lastSplinePoints = [];
       renderGridAndAxes(4);
       [lineImp, lineExp, areaImp, areaExp, hitImp, hitExp].forEach((el) => {
@@ -4300,8 +4502,8 @@ handleResetPassword(username) {
       if (emptyOverlay) {
         const midX = Math.round(svgW / 2);
         emptyOverlay.innerHTML = `
-          <text x="${midX}" y="118" text-anchor="middle" font-size="13" font-weight="700" class="rev-spline-empty-title">Chưa có dữ liệu đơn hàng trong kỳ đang chọn</text>
-          <text x="${midX}" y="138" text-anchor="middle" font-size="11.5" class="rev-spline-empty-sub">Chọn "Tất cả thời gian" hoặc kỳ khác trên thanh lọc đầu trang</text>
+          <text x="${midX}" y="122" text-anchor="middle" font-size="13" font-weight="700" class="rev-spline-empty-title">Chưa có dữ liệu đơn hàng trong kỳ đang chọn</text>
+          <text x="${midX}" y="142" text-anchor="middle" font-size="11.5" class="rev-spline-empty-sub">Chọn "Tất cả thời gian" hoặc kỳ khác trên thanh lọc đầu trang</text>
         `;
       }
       if (this.activeMonthlyChartDots) {
@@ -4314,19 +4516,18 @@ handleResetPassword(username) {
 
     if (emptyOverlay) emptyOverlay.innerHTML = "";
 
-    // Trục tung TRÁI (Đơn tiếp nhận): thêm 25–30% khoảng thở trên đỉnh, chia hết cho 4 mốc lưới
+    // Trục tung TRÁI sát trần chia hết cho 4 (VD: đỉnh 19 đơn -> 0, 5, 10, 15, 20 đơn -> tách rõ điểm cắt 11/2026)
     const rawMaxLeft = Math.max(4, ...importVals);
-    const targetMaxLeft = Math.ceil(rawMaxLeft * 1.26);
-    const leftStep = Math.max(1, Math.ceil(targetMaxLeft / 4));
+    const leftStep = Math.max(1, Math.ceil((rawMaxLeft * 1.05) / 4));
     const yMaxLeft = leftStep * 4;
 
     renderGridAndAxes(yMaxLeft);
 
-    // Biên trong để nhãn đầu/cuối và các điểm dữ liệu không chạm nhãn trục tung bên trong
-    const innerPad = 46;
-    const xStart = padL + innerPad;
-    const xEnd = padR - innerPad;
+    const xStart = padL + 64;
+    const xEnd = padR - 64;
     const stepX = n > 1 ? (xEnd - xStart) / (n - 1) : 0;
+
+    this._lastSplineMetrics = { svgW, svgH, padL, padR, padT, padB, plotH, xStart, xEnd, stepX, yMaxLeft };
 
     const getX = (i) => (n === 1 ? Math.round((xStart + xEnd) / 2) : Math.round(xStart + i * stepX));
     const getYLeft = (val) => Math.round(padB - (val / yMaxLeft) * plotH);
@@ -4391,7 +4592,7 @@ handleResetPassword(username) {
       const labelFontSize = n > 14 ? 10 : 11.5;
       let xMarkup = "";
       for (let i = 0; i < n; i++) {
-        xMarkup += `<text x="${points[i].x}" y="${padB + 20}" font-size="${labelFontSize}">${points[i].label}</text>`;
+        xMarkup += `<text x="${points[i].x}" y="${padB + 20}" font-size="${labelFontSize}" data-month="${points[i].label}">${points[i].label}</text>`;
       }
       xAxisEl.innerHTML = xMarkup;
     }
@@ -4409,23 +4610,29 @@ handleResetPassword(username) {
       let dMarkup = "";
       points.forEach((pt) => {
         const tip = `${pt.label} — Tỷ lệ xuất hàng: ${pt.rateText} (${pt.expVal}/${pt.impVal} đơn)`;
-        dMarkup += `<circle cx="${pt.x}" cy="${pt.yRate}" r="4" class="chart-interactive-dot" data-type="export" data-month="${pt.label}" data-month-name="${pt.full}" data-val="${pt.rateText}" data-series="Tỷ lệ xuất hàng" onclick="AppUI.handleMonthlyChartDotClick(this)"><title>${tip}</title></circle>`;
+        dMarkup += `<circle cx="${pt.x}" cy="${pt.yRate}" r="4" class="chart-interactive-dot" data-type="export" data-month="${pt.label}" data-month-name="${pt.full}" data-val="${pt.rateText}" data-rate="${pt.ratePct}" data-series="Tỷ lệ xuất hàng" onclick="AppUI.handleMonthlyChartDotClick(this)"><title>${tip}</title></circle>`;
       });
       dotsExpGroup.innerHTML = dMarkup;
     }
 
-    if (this.activeMonthlyChartDots) {
-      const btnToggle = document.getElementById("btnToggleAllMonthlyDots");
-      if (btnToggle && btnToggle.getAttribute("data-showing-all") === "true") {
-        this.activeMonthlyChartDots.clear();
-        points.forEach((p) => {
-          this.activeMonthlyChartDots.add(`import_${p.label}`);
-          this.activeMonthlyChartDots.add(`export_${p.label}`);
-        });
-      } else {
-        this.activeMonthlyChartDots.clear();
-        this.activeMonthlySeries = null;
-      }
+    if (!this.activeMonthlyChartDots) {
+      this.activeMonthlyChartDots = new Set();
+    }
+    if (this.activeMonthlySeries === "import") {
+      this.activeMonthlyChartDots.clear();
+      points.forEach((p) => this.activeMonthlyChartDots.add(`import_${p.label}`));
+    } else if (this.activeMonthlySeries === "export") {
+      this.activeMonthlyChartDots.clear();
+      points.forEach((p) => this.activeMonthlyChartDots.add(`export_${p.label}`));
+    } else if (this.showAllMonthlyTrendsNumbers) {
+      this.activeMonthlyChartDots.clear();
+      points.forEach((p) => {
+        this.activeMonthlyChartDots.add(`import_${p.label}`);
+        this.activeMonthlyChartDots.add(`export_${p.label}`);
+      });
+    } else {
+      this.activeMonthlyChartDots.clear();
+      this.activeMonthlySeries = null;
     }
 
     this.renderMonthlyTrendsChartLabels();
@@ -8708,36 +8915,716 @@ handleResetPassword(username) {
     this.renderUnifiedLogs();
   },
 
+  // ============================================================================
+  // PHÂN HỆ BÁO CÁO & ĐỐI CHIẾU TỔNG HỢP — 100% SỐ LIỆU THỰC <= Date.now() (v39)
+  // ============================================================================
+  reportsInvPage: 1,
+  reportsInvPageSize: 10,
+  _repPeriodOptSig: "",
+  _repInvCatOptSig: "",
+
+  classifyReportOrder(ord) {
+    const isCancelled = Boolean(
+      ord && (ord.status === "CANCELLED" || ord.status === "INVALID" || ord.platformStatus === "CANCELLED")
+    );
+    const isAllocated = Boolean(ord && !isCancelled && ord.status === "ALLOCATED");
+    const isWaiting = Boolean(ord && !isCancelled && !isAllocated);
+    const qty = Number(ord && ord.quantity) || 0;
+    const unitPrice = Number(ord && ord.unitPrice) || 0;
+    const revenue = isAllocated ? qty * unitPrice : 0;
+    return { isAllocated, isWaiting, isCancelled, qty, revenue };
+  },
+
+  syncReportsFilterOptions() {
+    const allMonths =
+      typeof this.getMonthlyHistoricalDataset === "function" ? this.getMonthlyHistoricalDataset() : {};
+    const orderedKeys = Object.keys(allMonths).sort();
+    const descKeys = [...orderedKeys].reverse();
+    const nowDt = new Date(Date.now());
+    const pad = (n) => String(n).padStart(2, "0");
+    const todayVn = `${pad(nowDt.getDate())}/${pad(nowDt.getMonth() + 1)}/${nowDt.getFullYear()}`;
+    const curQKey = `${nowDt.getFullYear()}-Q${Math.ceil((nowDt.getMonth() + 1) / 3)}`;
+
+    // 1. Nạp danh sách Kỳ đối chiếu động (#repPeriodFilter) theo dữ liệu thực tế <= hiện tại
+    const periodSel = document.getElementById("repPeriodFilter");
+    if (periodSel) {
+      const quarterSet = new Set();
+      orderedKeys.forEach((mk) => {
+        const [yStr, mStr] = mk.split("-");
+        const qNum = Math.ceil(Number(mStr) / 3);
+        quarterSet.add(`${yStr}-Q${qNum}`);
+      });
+      const qKeysDesc = Array.from(quarterSet).sort().reverse();
+      const validValues = new Set(["ALL"]);
+      descKeys.forEach((mk) => validValues.add(`MONTH:${mk}`));
+      qKeysDesc.forEach((qk) => validValues.add(`QUARTER:${qk}`));
+
+      const nextSig = `${todayVn}|${descKeys.join(",")}|${qKeysDesc.join(",")}`;
+      const prevVal = periodSel.value || "ALL";
+
+      if (this._repPeriodOptSig !== nextSig) {
+        const monthOptsHtml = descKeys
+          .map((mk) => `<option value="MONTH:${mk}">${allMonths[mk].label}</option>`)
+          .join("");
+        const quarterOptsHtml = qKeysDesc
+          .map((qk) => {
+            const [yStr, qPart] = qk.split("-Q");
+            const qNum = Number(qPart) || 1;
+            const startM = (qNum - 1) * 3 + 1;
+            const endM = qNum * 3;
+            const rangeText =
+              qk === curQKey
+                ? `Tháng ${pad(startM)} – ${todayVn}`
+                : `Tháng ${pad(startM)} – Tháng ${pad(endM)}/${yStr}`;
+            return `<option value="QUARTER:${qk}">Quý ${qNum}/${yStr} (${rangeText})</option>`;
+          })
+          .join("");
+
+        let html = `<option value="ALL">Tất cả thời gian (đến ${todayVn})</option>`;
+        if (monthOptsHtml) {
+          html += `<optgroup label="Theo Tháng">${monthOptsHtml}</optgroup>`;
+        }
+        if (quarterOptsHtml) {
+          html += `<optgroup label="Theo Quý">${quarterOptsHtml}</optgroup>`;
+        }
+        periodSel.innerHTML = html;
+        this._repPeriodOptSig = nextSig;
+      }
+      periodSel.value = validValues.has(prevVal) ? prevVal : "ALL";
+    }
+
+    // 2. Nạp danh sách Danh mục động cho Bảng 2 (#repInvCategoryFilter)
+    const catSel = document.getElementById("repInvCategoryFilter");
+    if (catSel) {
+      const effInv =
+        typeof this.getEffectiveInventoryAtNow === "function"
+          ? this.getEffectiveInventoryAtNow()
+          : window.omsEngine && Array.isArray(window.omsEngine.inventory)
+          ? window.omsEngine.inventory
+          : [];
+      const cats = [];
+      const seen = new Set();
+      effInv.forEach((item) => {
+        const c = String((item && item.category) || "").trim();
+        if (c && !seen.has(c)) {
+          seen.add(c);
+          cats.push(c);
+        }
+      });
+      const catSig = cats.join("|");
+      const prevCat = catSel.value || "ALL";
+      if (this._repInvCatOptSig !== catSig) {
+        const safeEsc = (s) => (typeof this.escapeLogHtml === "function" ? this.escapeLogHtml(s) : String(s || ""));
+        catSel.innerHTML =
+          `<option value="ALL">Tất cả danh mục</option>` +
+          cats.map((c) => `<option value="${safeEsc(c)}">${safeEsc(c)}</option>`).join("");
+        this._repInvCatOptSig = catSig;
+      }
+      catSel.value = prevCat === "ALL" || seen.has(prevCat) ? prevCat : "ALL";
+    }
+  },
+
+  getReportsActiveFilterContext() {
+    this.syncReportsFilterOptions();
+
+    const liveOrders =
+      typeof this.getValidOrdersUpToNow === "function"
+        ? this.getValidOrdersUpToNow()
+        : window.omsEngine && Array.isArray(window.omsEngine.orders)
+        ? window.omsEngine.orders
+        : [];
+    const effInv =
+      typeof this.getEffectiveInventoryAtNow === "function"
+        ? this.getEffectiveInventoryAtNow()
+        : window.omsEngine && Array.isArray(window.omsEngine.inventory)
+        ? window.omsEngine.inventory
+        : [];
+    const allMonths =
+      typeof this.getMonthlyHistoricalDataset === "function" ? this.getMonthlyHistoricalDataset() : {};
+
+    const nowMs = Date.now();
+    const nowDt = new Date(nowMs);
+    const pad = (n) => String(n).padStart(2, "0");
+    const todayVn = `${pad(nowDt.getDate())}/${pad(nowDt.getMonth() + 1)}/${nowDt.getFullYear()}`;
+    const curQKey = `${nowDt.getFullYear()}-Q${Math.ceil((nowDt.getMonth() + 1) / 3)}`;
+
+    const periodVal = String(document.getElementById("repPeriodFilter")?.value || "ALL").trim() || "ALL";
+    const channelVal = String(document.getElementById("repChannelFilter")?.value || "ALL").trim().toUpperCase() || "ALL";
+
+    let startMs = 0;
+    let endMs = nowMs;
+    let periodLabel = `Tất cả thời gian (đến ${todayVn})`;
+
+    if (periodVal.startsWith("MONTH:")) {
+      const mk = periodVal.slice(6);
+      const mObj = allMonths[mk];
+      if (mObj) {
+        const lastDay = new Date(mObj.year, mObj.month, 0).getDate();
+        startMs = new Date(mObj.year, mObj.month - 1, 1, 0, 0, 0, 0).getTime();
+        endMs = Math.min(nowMs, new Date(mObj.year, mObj.month - 1, lastDay, 23, 59, 59, 999).getTime());
+        periodLabel = mObj.label;
+      }
+    } else if (periodVal.startsWith("QUARTER:")) {
+      const qk = periodVal.slice(8);
+      const [yStr, qPart] = qk.split("-Q");
+      const qY = Number(yStr) || nowDt.getFullYear();
+      const qNum = Number(qPart) || 1;
+      const startM = (qNum - 1) * 3 + 1;
+      const endM = qNum * 3;
+      const endLastDay = new Date(qY, endM, 0).getDate();
+      startMs = new Date(qY, startM - 1, 1, 0, 0, 0, 0).getTime();
+      endMs = Math.min(nowMs, new Date(qY, endM - 1, endLastDay, 23, 59, 59, 999).getTime());
+      periodLabel =
+        qk === curQKey
+          ? `Quý ${qNum}/${qY} (Tháng ${pad(startM)} – ${todayVn})`
+          : `Quý ${qNum}/${qY} (Tháng ${pad(startM)} – Tháng ${pad(endM)}/${qY})`;
+    }
+
+    const ordersByPeriod =
+      periodVal === "ALL"
+        ? liveOrders
+        : liveOrders.filter((ord) => {
+            const ts =
+              typeof this.getOrderTimestampMs === "function" ? this.getOrderTimestampMs(ord) : Number(ord.timestampMs) || 0;
+            return ts >= startMs && ts <= endMs;
+          });
+
+    const filteredOrders =
+      channelVal === "ALL"
+        ? ordersByPeriod
+        : ordersByPeriod.filter((ord) => String(ord.channel || "").trim().toUpperCase() === channelVal);
+
+    let validShipments =
+      typeof this.getValidShipmentsUpToNow === "function" ? this.getValidShipmentsUpToNow(filteredOrders) : [];
+    if (channelVal !== "ALL") {
+      validShipments = validShipments.filter((s) => String((s && s.channel) || "").trim().toUpperCase() === channelVal);
+    }
+
+    const metaMap =
+      typeof this.getRevenueChannelMetaMap === "function"
+        ? this.getRevenueChannelMetaMap()
+        : {
+            SHOPEE: { key: "SHOPEE", name: "Shopee", color: "#1877FF" },
+            TIKTOK: { key: "TIKTOK", name: "TikTok Shop", color: "#465AFF" },
+            LAZADA: { key: "LAZADA", name: "Lazada", color: "#0284C7" },
+            FACEBOOK: { key: "FACEBOOK", name: "Facebook", color: "#64748B" },
+            POS: { key: "POS", name: "Cửa hàng POS", color: "#7C3AED" }
+          };
+
+    const allChannelKeys = ["SHOPEE", "TIKTOK", "LAZADA", "FACEBOOK", "POS"];
+    const displayChannelKeys =
+      channelVal !== "ALL" && allChannelKeys.includes(channelVal) ? [channelVal] : allChannelKeys;
+
+    const channelRows = displayChannelKeys.map((chKey) => {
+      const chOrders = filteredOrders.filter((o) => String(o.channel || "").trim().toUpperCase() === chKey);
+      let allocated = 0;
+      let waiting = 0;
+      let cancelled = 0;
+      let allocatedUnits = 0;
+      let revenue = 0;
+
+      chOrders.forEach((o) => {
+        const cls = this.classifyReportOrder(o);
+        if (cls.isAllocated) {
+          allocated += 1;
+          allocatedUnits += cls.qty;
+          revenue += cls.revenue;
+        } else if (cls.isCancelled) {
+          cancelled += 1;
+        } else {
+          waiting += 1;
+        }
+      });
+
+      const received = chOrders.length;
+      const holdRate = received > 0 ? (allocated / received) * 100 : 0;
+      const chShips = validShipments.filter((s) => String((s && s.channel) || "").trim().toUpperCase() === chKey);
+      const deliveredShipments = chShips.filter((s) => s && s.status === "DELIVERED").length;
+      const codTotal = chShips.reduce((sum, s) => sum + (Number(s && s.totalCod) || 0), 0);
+      const meta = metaMap[chKey] || { key: chKey, name: chKey, color: "#1877FF" };
+
+      return {
+        key: chKey,
+        name: meta.name,
+        color: meta.color,
+        received,
+        allocated,
+        waiting,
+        cancelled,
+        allocatedUnits,
+        revenue,
+        holdRate,
+        shipments: chShips.length,
+        deliveredShipments,
+        codTotal
+      };
+    });
+
+    const totals = channelRows.reduce(
+      (acc, r) => {
+        acc.received += r.received;
+        acc.allocated += r.allocated;
+        acc.waiting += r.waiting;
+        acc.cancelled += r.cancelled;
+        acc.allocatedUnits += r.allocatedUnits;
+        acc.revenue += r.revenue;
+        return acc;
+      },
+      {
+        received: 0,
+        allocated: 0,
+        waiting: 0,
+        cancelled: 0,
+        allocatedUnits: 0,
+        revenue: 0,
+        holdRate: 0,
+        shipments: validShipments.length,
+        deliveredShipments: validShipments.filter((s) => s && s.status === "DELIVERED").length,
+        codTotal: validShipments.reduce((sum, s) => sum + (Number(s && s.totalCod) || 0), 0)
+      }
+    );
+    totals.holdRate = totals.received > 0 ? (totals.allocated / totals.received) * 100 : 0;
+
+    const invTotals = effInv.reduce(
+      (acc, item) => {
+        const phys = Math.max(0, Number(item.effectivePhysicalStock ?? item.physicalStock) || 0);
+        const resv = Math.max(0, Number(item.effectiveReservedStock ?? item.reservedStock) || 0);
+        const avail =
+          typeof this.getSkuAvailableStock === "function"
+            ? this.getSkuAvailableStock(item)
+            : Math.max(0, phys - resv);
+        const unitPrice = Number(item.unitPrice ?? item.price ?? 0) || 0;
+        acc.skuCount += 1;
+        acc.physicalStock += phys;
+        acc.reservedStock += resv;
+        acc.availableStock += avail;
+        acc.stockValue += phys * unitPrice;
+        if (avail === 0) acc.outOfStockCount += 1;
+        return acc;
+      },
+      { skuCount: 0, physicalStock: 0, reservedStock: 0, availableStock: 0, stockValue: 0, outOfStockCount: 0 }
+    );
+
+    const channelLabel = channelVal === "ALL" ? "Tất cả 5 kênh" : (metaMap[channelVal] && metaMap[channelVal].name) || channelVal;
+
+    return {
+      periodVal,
+      periodLabel,
+      channelVal,
+      channelLabel,
+      startMs,
+      endMs,
+      orders: filteredOrders,
+      shipments: validShipments,
+      inventory: effInv,
+      channelRows,
+      totals,
+      invTotals
+    };
+  },
+
+  onReportsFilterChange() {
+    this.renderReportsSummary();
+  },
+
+  onReportsInvFilterChange() {
+    this.reportsInvPage = 1;
+    this.renderReportsInventoryTable();
+  },
+
+  changeReportsInvPage(delta) {
+    const nextPage = (Number(this.reportsInvPage) || 1) + Number(delta || 0);
+    this.reportsInvPage = Math.max(1, nextPage);
+    this.renderReportsInventoryTable();
+  },
+
+  ensureSingleReportsDomStructure() {
+    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;
+    const reportSections = Array.from(
+      document.querySelectorAll('section.oms-view-section[data-views="reports"]') || []
+    );
+    if (reportSections.length > 1) {
+      reportSections.slice(1).forEach((dupSec) => {
+        if (dupSec && dupSec.parentNode) dupSec.parentNode.removeChild(dupSec);
+      });
+    }
+    const primarySec = reportSections[0];
+    if (primarySec && typeof primarySec.querySelectorAll === "function") {
+      const chartCards = Array.from(primarySec.querySelectorAll(".rep-chart-card") || []);
+      if (chartCards.length > 1) {
+        chartCards.slice(1).forEach((dupChart) => {
+          if (dupChart && dupChart.parentNode) dupChart.parentNode.removeChild(dupChart);
+        });
+      }
+      const cards = Array.from(primarySec.querySelectorAll(".rep-panel-card") || []);
+      if (cards.length > 2) {
+        cards.slice(2).forEach((dupCard) => {
+          if (dupCard && dupCard.parentNode) dupCard.parentNode.removeChild(dupCard);
+        });
+      }
+      const tables = Array.from(primarySec.querySelectorAll("table.odoms-flat-table") || []);
+      if (tables.length > 2) {
+        tables.slice(2).forEach((dupTbl) => {
+          if (dupTbl && dupTbl.parentNode) dupTbl.parentNode.removeChild(dupTbl);
+        });
+      }
+    }
+  },
+
   renderReportsSummary() {
+    this.ensureSingleReportsDomStructure();
     const tbody = document.getElementById("channelReportTableBody");
-    if (!tbody) return;
+    const tfoot = document.getElementById("channelReportTableFoot");
+    if (!tbody && !document.getElementById("repKpiTotalOrders")) return;
 
-    const orders = typeof this.getValidOrdersUpToNow === "function" ? this.getValidOrdersUpToNow() : window.omsEngine.orders;
-    const inv = typeof this.getEffectiveInventoryAtNow === "function" ? this.getEffectiveInventoryAtNow() : window.omsEngine.inventory;
-    const channels = ["SHOPEE", "TIKTOK", "LAZADA", "FACEBOOK", "POS"];
+    const ctx = this.getReportsActiveFilterContext();
+    this._lastReportsContext = ctx;
 
-    tbody.innerHTML = channels
-      .map((ch) => {
-        const chOrders = orders.filter((o) => o.channel === ch);
-        const alloc = chOrders.filter((o) => o.status === "ALLOCATED").length;
-        const back = chOrders.filter((o) => o.status === "BACKORDER").length;
-        const invErr = chOrders.filter((o) => o.status === "INVALID").length;
-        const heldUnits = inv.reduce((s, item) => s + ((item.effectiveChannelReserved || item.channelReserved || {})[ch] || 0), 0);
-        const revenue = chOrders
-          .filter((o) => o.status === "ALLOCATED")
-          .reduce((s, o) => s + o.quantity * o.unitPrice, 0);
+    // 1. Mốc giờ đồng bộ chuẩn trang Cài đặt (Cập nhật: HH:MM:SS DD.MM.YYYY)
+    const tsEl = document.getElementById("repSyncTimestamp");
+    if (tsEl) {
+      const rawSyncTime = window.cloudSync && window.cloudSync.lastSyncTime ? String(window.cloudSync.lastSyncTime).trim() : "";
+      let formattedTs =
+        rawSyncTime && typeof this.formatSettingsSyncTimestamp === "function"
+          ? this.formatSettingsSyncTimestamp(rawSyncTime)
+          : "";
+      if (!formattedTs || /chưa đồng bộ/i.test(formattedTs)) {
+        formattedTs =
+          typeof this.formatRevTimestampDisplay === "function"
+            ? this.formatRevTimestampDisplay(this.dashboardOpenedAt || new Date())
+            : "Cập nhật: Chưa đồng bộ";
+      }
+      tsEl.innerText = formattedTs;
+      tsEl.title = formattedTs;
+    }
 
-        return `
+    // 2. Dải 4 thẻ chỉ số tổng hợp
+    const setTxt = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.innerText = val;
+    };
+    const fmtPct = (v) =>
+      typeof this.formatRevPercentVi === "function" ? this.formatRevPercentVi(v) : Number(v || 0).toFixed(1).replace(".", ",");
+
+    setTxt("repKpiTotalOrders", `${ctx.totals.received.toLocaleString("vi-VN")} đơn`);
+    setTxt(
+      "repKpiTotalOrdersSub",
+      `${ctx.totals.allocated.toLocaleString("vi-VN")} đã giữ · Tỷ lệ ${fmtPct(ctx.totals.holdRate)}%`
+    );
+
+    setTxt("repKpiAllocatedRevenue", `${ctx.totals.revenue.toLocaleString("vi-VN")} VND`);
+    setTxt(
+      "repKpiAllocatedRevenueSub",
+      `Trên ${ctx.totals.allocated.toLocaleString("vi-VN")} đơn · ${ctx.totals.allocatedUnits.toLocaleString("vi-VN")} SP`
+    );
+
+    setTxt("repKpiShipments", `${ctx.totals.shipments.toLocaleString("vi-VN")} vận đơn`);
+    setTxt(
+      "repKpiShipmentsSub",
+      `${ctx.totals.deliveredShipments.toLocaleString("vi-VN")} đã giao · Thu hộ: ${ctx.totals.codTotal.toLocaleString("vi-VN")} VND`
+    );
+
+    setTxt("repKpiAvailableStock", `${ctx.invTotals.availableStock.toLocaleString("vi-VN")} SP`);
+    setTxt(
+      "repKpiAvailableStockSub",
+      `${ctx.invTotals.skuCount.toLocaleString("vi-VN")} mặt hàng · ${ctx.invTotals.outOfStockCount.toLocaleString("vi-VN")} hết hàng`
+    );
+
+    // 3. Bảng 1 — Đối chiếu hiệu suất theo 5 kênh (chỉ 1 cột màu nhấn duy nhất: Tỷ lệ giữ hàng)
+    const buildRateBadge = (receivedCount, rateNum) => {
+      if (receivedCount <= 0) {
+        return `<span class="odoms-flat-badge is-neutral">—</span>`;
+      }
+      const tone = rateNum >= 90 ? "is-success" : rateNum >= 80 ? "is-info" : "is-warning";
+      return `<span class="odoms-flat-badge ${tone}">${fmtPct(rateNum)}%</span>`;
+    };
+
+    if (tbody) {
+      tbody.textContent = "";
+      tbody.innerHTML = ctx.channelRows
+        .map(
+          (row) => `
+          <tr>
+            <td class="col-rep-ch">
+              <span class="rep-ch-cell">
+                <span class="rep-ch-vbar" style="background:${row.color};" aria-hidden="true"></span>
+                <span class="rep-ch-name">${row.name}</span>
+              </span>
+            </td>
+            <td class="col-rep-rec"><strong class="rep-num-strong">${row.received.toLocaleString("vi-VN")} đơn</strong></td>
+            <td class="col-rep-alloc">${row.allocated.toLocaleString("vi-VN")} đơn</td>
+            <td class="col-rep-wait">${row.waiting.toLocaleString("vi-VN")} đơn</td>
+            <td class="col-rep-cancel">${row.cancelled.toLocaleString("vi-VN")} đơn</td>
+            <td class="col-rep-rev"><span class="rep-money-val">${row.revenue.toLocaleString("vi-VN")} VND</span></td>
+            <td class="col-rep-rate">${buildRateBadge(row.received, row.holdRate)}</td>
+          </tr>
+        `
+        )
+        .join("");
+    }
+
+    if (tfoot) {
+      tfoot.textContent = "";
+      tfoot.innerHTML = `
         <tr>
-          <td><span class="channel-badge badge-${ch}">${ch}</span></td>
-          <td><strong>${chOrders.length}</strong> đơn</td>
-          <td style="color:var(--theme-primary);font-weight:700;">${alloc} đơn</td>
-          <td style="color:#b45309;font-weight:700;">${back} đơn</td>
-          <td style="color:#dc2626;font-weight:700;">${invErr} đơn</td>
-          <td><strong>${heldUnits} SP</strong></td>
-          <td style="font-weight:700;">${revenue.toLocaleString("vi-VN")} VND</td>
+          <td class="col-rep-ch">TỔNG CỘNG</td>
+          <td class="col-rep-rec">${ctx.totals.received.toLocaleString("vi-VN")} đơn</td>
+          <td class="col-rep-alloc">${ctx.totals.allocated.toLocaleString("vi-VN")} đơn</td>
+          <td class="col-rep-wait">${ctx.totals.waiting.toLocaleString("vi-VN")} đơn</td>
+          <td class="col-rep-cancel">${ctx.totals.cancelled.toLocaleString("vi-VN")} đơn</td>
+          <td class="col-rep-rev">${ctx.totals.revenue.toLocaleString("vi-VN")} VND</td>
+          <td class="col-rep-rate">${buildRateBadge(ctx.totals.received, ctx.totals.holdRate)}</td>
         </tr>
       `;
+    }
+
+    // 3.5. Biểu đồ đối chiếu gọn nhẹ phẳng 0px (thuần SVG)
+    this.renderReportsCompareCharts(ctx);
+
+    // 4. Bảng 2 — Tồn kho & Giá trị (phân trang 10 dòng / trang)
+    this.renderReportsInventoryTable(ctx.inventory);
+  },
+
+  renderReportsCompareCharts(precomputedCtx) {
+    const chSvg = document.getElementById("repChannelCompareSvg");
+    const catSvg = document.getElementById("repCategoryCompareSvg");
+    if (!chSvg && !catSvg) return;
+
+    const ctx = precomputedCtx || this._lastReportsContext || this.getReportsActiveFilterContext();
+    const safeEsc = (s) => (typeof this.escapeLogHtml === "function" ? this.escapeLogHtml(s) : String(s || ""));
+    const fmtPct = (v) =>
+      typeof this.formatRevPercentVi === "function" ? this.formatRevPercentVi(v) : Number(v || 0).toFixed(1).replace(".", ",");
+
+    const renderHorizontalBars = (svgEl, rows, emptyMsg) => {
+      if (!svgEl) return;
+      if (!rows || rows.length === 0) {
+        svgEl.innerHTML = `<text x="230" y="92" text-anchor="middle" class="rep-svg-empty">${safeEsc(emptyMsg)}</text>`;
+        return;
+      }
+
+      const maxVal = Math.max(...rows.map((r) => Math.max(r.primaryVal, r.secondaryVal)), 1);
+      const labelX = 114;
+      const barX = 122;
+      const barMaxW = 216;
+      const valX = 454;
+      const rowH = 32;
+      const topPad = 10;
+      const totalH = Math.max(88, topPad * 2 + rows.length * rowH);
+      svgEl.setAttribute("viewBox", `0 0 460 ${totalH}`);
+
+      svgEl.innerHTML = rows
+        .map((r, idx) => {
+          const y0 = topPad + idx * rowH;
+          const w1 = r.primaryVal > 0 ? Math.max(4, Math.round((r.primaryVal / maxVal) * barMaxW)) : 0;
+          const w2 = r.secondaryVal > 0 ? Math.max(4, Math.round((r.secondaryVal / maxVal) * barMaxW)) : 0;
+          const safeLbl = safeEsc(r.label);
+          const safeStat = safeEsc(r.statText);
+          const safeTip = safeEsc(r.tooltip);
+
+          return `
+            <g class="rep-svg-row">
+              <title>${safeTip}</title>
+              <text x="${labelX}" y="${y0 + 18}" text-anchor="end" class="rep-svg-label">${safeLbl}</text>
+              <rect x="${barX}" y="${y0 + 5}" width="${barMaxW}" height="7" class="rep-svg-track" />
+              <rect x="${barX}" y="${y0 + 15}" width="${barMaxW}" height="7" class="rep-svg-track" />
+              ${w1 > 0 ? `<rect x="${barX}" y="${y0 + 5}" width="${w1}" height="7" class="rep-svg-bar-primary" />` : ""}
+              ${w2 > 0 ? `<rect x="${barX}" y="${y0 + 15}" width="${w2}" height="7" class="rep-svg-bar-emerald" />` : ""}
+              <text x="${valX}" y="${y0 + 18}" text-anchor="end" class="rep-svg-val">${safeStat}</text>
+            </g>
+          `;
+        })
+        .join("");
+    };
+
+    // 1. Trái: Đơn tiếp nhận & Đã giữ theo 5 kênh
+    if (chSvg) {
+      const chRows = (ctx.channelRows || []).map((r) => ({
+        label: r.name,
+        primaryVal: r.received,
+        secondaryVal: r.allocated,
+        statText: r.received > 0 ? `${r.allocated}/${r.received} · ${fmtPct(r.holdRate)}%` : "0/0 · —",
+        tooltip: `${r.name}: Tiếp nhận ${r.received} đơn · Đã giữ ${r.allocated} đơn (${fmtPct(r.holdRate)}%)`
+      }));
+      renderHorizontalBars(chSvg, chRows, "Chưa có dữ liệu đối chiếu kênh");
+    }
+
+    // 2. Phải: Tồn kho & Bán được theo danh mục
+    if (catSvg) {
+      const catMap = new Map();
+      (ctx.inventory || []).forEach((item) => {
+        if (!item) return;
+        const catName = String(item.category || "Thời trang").trim();
+        const phys = Math.max(0, Number(item.effectivePhysicalStock ?? item.physicalStock) || 0);
+        const resv = Math.max(0, Number(item.effectiveReservedStock ?? item.reservedStock) || 0);
+        const avail =
+          typeof this.getSkuAvailableStock === "function"
+            ? this.getSkuAvailableStock(item)
+            : Math.max(0, phys - resv);
+        if (!catMap.has(catName)) {
+          catMap.set(catName, { label: catName, phys: 0, avail: 0 });
+        }
+        const entry = catMap.get(catName);
+        entry.phys += phys;
+        entry.avail += avail;
+      });
+      const catRows = Array.from(catMap.values()).map((c) => {
+        const shortCat = c.label.replace(/^Phụ kiện thời trang$/i, "Phụ kiện");
+        const pct = c.phys > 0 ? (c.avail / c.phys) * 100 : 0;
+        return {
+          label: shortCat,
+          primaryVal: c.phys,
+          secondaryVal: c.avail,
+          statText: `${c.avail}/${c.phys} · ${fmtPct(pct)}%`,
+          tooltip: `${c.label}: Tồn kho ${c.phys} SP · Bán được ${c.avail} SP (${fmtPct(pct)}%)`
+        };
+      });
+      renderHorizontalBars(catSvg, catRows, "Chưa có dữ liệu tồn kho danh mục");
+    }
+  },
+
+  renderReportsInventoryTable(inventoryInput) {
+    const tbody = document.getElementById("reportsInventoryTableBody");
+    if (!tbody) return;
+
+    const effInv = Array.isArray(inventoryInput)
+      ? inventoryInput
+      : typeof this.getEffectiveInventoryAtNow === "function"
+      ? this.getEffectiveInventoryAtNow()
+      : window.omsEngine && Array.isArray(window.omsEngine.inventory)
+      ? window.omsEngine.inventory
+      : [];
+
+    const catVal = String(document.getElementById("repInvCategoryFilter")?.value || "ALL").trim() || "ALL";
+    const qVal = String(document.getElementById("repInvSearchInput")?.value || "").trim().toLowerCase();
+
+    const filteredInv = effInv.filter((item) => {
+      if (!item) return false;
+      const itemCat = String(item.category || "").trim();
+      if (catVal !== "ALL" && itemCat !== catVal) return false;
+      if (qVal) {
+        const hay = `${item.sku || ""} ${item.name || ""} ${itemCat}`.toLowerCase();
+        if (!hay.includes(qVal)) return false;
+      }
+      return true;
+    });
+
+    // Tổng tóm tắt cho tập mặt hàng đang hiển thị ở Bảng 2
+    let sumPhys = 0;
+    let sumAvail = 0;
+    let sumValue = 0;
+    filteredInv.forEach((item) => {
+      const phys = Math.max(0, Number(item.effectivePhysicalStock ?? item.physicalStock) || 0);
+      const resv = Math.max(0, Number(item.effectiveReservedStock ?? item.reservedStock) || 0);
+      const avail =
+        typeof this.getSkuAvailableStock === "function"
+          ? this.getSkuAvailableStock(item)
+          : Math.max(0, phys - resv);
+      const unitPrice = Number(item.unitPrice ?? item.price ?? 0) || 0;
+      sumPhys += phys;
+      sumAvail += avail;
+      sumValue += phys * unitPrice;
+    });
+
+    const summaryBarEl = document.getElementById("repInvSummaryBar");
+    if (summaryBarEl) {
+      summaryBarEl.innerHTML =
+        `<strong>${filteredInv.length.toLocaleString("vi-VN")}</strong> mặt hàng · ` +
+        `Tồn: <strong>${sumPhys.toLocaleString("vi-VN")} SP</strong> · ` +
+        `Bán được: <strong>${sumAvail.toLocaleString("vi-VN")} SP</strong> · ` +
+        `Giá trị: <strong>${sumValue.toLocaleString("vi-VN")} VND</strong>`;
+    }
+
+    // Phân trang chuẩn 10 dòng / trang
+    const pageSize = Math.max(1, Number(this.reportsInvPageSize) || 10);
+    const totalCount = filteredInv.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    if (!Number.isFinite(this.reportsInvPage) || this.reportsInvPage < 1) {
+      this.reportsInvPage = 1;
+    }
+    if (this.reportsInvPage > totalPages) {
+      this.reportsInvPage = totalPages;
+    }
+
+    const startIdx = (this.reportsInvPage - 1) * pageSize;
+    const pageItems = filteredInv.slice(startIdx, startIdx + pageSize);
+
+    const pagInfoEl = document.getElementById("repInvPaginationInfo");
+    const pagCurEl = document.getElementById("repInvPaginationCurrent");
+    const prevBtn = document.getElementById("btnRepInvPrevPage");
+    const nextBtn = document.getElementById("btnRepInvNextPage");
+    const showFrom = totalCount === 0 ? 0 : startIdx + 1;
+    const showTo = totalCount === 0 ? 0 : Math.min(totalCount, startIdx + pageItems.length);
+
+    if (pagInfoEl) {
+      pagInfoEl.innerText =
+        totalCount === 0
+          ? "Hiển thị 0 / tổng 0 mặt hàng"
+          : `Hiển thị ${showFrom}–${showTo} / tổng ${totalCount} mặt hàng`;
+    }
+    if (pagCurEl) {
+      pagCurEl.innerText = `Trang ${this.reportsInvPage} / ${totalPages}`;
+    }
+    if (prevBtn) {
+      prevBtn.disabled = totalCount === 0 || this.reportsInvPage <= 1;
+    }
+    if (nextBtn) {
+      nextBtn.disabled = totalCount === 0 || this.reportsInvPage >= totalPages;
+    }
+
+    if (pageItems.length === 0) {
+      tbody.textContent = "";
+      tbody.innerHTML = `
+        <tr class="odoms-empty-row">
+          <td colspan="7" class="odoms-empty-cell">Không tìm thấy mặt hàng nào phù hợp bộ lọc hiện tại.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    const safeEsc = (s) => (typeof this.escapeLogHtml === "function" ? this.escapeLogHtml(s) : String(s || ""));
+
+    tbody.textContent = "";
+    tbody.innerHTML = pageItems
+      .map((item) => {
+        const phys = Math.max(0, Number(item.effectivePhysicalStock ?? item.physicalStock) || 0);
+        const resv = Math.max(0, Number(item.effectiveReservedStock ?? item.reservedStock) || 0);
+        const avail =
+          typeof this.getSkuAvailableStock === "function"
+            ? this.getSkuAvailableStock(item)
+            : Math.max(0, phys - resv);
+        const unitPrice = Number(item.unitPrice ?? item.price ?? 0) || 0;
+        const stockVal = phys * unitPrice;
+        const batchCount = Array.isArray(item.batches) ? item.batches.length : 0;
+
+        const safeName = safeEsc(item.name || item.sku || "");
+        const safeSku = safeEsc(item.sku || "");
+        const safeCat = safeEsc(item.category || "Thời trang");
+
+        let statusBadge = `<span class="odoms-flat-badge is-success">Ổn định</span>`;
+        if (avail === 0) {
+          statusBadge = `<span class="odoms-flat-badge is-error">Hết hàng</span>`;
+        } else if (avail <= 10) {
+          statusBadge = `<span class="odoms-flat-badge is-warning">Sắp hết</span>`;
+        }
+
+        return `
+          <tr>
+            <td class="col-repinv-prod">
+              <div class="rep-inv-prod-name" title="${safeName}">${safeName}</div>
+              <div class="rep-inv-prod-meta">
+                <span class="rep-inv-sku">${safeSku}</span>
+                <span class="rep-inv-sep">·</span>
+                <span>${safeCat}</span>
+              </div>
+            </td>
+            <td class="col-repinv-batches">${batchCount} lô</td>
+            <td class="col-repinv-phys">${phys.toLocaleString("vi-VN")} SP</td>
+            <td class="col-repinv-resv">${resv.toLocaleString("vi-VN")} SP</td>
+            <td class="col-repinv-avail"><strong class="rep-num-strong">${avail.toLocaleString("vi-VN")} SP</strong></td>
+            <td class="col-repinv-val"><span class="rep-money-val">${stockVal.toLocaleString("vi-VN")} VND</span></td>
+            <td class="col-repinv-status">${statusBadge}</td>
+          </tr>
+        `;
       })
       .join("");
   },
